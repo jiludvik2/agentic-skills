@@ -1,0 +1,139 @@
+{
+  "skill_name": "agent-component-advisor",
+  "evals": [
+    {
+      "id": 1,
+      "name": "sanctions-screening",
+      "prompt": "We're building an agent that initiates outbound payments to counterparties. Compliance requires that every single outbound payment is checked against OFAC, EU, and UN sanctions lists before it leaves our network — any match must block the payment and create an alert in our case-management system. How should I implement the sanctions check in the agent? Should it live in the payment tool, in a SKILL.md, or somewhere else?",
+      "expected_output": "Recommends a Tool as the primary holder of the sanctions-screening policy logic (reusable across agents), invoked via a thin Hook on outbound payment calls. Names the Hook-invoked Tool composition. Identifies a separate alerting Tool. Calls out that the sanctions logic should NOT be embedded inside the payment tool or a single platform's hook.",
+      "expectations": [
+        "Recommends a Tool as the primary holder of the sanctions-screening policy logic (not a Hook with the logic embedded, and not the payment tool itself)",
+        "Identifies a thin Hook on outbound payment calls as the invocation mechanism (the per-platform glue, not the policy)",
+        "Identifies the alerting / case-management write as a separate Tool",
+        "Names the Hook-invoked Tool composition pattern OR explicitly separates 'Tool = reusable policy logic' from 'Hook = per-platform invocation'",
+        "Cites reusability across multiple agents/apps (not just universal application) as the reason the policy logic lives in a Tool"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "kyc-extraction",
+      "prompt": "At customer onboarding I need to extract identifying fields (name, DOB, document number, address) from a passport scan and a proof-of-address document, verify the result against our KYC vendor's API, and flag any anomalies for human review. The KYC step is on the regulated critical path. What components should I build?",
+      "expected_output": "Identifies the extraction step as a Tool wrapping LLM (function-calling for typed extraction), the KYC verification as a Tool (external API), and a case-management Tool. Mentions audit hook and data-residency. Explicitly does NOT recommend a prompt-driven skill on the critical path. Does NOT prescribe specific commercial parsers, models, or vendors as part of the verdict.",
+      "expectations": [
+        "Recommends a Tool wrapping LLM (function-calling / structured-output) for the extraction step",
+        "Identifies the KYC verification as a Tool (external API call)",
+        "Mentions an audit hook OR explicitly addresses the regulated-critical-path compliance guardrail",
+        "Does NOT recommend a prompt-driven skill as the primary component for the regulated steps",
+        "Recognises this is a multi-component (composition) answer, not a single component",
+        "Does NOT prescribe specific commercial vendors, libraries, or model variants as part of the routing recommendation (Implementation-detail leakage)"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "email-triage",
+      "prompt": "Help me design an agent capability that classifies incoming customer emails into one of four topics — custody, trading, onboarding, complaint — and routes each to the right team queue. Volume is around 5,000 emails per day. The downstream queue system expects a JSON object with the topic enum and a confidence score.",
+      "expected_output": "Identifies the classifier as a Tool wrapping LLM (typed enum + confidence), and the queue write as a separate Tool. If PII redaction is mentioned, routes it as a Hook-invoked reusable Tool. Does NOT prescribe specific small-LM vs LLM choices or fine-tuning strategies as part of the verdict.",
+      "expectations": [
+        "Recommends a Tool wrapping LLM (function-calling / structured-output) for the classification step",
+        "Identifies the queue write as a separate Tool",
+        "Cites the typed-output requirement (downstream consumes JSON) as the reason to wrap, not just use a prompt-skill",
+        "Does NOT recommend a plain prompt-driven skill as the primary classification component",
+        "Does NOT prescribe specific model variants, fine-tuning techniques, or implementation libraries as part of the routing recommendation (Implementation-detail leakage)"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "portfolio-commentary",
+      "prompt": "We want to generate personalised monthly portfolio commentary for retail clients — about 200 words each, blending market events with the client's actual holdings and our house view. The relationship manager reviews each one before it's sent to the client. How should this be built?",
+      "expected_output": "Recommends a prompt-driven skill as primary (prose for human review). Composed with: positions Tool, market-data Tool, audit/archival Hook, AND — if PII redaction or suitability checks are mentioned — those route to reusable Tools (Hook-invoked Tool composition), not embedded in the prompt-skill or the audit hook. Disclaimers can stay as prompt-skill content (app-specific). Suitability checks must be code (Tool or code-driven skill), not LLM judgement.",
+      "expectations": [
+        "Recommends prompt-driven skill as the primary component for the commentary drafting itself",
+        "Identifies a positions / portfolio data Tool",
+        "Identifies a market-data Tool",
+        "Mentions an audit / archival / WORM-storage Hook for the regulatory record-keeping",
+        "Notes that prose-for-human-review is a legitimate use of a prompt-skill (i.e. does not erroneously route to Tool wrapping LLM)",
+        "If PII redaction is mentioned, it is routed to a reusable Tool (not embedded inside the prompt-skill or the audit hook with the logic). Pass if PII not mentioned at all, OR if mentioned and routed to a Tool.",
+        "If suitability or appropriateness checks are mentioned, they are routed to code (Tool or code-driven skill), not to LLM judgement inside the prompt-skill"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "credit-approval",
+      "prompt": "I need to approve or decline credit-limit-increase requests for retail customers based on our internal credit policy v3.2. The policy is documented in a 30-page PDF. My initial idea is to put the policy text into a SKILL.md and let the agent reason over it. Is that the right approach?",
+      "expected_output": "Recommends Tool (deterministic policy/rules engine), guarded by an audit hook with dual-control. Explicitly rejects the SKILL.md proposal and names the anti-pattern (Prompt-driven calculation, or Compliance guardrail).",
+      "expectations": [
+        "Recommends a Tool (rules engine / policy engine / deterministic backend) as the primary component",
+        "Mentions an audit hook OR explicitly addresses dual-control / sign-off / compliance",
+        "Explicitly rejects or pushes back on the user's SKILL.md proposal",
+        "Cites compliance / regulated-decision reasoning (Compliance guardrail or Tree A Q2)",
+        "Names a specific anti-pattern (e.g. 'Prompt-driven calculation', 'Policy in the prompt') OR explains why an LLM-judgement approach to a regulated decision is wrong"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "regulatory-bulletin-summary",
+      "prompt": "Each morning before market open I want an agent to fetch overnight bulletins from FCA, SEC, and ESMA, identify which items are relevant to our rates desk, and summarise them in a Slack post. How should this be architected?",
+      "expected_output": "Composition: Tool for fetching bulletins, prompt-driven skill for relevance + summary, Tool for Slack distribution. If PII or secret redaction is touched, routes to a reusable Tool (Hook-invoked Tool), not embedded in the prompt-skill or a hook with the logic.",
+      "expectations": [
+        "Identifies the fetch step as a Tool (external API / web fetch)",
+        "Recommends a prompt-driven skill for the relevance judgement and summarisation",
+        "Identifies the distribution step (Slack/email) as a Tool",
+        "Recognises this as a multi-component composition, not a single component",
+        "If PII or secret redaction is mentioned, it is routed to a reusable Tool (Hook-invoked Tool composition), not embedded in the prompt-skill or a per-platform hook"
+      ]
+    },
+    {
+      "id": 7,
+      "name": "month-end-close",
+      "prompt": "We're automating month-end financial close. The agent needs to pull GL balances, reconcile against the sub-ledgers, compute variances, and produce a PDF report for sign-off by the financial controller. The reconciliation logic is internal to the close process and isn't reused elsewhere. What components should I use?",
+      "expected_output": "Recommends a code-driven skill (orchestration + reconciliation) since recon is local and not reused, GL reads as Tools, PDF generation as a code-driven skill, and an audit hook for the sign-off trail.",
+      "expectations": [
+        "Identifies the GL / sub-ledger reads as Tools (external systems)",
+        "Recommends a code-driven skill (or tool — the four-factor test could go either way) for the reconciliation logic, NOT a prompt-driven skill",
+        "Recommends code-driven skill or PDF tool for the report generation",
+        "Mentions an audit / sign-off hook OR addresses the auditability requirement explicitly",
+        "Recognises this as a multi-component composition"
+      ]
+    },
+    {
+      "id": 8,
+      "name": "pii-redaction",
+      "prompt": "We need to make absolutely sure no PII (names, account numbers, SSNs, etc.) is included in any message our agent posts to external third-party SaaS CRMs. Where should this redaction logic live?",
+      "expected_output": "Recommends a Tool as the primary holder of the PII redaction policy logic (reusable across applications), invoked via a thin Hook on outbound calls at each platform. Names the Hook-invoked Tool composition pattern. Cites cross-app reusability and platform portability as the rationale, not just universal application within a single agent.",
+      "expectations": [
+        "Recommends a Tool as the primary holder of the PII detection / redaction policy logic",
+        "Identifies a thin Hook on outbound tool calls as the invocation mechanism (the per-platform glue, not the policy)",
+        "Names the Hook-invoked Tool composition pattern explicitly",
+        "Cites reusability across multiple agents/applications (not just universal application within one agent) as the reason the policy lives in a Tool",
+        "Does NOT recommend embedding the redaction policy logic primarily inside a SKILL.md OR inside a single platform's hook with the logic baked in",
+        "Either names the 'Reusable policy buried in a hook' or 'Policy in the prompt' anti-pattern, OR explicitly warns that platform-specific hooks alone do not give cross-app reuse"
+      ]
+    },
+    {
+      "id": 9,
+      "name": "var-calculation",
+      "prompt": "We're building an agent that needs to compute end-of-day Value-at-Risk for our trading book. The math is deterministic and the calculation engine has heavy quant-library dependencies and is shared across multiple desks. The output goes into our regulatory reporting. Should I build this as a code-driven skill or a tool?",
+      "expected_output": "Recommends Tool (MCP) backed by the bank's risk engine — code-driven skill fails the four-factor test (heavy deps, shared use, independent versioning). Mentions audit hook.",
+      "expectations": [
+        "Recommends a Tool (not a code-driven skill) as the primary component",
+        "Cites at least one of: heavy dependency footprint, shared/cross-team use, or independent versioning lifecycle as the reason a code-driven skill fails the four-factor test",
+        "Mentions an audit hook OR addresses the regulated / signed-output requirement",
+        "Does NOT recommend a prompt-driven skill"
+      ]
+    },
+    {
+      "id": 10,
+      "name": "next-best-action",
+      "prompt": "I need to suggest 3 next-best actions to relationship managers for HNW clients, taking into account the client's holdings, recent interactions, and current market context. The RM reviews each suggestion and decides whether to act. Critically: if compliance reviews a suggestion later, it must be defensible — they need to see the reasoning. The RM dashboard binds the suggestion fields directly into UI components.",
+      "expected_output": "Tool wrapping LLM with structured output (ranked suggestions + reason codes). Audit Hook for inputs + outputs. Tools for positions/interactions/market-data called inside the wrapper. PII / cross-border data-residency check routed to a dedicated reusable Tool (Hook-invoked Tool composition), not embedded inside the wrapper or a single hook. Does not prescribe schema-enforcement implementation mechanics.",
+      "expectations": [
+        "Recommends a Tool wrapping LLM (function-calling / structured-output) as the primary component",
+        "Cites the typed-output requirement (UI binds fields, downstream consumes structured object) as the reason to wrap rather than use a plain prompt-skill",
+        "Mentions an audit hook OR addresses the defensibility / compliance-review requirement",
+        "Does NOT recommend a plain prompt-driven skill as the primary component, even though there is judgement involved",
+        "If PII or data-residency checking is mentioned, it is routed to a dedicated reusable Tool (not embedded inside the wrapper tool or a single platform hook)",
+        "Does NOT prescribe specific schema-enforcement mechanics, library choices, or model selections as part of the routing recommendation (Implementation-detail leakage)"
+      ]
+    }
+  ]
+}

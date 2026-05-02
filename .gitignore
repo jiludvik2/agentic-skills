@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# editor
+*.swp
+*~
+.vscode/
+.idea/
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# local virtualenvs / node
+.venv/
+venv/
+node_modules/
+
+# session artefacts (do not commit local Claude session paths)
+local_*/
+sessions/
