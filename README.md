@@ -7,12 +7,13 @@ A growing collection of skills, frameworks, and reference architectures for agen
 | Skill | What it does | Status |
 |---|---|---|
 | [`agent-component-advisor`](./agent-component-advisor/) | Decides whether a business requirement should be implemented as a prompt-driven skill, code-driven skill, tool, or hook. Walks a documented decision tree and returns a structured verdict. | v2.1 |
+| [`sdlc`](./sdlc/SDLC.md) | AI-native, spec-anchored SDLC for solo operators working with AI agents. Filesystem-as-source-of-truth + verb cycle (capture → compile → plan → execute → verify → file → document), no external tracker. | v5.0 |
 
-More skills will be added here over time. Each lives in its own top-level folder, contains a `SKILL.md` plus references and evals, and ships with a packaged `.skill` file ready to install.
+More skills will be added here over time. Packaged skills live in their own top-level folder containing a `SKILL.md`, references, evals, and a `.skill` file ready to install. Framework skills (like `sdlc`) are markdown-only — adopted by copying the framework doc into a target repo and pointing `CLAUDE.md` at it.
 
 ## Installing a skill
 
-Drop the skill's `.skill` file into your Claude Code skills directory:
+For packaged skills, drop the `.skill` file into your Claude Code skills directory:
 
 ```
 ~/.claude/skills/
@@ -24,7 +25,9 @@ Or extract it first to inspect:
 unzip <skill-name>/<skill-name>.skill -d ~/.claude/skills/
 ```
 
-See each skill's own `README.md` for full usage, trigger details, and methodology.
+For framework skills (like `sdlc`), copy the framework doc into the target repo and point `CLAUDE.md` at it.
+
+See each skill's own `README.md` (or framework doc) for full usage, trigger details, and methodology.
 
 ## Repository structure
 
@@ -33,13 +36,16 @@ agentic-skills/
 ├── README.md
 ├── LICENSE                                  (MIT)
 ├── .gitignore
-└── <skill-name>/                            (one folder per skill)
-    ├── README.md                            (skill docs, install, methodology)
-    ├── SKILL.md                             (entry point — frontmatter + procedure)
-    ├── <skill-name>.skill                   (packaged, ready to install)
-    ├── evals/                               (test cases used to develop the skill)
-    ├── references/                          (loaded on demand by the skill)
-    └── docs/                                (optional — accompanying long-form docs)
+├── agent-component-advisor/                 (packaged skill)
+│   ├── SKILL.md
+│   ├── README.md
+│   ├── agent-component-advisor.skill
+│   ├── evals/
+│   └── references/
+├── sdlc/                                    (framework skill)
+│   └── SDLC.md
+└── docs/                                    (cross-cutting reference material)
+    └── *.md
 ```
 
 ## Contributing
