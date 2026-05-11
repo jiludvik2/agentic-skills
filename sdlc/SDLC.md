@@ -1,8 +1,8 @@
 ---
-title: SDLC for Reimagined Industries
+title: Reimagined Software Delivery Lifecycle
 purpose: How Claude Code should approach all development work in this repo
-version: 5.0
-updated: 2026-05-10
+version: 5.6
+updated: 2026-05-11
 ---
 
 # SDLC
@@ -26,30 +26,14 @@ Terms used throughout this document with specific meaning:
 
 ## Pre-flight
 
-Run at session 1 of every new SDLC project. Six items:
+Run at session 1 of every new SDLC project. Four items:
 
-1. **Sandbox state** — confirm `/sandbox` is enabled (or explicitly declined for this project, with reason). Capture the choice in `STATE.md`.
-2. **`excludedCommands` allowlist proposal** — Claude proposes a tiered `sandbox.excludedCommands` allowlist tuned to the project's tech stack. The generic baseline (always proposed) covers repo-constrained git, read-only file ops, and `cat` / `jq`:
+1. **Tool environment check** — run version checks for whatever's relevant (`node --version`, `python --version`, build tooling, browsers if Playwright is in scope). Catch missing prerequisites once, at start.
+2. **Publication target** — three sub-questions: Will this project live on GitHub / GitLab / a private host / nowhere? If hosted: public or private? Account / org? If public: licence choice (`MIT`, `Apache-2.0`, `GPL-3.0`, etc.)?
+3. **Memory snapshot** — list any existing per-project memory entries (`~/.claude/projects/<project>/memory/MEMORY.md`); flag any that contradict current repo state, name moved files, or duplicate compiled artefacts. Resolve before continuing — stale memory is worse than no memory.
+4. **STATE.md session-0 entry** — capture the items above as a "Session 0 setup" entry in `STATE.md` so subsequent sessions inherit them.
 
-        {
-          "sandbox": {
-            "excludedCommands": [
-              "git init", "git status", "git log", "git diff",
-              "git add", "git commit", "git mv", "git rm",
-              "git tag", "git remote", "git fetch", "git pull",
-              "git checkout", "git stash", "git branch", "git restore",
-              "ls", "find", "cat", "jq", "lsof", "pgrep"
-            ]
-          }
-        }
-
-   Stack-specific extensions are added per project type (e.g. `npm install`, `npm test`, `npm run dev`, `npm run build` for Node projects; equivalents for Python, Go, etc.). Operator confirms or trims the proposed list before it lands in `.claude/settings.json`. The following deliberately stay *off* the allowlist regardless of project type — they carry workspace-escape, remote-mutation, or arbitrary-execution risk and warrant per-call approval: `git push`, `npx <package>`, `gh repo create` and other remote-mutating `gh` subcommands, raw `mv` / `rm` / `mkdir` (use the Write tool which creates dirs implicitly), and `curl`. One approval at session 1 typically replaces ~100 per-call approvals across the project (empirical: 85% reduction in approval load observed in the decision-log MVP).
-3. **Skill / plugin audit** — list active skills; identify which are domain-relevant; recommend disabling the rest. Plugins with active hooks (TDD Guard, etc.) get an explicit yes/no with rationale.
-4. **Tool environment check** — run version checks for whatever's relevant (`node --version`, `python --version`, build tooling, browsers if Playwright is in scope). Catch missing prerequisites once, at start.
-5. **Publication target** — three sub-questions: Will this project live on GitHub / GitLab / a private host / nowhere? If hosted: public or private? Account / org? If public: licence choice (`MIT`, `Apache-2.0`, `GPL-3.0`, etc.)?
-6. **STATE.md session-0 entry** — capture all five choices above as a "Session 0 setup" entry in `STATE.md` so subsequent sessions inherit them.
-
-Pre-flight adds ~4 messages at session 1 and prevents mid-session friction.
+Pre-flight adds ~2 messages at session 1 and prevents mid-session friction.
 
 ## Directory layout
 
@@ -89,7 +73,6 @@ Compiled artefacts (anything in `/sdlc/work/` or `/sdlc/docs/`) have YAML frontm
     kind: task | story | epic | decision | runbook | strategy | architecture
     project: <project-name>             # operator-defined; e.g. constellation, decision-log, sdlc
     status: active | blocked | done       # for /sdlc/work/ items only
-    autonomy: attended | review | auto    # for stories and tasks; see Autonomy section
     parent: optional-parent-id            # when relationships exist
     children: [optional-child-ids]        # when relationships exist
     sources: [paths-to-raw-sources]       # what this was compiled from
@@ -100,11 +83,9 @@ Compiled artefacts (anything in `/sdlc/work/` or `/sdlc/docs/`) have YAML frontm
     tags: [optional]
     ---
 
-Filename matches `id`. IDs are stable; never rename once assigned. The `kind` field describes what the artefact *is*, not what folder it sits in. The folder follows the kind.
+Filename matches `id`. IDs are stable; never rename once assigned. The `kind` field describes what the artefact _is_, not what folder it sits in. The folder follows the kind.
 
-`status` and `autonomy` are orthogonal. `status` describes lifecycle position (active, blocked, done). `autonomy` describes how much human oversight execution requires. A story can be `status: active, autonomy: review` — being worked on, with operator review required between verifier and done.
-
-**Sequential numbering reflects hierarchy.** Stories under an epic carry a sequential `s<N>-` prefix in their `id` and filename. Tasks under a story carry the parent story's prefix *plus* a sequential `t<M>-` suffix: `s<N>-t<M>-<slug>`. `<N>` is the story's position in the epic's `children:` list (zero-indexed); `<M>` is the task's position under the story (zero-indexed). Examples: `s0-story-cc-audit`, `s1-t0-pin-cc-and-smoke-import`, `s2-t0-galaxy-graph-builder`, `s2-t1-galaxy-facade-on-graph`. The hierarchical encoding makes parentage visible at a glance and stable in `ls` output — tasks group under their story alphabetically. Inserting a story or task mid-list is a deliberate re-numbering operation: `children:` lists, `parent:` fields, and cross-references update together.
+**Sequential numbering reflects hierarchy.** Stories under an epic carry a sequential `s<N>-` prefix in their `id` and filename. Tasks under a story carry the parent story's prefix _plus_ a sequential `t<M>-` suffix: `s<N>-t<M>-<slug>`. `<N>` is the story's position in the epic's `children:` list (zero-indexed); `<M>` is the task's position under the story (zero-indexed). Examples: `s0-story-cc-audit`, `s1-t0-pin-cc-and-smoke-import`, `s2-t0-galaxy-graph-builder`, `s2-t1-galaxy-facade-on-graph`. The hierarchical encoding makes parentage visible at a glance and stable in `ls` output — tasks group under their story alphabetically. Inserting a story or task mid-list is a deliberate re-numbering operation: `children:` lists, `parent:` fields, and cross-references update together.
 
 **Co-locate active work.** While an epic is in flight in `/sdlc/work/active/`, any new architecture docs, ADRs, runbooks, or strategy notes drafted as part of that epic cluster alongside it in `/sdlc/work/active/` — not in `/sdlc/docs/architecture/`, `/sdlc/docs/decisions/`, etc. They move to their semantic home (`/sdlc/docs/architecture/`, `/sdlc/docs/decisions/`, `/sdlc/docs/runbooks/`, `/sdlc/docs/strategy/`) at the same time the epic moves to `/sdlc/work/done/`. The principle: discoverability during iteration, structure once settled. Existing docs already in `/sdlc/docs/...` are not pulled back — the rule applies to new drafts.
 
@@ -113,9 +94,11 @@ Filename matches `id`. IDs are stable; never rename once assigned. The `kind` fi
 Work is a small set of verbs applied as needed. They are not a sequence. You apply whichever fits.
 
 ### Capture
+
 Drop material into `/sdlc/raw/`. Anywhere, anytime, any shape. No structure, no decisions. The only rule: don't lose the thought.
 
 ### Compile
+
 Read `/sdlc/raw/` (and any other unstructured sources). For each item, decide what it should become and produce the compiled artefact. Possible outputs:
 
 - a task in `/sdlc/work/active/` (one commit's worth of work)
@@ -133,6 +116,7 @@ Compilation replaces what older workflows called triage, strategic planning, and
 **Summarise migrations at the high level.** Where source material describes a migration, the compiled artefact summarises the high-level shape (core logic, phases, modules, functions, methods) and enumerates them with a one-line description each. The operator signs off on the artefact, not the raw source. Faithful reproduction of long source content into the artefact is not required and usually undesirable — it bloats the artefact and creates two sources of truth.
 
 ### Plan
+
 For an artefact in `/sdlc/work/active/` whose `kind` is `story` or `epic`, produce a task sequence. Each task entry must include:
 
 - one-line outcome
@@ -141,20 +125,24 @@ For an artefact in `/sdlc/work/active/` whose `kind` is `story` or `epic`, produ
 
 Tasks are written as their own files in `/sdlc/work/active/` with `parent:` linking to the story. The plan is committed alongside the story. The operator reviews and edits the plan before execution.
 
-Autonomy is set during planning. The operator assigns `autonomy:` to the story (which tasks inherit) and may override on individual tasks where the risk profile differs from the story.
-
 **BDD-deferral annotations.** When a story's BDD or user-stories source references functionality that ships in a later story, the story spec must list the deferred items explicitly with the target story (e.g. "filter by status — deferred to s5"). The deferral belongs in acceptance criteria, not buried in task notes — otherwise the verifier will flag missing coverage that was never in scope, burning a round-trip.
 
 ### Execute
+
 Act on a task. Tests first, then implementation. Claude writes the tests defined in the task spec, confirms they fail, then implements until they pass. No skipping tests. No "I'll add tests later." If the task spec didn't define tests, stop and update the plan.
 
 When the task is complete: update `status: done`, commit with a message referencing the task id (e.g. `task-12: extract simulation engine module`), move the file to `/sdlc/work/done/`.
 
-For tasks with `autonomy: review` or `autonomy: auto`, see the Autonomy section for what "complete" means and where the session pauses.
+**Auto-progress within a story.** Once a task closes cleanly — verifier signed off, no unresolved gate escalations, commit landed — immediately begin the next `active` task under the same parent story without waiting for further operator approval. The operator approved the plan; executing the plan is what that approval covers. Stop the loop at the **story boundary**: when the last task of the story closes, pause and report; the operator decides whether to start the next story.
+
+The loop also halts immediately on any of: verifier failure, an Autonomy-gate escalation, a hard-stop trigger, three failed attempts on the same sub-problem, or any operator directive ("pause", "stop", "hold on", or any instruction to do something else). Operator interruption always wins over auto-progression — there is no "let me finish this task first."
+
+Within a task, consult the Autonomy gate before any action that isn't on the gate's free-pass list. The verifier still runs at task close.
 
 **Snapshot script as per-task checkpoint.** For projects with significant UI surface — pages exercising routing, dynamic rendering, or per-route configs — run the snapshot/screenshot script after each significant page change rather than only at story close. Compile-time issues that surface only on second-route-load (e.g. ESM/CJS interop bugs in framework configs) otherwise hide until story close, where the cost of disentangling them is highest.
 
 ### Verify
+
 **Pre-dispatch self-check (mandatory).** Before invoking the verifier, walk the spec's acceptance criteria one by one and confirm each has corresponding evidence in the diff: a test, a render assertion, an integration check. For every new component or module, confirm a render or unit test exists. This costs ~2 minutes; missing it triggers FIX-AND-RESUBMIT cycles that cost ~20 minutes each and burn a verifier round on a gap a self-scan would have caught in seconds.
 
 Then invoke the `verifier` sub-agent (defined in `.claude/agents/verifier.md`). It reads the spec, the plan, and the diff with no memory of how the implementation was built. It reports alignment, test coverage, architectural drift, and code smells.
@@ -164,6 +152,7 @@ The operator reviews the verifier output. Pass → continue. Fail → fix or kic
 The verifier is non-negotiable. It is the single highest-leverage step in the loop and the most consistently skipped.
 
 ### File
+
 At the end of any session that touches architecture, strategy, or operational behaviour, file the outputs back. Useful sessions don't dissipate, they compound.
 
 - architectural decisions → `/sdlc/docs/decisions/NNNN-title.md` (ADR format)
@@ -178,7 +167,7 @@ If nothing is worth filing, skip. Don't write filler.
 
 While an epic is in flight, drafts of these documents may co-locate in `/sdlc/work/active/` per the Co-locate active work convention; they move to `/sdlc/docs/...` at epic close.
 
-**Publication.** If a publication target was chosen during Pre-flight (GitHub, GitLab, etc.), `file` *proposes* the remote-setup commands at session 1 (`gh repo create …` or equivalent, then `git push -u origin main` after the first commit lands). The operator approves and runs commands that affect remote state; Claude may execute purely-local git operations.
+**Publication.** If a publication target was chosen during Pre-flight (GitHub, GitLab, etc.), `file` _proposes_ the remote-setup commands at session 1 (`gh repo create …` or equivalent, then `git push -u origin main` after the first commit lands). The operator approves and runs commands that affect remote state; Claude may execute purely-local git operations.
 
 At epic close, `file` verifies:
 
@@ -189,6 +178,7 @@ At epic close, `file` verifies:
 User-facing documentation is produced by the `document` verb (below), not `file`. Claude drafts commands, commit messages, and tag names; the operator runs `git push`, `gh repo create`, and tag-creation commands.
 
 ### Document
+
 At epic close — when an epic moves from `/sdlc/work/active/` to `/sdlc/work/done/` — produce user-facing documentation for the project.
 
 Outputs:
@@ -201,56 +191,81 @@ Outputs:
 The operator approves README content (it encodes opinions). Drafting is Claude's; the operator must read and approve before commit. See "What stays human" below.
 
 ### Refresh state
+
 The final action of every working session: regenerate `/sdlc/STATE.md`. See the STATE.md section below.
 
-## Autonomy
+## Autonomy gate
 
-Autonomy describes how much human oversight a task requires during execution. It is a frontmatter field on stories and tasks; the operator sets it; Claude never escalates it.
+A pre-action decision procedure. The default stance is to proceed — escalate only when one of three gates clearly fails or a hard-stop applies. This section governs the _decision_; the session itself is responsible for actually pausing and waiting on the operator.
 
-Three levels:
+### When to run
 
-- **`attended`** — operator is present in the session. Claude proposes plans and changes; operator approves before execution proceeds.
-- **`review`** — Claude executes through to the verifier and pauses. The task does not move to `done` until the operator reviews the verifier output and the diff and approves. Suitable for unattended runs where the operator will review in the morning. Default.
-- **`auto`** — Claude executes through to the verifier. If the verifier passes, the task moves to `done` without operator intervention. If the verifier fails, the task pauses for the operator. Suitable for purely mechanical, low-risk work that the operator does not need to see individually.
+Consult the gate before any action that is **not** on the free-pass list below. The hot path — writing code and tests inside an accepted story's tree — bypasses the gate entirely. Everything else flows through it.
 
-The default is `review` rather than `attended` because the verifier is the load-bearing checkpoint; routine work doesn't need per-task operator presence. Constrained categories (below) auto-fall-back to `attended` to preserve operator presence on sensitive work.
+Triggers include scaffolding a project, adding a dependency, choosing or changing a stack component, touching files outside the project tree, calling external systems, modifying CI or infra config, handling secrets, and any case where tests have failed three times on the same step.
 
-**Resolution order.** When determining a task's autonomy:
+### The three-question gate
 
-1. The task's own `autonomy:` field, if set.
-2. The parent story's `autonomy:` field, if set.
-3. The SDLC default: `review` for non-constrained tasks and stories, `attended` for items matching the constrained categories below.
+Answer each in order. Stop and escalate the first time the answer is NO.
 
-Setting autonomy at the story level is the common case. Per-task override exists for the occasional load-bearing task in an otherwise mechanical story (set the override to `attended`), or the occasional mechanical task in an otherwise risky story (set the override to `review` or `auto`).
+**1. Reversible?**
+Can a wrong outcome be undone in under a minute, by you, with `git checkout`, `git reset`, deleting a local file, or uninstalling a package — and with no external side effects and no operator cleanup required? If the action writes outside the project tree, mutates an external system, commits a secret, force-pushes, deploys, sends a message, calls a paid API, or creates ongoing cost, the answer is NO.
 
-**Constraints.** The following categories *fall back to `attended`* by default — that is, `review` is *not* the default for them, and `auto` is *prohibited*:
+**2. In-scope?**
+Does the action follow directly from one of:
 
-- Tasks that introduce or change architectural decisions.
-- Tasks that affect public interfaces, module boundaries, or seams between major components.
-- Tasks that delete or move existing code outside the immediate task scope.
-- Tasks where the verifier itself is being modified.
+- an accepted user story's acceptance criteria,
+- the stack and conventions already locked in for this run,
+- a previous operator decision in this session (recorded in `/sdlc/docs/decisions/` or carried in `STATE.md`'s Open questions field)?
 
-The operator may explicitly set these to `review` (an explicit acceptance of the lighter oversight) but not to `auto`. If Claude believes a task being executed is `auto` and falls in a constrained category, it pauses and reports. The default for *non-constrained* tasks and stories is `review`.
+If the action requires inventing intent the stories don't dictate — naming the product, choosing the data model, deciding what "fast enough" or "secure enough" means, adding a feature adjacent to but not in a story, picking a default that will become load-bearing — the answer is NO.
 
-**Behaviour at pause.** When a `review` task pauses, Claude updates the task with `status: active` (still active, awaiting review) and writes a short note in the task body summarising what was done and what the verifier reported. The operator's next action — approve and mark done, or kick back to active for changes — moves the task accordingly.
+**3. Confident?**
+Can you describe the next 3–5 concrete steps without guessing at API surfaces, library behavior, schema shape, or operator preference? Have you made fewer than three distinct attempts on this same sub-problem? If you're pattern-matching from training data without verification, or you've already cycled through multiple failed attempts at the same red test, the answer is NO.
 
-**When to adjust autonomy.**
+If all three are YES, proceed.
 
-Automatic demotion to `attended`:
+### Hard-stop list (always escalate, even if the gate would proceed)
 
-- Any task or story matching a constrained category (per the Constraints subsection above) defaults to `attended` rather than `review`.
-- Claude flags constrained-category matches during planning. The plan records the demotion explicitly so the operator can confirm or override.
+These are the operator's decisions even when individually reversible. Escalating once produces a default the gate can rely on for the rest of the run.
 
-Promotion from `review` to `auto`:
+- Choice of language, framework, runtime, datastore, hosting target, package manager, or CI system
+- Auth model (session vs token vs OAuth, identity provider, password policy)
+- Public API shape — endpoint paths, request/response schemas, versioning policy, error format
+- Data model migrations once data exists
+- License-significant dependency choices: GPL/AGPL, native bindings, paid SaaS, abandoned packages
+- Anything that creates ongoing cost (cloud resources, paid APIs, domains, SSL certs)
+- Anything that touches production, real users, real money, or real credentials
+- Test failures whose simplest explanation is that the user story itself is wrong, ambiguous, or self-contradictory
+- Edits to `CLAUDE.md` or `.claude/settings.json` / `.claude/settings.local.json` — these govern session behaviour itself; each edit requires an operator directive in the current turn
 
-- Eligible only when the task is purely mechanical (rename, format, dependency bump) AND does not match a constrained category.
-- Claude *proposes* the promotion via `STATE.md`'s Open questions field. The operator decides. Hard Rule 14 ("Never escalate autonomy") is preserved — proposing in STATE.md is suggestion, not escalation.
+### Free-pass list (proceed without consulting the gate)
 
-Operator overrides (manual, in either direction):
+The TDD/BDD inner loop. Gating these would defeat the point of the harness.
 
-- Operator may set any task or story to `attended`, `review`, or `auto` explicitly (subject to Hard Rule 15: `auto` remains forbidden for constrained categories).
-- Common reasons to manually demote to `attended`: early in a project before patterns settle; verifier flagged drift on the previous story; the operator wants closer eyes on a specific change.
-- Common reasons to manually promote to `auto`: a batch of mechanical follow-up tasks where the verifier loop is sufficient.
+- Writing or modifying source files inside the project tree to make a failing test pass
+- Writing or modifying tests derived from an accepted story's acceptance criteria
+- Running tests, linters, formatters, type checkers, and reading their output
+- Refactoring within a module to clean up after green tests, with no change to public behavior
+- Choosing internal variable names, function decomposition, and file organization inside an existing package
+- Reading any file in the project tree, the user story log, or the decisions log
+
+### Escalation interface (minimal)
+
+When the gate fails or a hard-stop applies, stop and send the operator a single message containing:
+
+1. **Action**: what you were about to do, in one sentence.
+2. **Why this stopped**: which gate failed (or which hard-stop applied), in one sentence.
+3. **Options**: 2–3 viable choices, with one marked recommended and a one-line reason.
+4. **Blast radius**: what breaks or has to be unwound if the recommended choice turns out wrong.
+
+Do not take any further action — including "preparatory" work on the chosen option — until the operator has answered.
+
+### Notes
+
+- Operator answers to escalations should land in `/sdlc/docs/decisions/` as ADRs (or, for lighter session-scoped calls, as a resolved entry in `STATE.md`'s Open questions field) so future gate checks can treat them as in-scope defaults.
+- "Three attempts" in gate 3 is per sub-problem, not per session. Reset the counter when moving to a new story or a new failing test.
+- The free-pass list is deliberately narrow. If you find yourself wanting to add "small infra tweaks" or "obvious config changes" to it, that is a signal the gate is correctly catching scope drift — escalate instead.
 
 ## STATE.md — bridge to thinking sessions
 
@@ -259,11 +274,11 @@ Operator overrides (manual, in either direction):
 `/sdlc/STATE.md` is regenerated at the end of every Claude Code session and must contain exactly:
 
     # State — last updated [ISO date]
-    
+
     **Active focus:** [one line — what's currently being worked on]
     **Last completed:** [id — one line]
     **Next:** [id — one line]
-    
+
     ## Open questions
     - bullet
     - bullet
@@ -277,10 +292,27 @@ Rules:
 
 When GitHub MCP becomes reliable in the chat app, `STATE.md` and this section can be removed. The workflow does not change.
 
+## Memory and SDLC artefacts
+
+Claude Code's per-project memory system (`~/.claude/projects/<project>/memory/`) is a fourth persistence layer alongside `STATE.md`, `/sdlc/work/`, and `/sdlc/docs/`. Each layer has a distinct role; they must not duplicate each other.
+
+- **Memory** holds facts about the operator, working norms, and durable feedback that should outlast individual sessions. It is governed by the auto-memory system prompt (types: `user`, `feedback`, `project`, `reference`).
+- **STATE.md** is the cross-session bridge: what's active right now, what's next, open questions. Regenerated every session.
+- **`/sdlc/work/active/`** is in-flight work. **`/sdlc/work/done/`** is the archive. **`/sdlc/docs/`** is settled record (architecture, decisions, runbooks, strategy).
+
+Boundary rules:
+
+- Memory **references** SDLC artefacts; it does not duplicate their content. A memory entry can say "see ADR 0001" but should not restate the ADR's decision.
+- Memory must not contradict CLAUDE.md, SDLC.md, or any ADR. If a memory disagrees with the canonical document, the canonical document wins and the memory is updated or removed.
+- Project-state facts that change session-to-session (active focus, last completed, next) belong in `STATE.md`, not memory. Memory is for facts that survive across many sessions.
+- Architectural decisions belong in `/sdlc/docs/decisions/` as ADRs, not as `project` or `reference` memory entries. Memory may point at the ADR; the decision lives in the file.
+
+When in doubt, prefer the SDLC artefact over the memory entry. Memory is a convenience; the filesystem is the source of truth.
+
 ## Status discipline
 
 - An artefact in `/sdlc/work/active/` is `active` if it's being worked on, `blocked` with a `blocker:` field if it isn't, `done` only when complete.
-- A task is `done` only when tests pass, the diff is committed, and the verifier has signed off. For `review` tasks, additionally the operator must have approved.
+- A task is `done` only when tests pass, the diff is committed, and the verifier has signed off. If the gate escalated at any point during the task, the operator's decision must be recorded before the task closes.
 - A story is `done` when all its child tasks are done and the spec's acceptance criteria are met.
 - Done artefacts move from `/sdlc/work/active/` to `/sdlc/work/done/`.
 - Doc artefacts in `/sdlc/docs/` carry `verified-on:` rather than status. They're either current (verified recently) or stale (not).
@@ -290,7 +322,7 @@ When GitHub MCP becomes reliable in the chat app, `STATE.md` and this section ca
 1. **Read `/sdlc/SDLC.md` and `CLAUDE.md` at the start of every session.** No exceptions.
 2. **Never start coding without a task artefact.** If the operator asks for code directly, propose compiling it into a task first.
 3. **Never write implementation before tests.** If there's no test spec, update the plan first.
-4. **Never mark a task done without verifier sign-off.** For `review` tasks, additionally require operator approval.
+4. **Never mark a task done without verifier sign-off.** If the gate escalated during the task, the operator's decision must be on record before close.
 5. **Never edit an artefact's `id` field.** IDs are stable.
 6. **Never introduce an external tracker.** If the operator suggests it, require an ADR documenting the decision.
 7. **Never skip filing for architectural changes.** The next session depends on it.
@@ -300,28 +332,30 @@ When GitHub MCP becomes reliable in the chat app, `STATE.md` and this section ca
 11. **Trust the document.** If a question can be answered by reading `/sdlc/SDLC.md`, `CLAUDE.md`, or any artefact already in the repo, read it and proceed. Do not ask the operator. Asking questions the repo answers is a failure mode, not a courtesy.
 12. **Trust the operator's instruction.** When the operator gives a clear directive ("do X to all Y"), execute it. Do not ask for re-confirmation of the directive itself. Ask only if a specific item genuinely needs disambiguation, and ask once — not per item.
 13. **No re-asking.** If the operator has answered a question once in this session, do not ask it again in any phrasing. Re-asking signals the prior answer wasn't trusted or wasn't retained. If genuinely unsure, state the prior answer back and confirm — do not start over.
-14. **Never escalate autonomy.** A task marked `attended` does not become `review` because Claude judges it safe. The operator sets autonomy. If Claude believes the assigned autonomy is wrong, it raises this as an open question, not a unilateral change.
-15. **Never run `auto` on constrained categories.** The constraints in the Autonomy section are absolute. If a task in `auto` turns out to fall in a constrained category, pause and report.
+14. **Never bypass the gate.** If any of the three questions answers NO, stop and use the escalation interface. Stretching a YES to cover scope it doesn't, or acting on a NO without operator approval, is a discipline failure.
+15. **Never proceed on a hard-stop without explicit operator decision in the current session.** A previous session's approval does not carry forward.
 16. **Run the Pre-flight checklist at session 1 of a new SDLC project.** No exceptions. The checklist is in the Pre-flight section.
 17. **Run the `document` verb at epic close.** An epic in `/sdlc/work/done/` without a current `README.md` reflecting what shipped is incomplete and must be reopened.
 18. **Verify publication state at epic close.** If a publication target was chosen at session 1, `git remote -v` must be non-empty and `git log @{u}..HEAD` must be empty before the epic moves to `done/`. If not, pause and report.
 19. **Audit dormant skills periodically.** If 10+ messages have passed in a session without a loaded skill being invoked, suggest the operator disable it via `/plugin`. Skills foundational to this repo's workflow are exempt — at minimum the project's `sdlc` skill itself; the operator declares any others.
-20. **Pre-empt sandbox-bypass friction.** When a category of command (git, file ops, build tools, package manager) requires `dangerouslyDisableSandbox: true` more than ~3 times in a session, stop bypassing per-call. Propose the addition to `.claude/settings.json` `excludedCommands` and ask the operator to reload settings (or accept that the rest of this session continues with per-call bypass). The cost of N approvals dwarfs the cost of one settings edit. This rule is the in-session counterpart to the Pre-flight allowlist proposal — it catches categories Pre-flight missed or that emerged as the project evolved.
-21. **Commit at task boundaries.** Each task close ends in a commit before the next task begins. Starting a new task with uncommitted work from the previous one mixes diffs, breaks the verifier's spec→diff alignment check, and forces re-sequencing. No exceptions.
-22. **Run the pre-dispatch verifier self-check.** Before invoking the verifier sub-agent, walk the spec's AC bullets and confirm each has evidence in the diff. Skipping the self-check is the single largest source of verifier round-trips.
+20. **Commit at task boundaries.** Each task close ends in a commit before the next task begins. Starting a new task with uncommitted work from the previous one mixes diffs, breaks the verifier's spec→diff alignment check, and forces re-sequencing. No exceptions.
+21. **Run the pre-dispatch verifier self-check.** Before invoking the verifier sub-agent, walk the spec's AC bullets and confirm each has evidence in the diff. Skipping the self-check is the single largest source of verifier round-trips.
+22. **Auto-progress within a story; pause at the boundary.** When a task closes cleanly (verifier signed off, commit landed, no unresolved gate escalations), begin the next `active` task in the same story without waiting for operator approval. Do not auto-cross the story boundary — pause at story close and let the operator decide. Halt the loop on verifier failure, gate escalation, hard-stop, or any operator directive to pause or change course.
+23. **Save a `feedback` memory when a CLAUDE.md or SDLC.md guideline gets violated within a session.** Documentation alone is not enough — documented rules can slip across long execution stretches. When the operator catches a violation (or you catch one mid-session), save a `feedback` memory codifying the rule with `Why:` (the rule's source and the incident that triggered the save) and `How to apply:` (the concrete signal that should trigger compliance). The memory makes the rule load as operator-given feedback in future sessions rather than only via documentation reading.
+24. **Audit the Bash allowlist at session close.** If three or more permission prompts fire during a session for commands that the autonomy gate's free-pass list considers safe (running tests/lint/build/format, reading files inside the project, internal git inspection), batch them through the `fewer-permission-prompts` skill. The operator approves the proposed additions before they land in `.claude/settings.json`. Below the three-prompt threshold, take the prompts and move on rather than churning the allowlist with speculative entries.
 
 ## What stays human
 
-The operator (Mark) decides:
+The operator decides:
 
 - compilation outcomes — Claude proposes, operator approves
 - plan approval — Claude proposes, operator edits, operator approves
-- autonomy levels — Claude never sets or changes these
-- verifier sign-off on `review` tasks — Claude reports, operator decides
-- `CLAUDE.md` edits — these encode opinions and must sound like the operator
+- gate escalations and hard-stop decisions — Claude reports per the escalation interface, operator decides; decisions are then recorded so future gate checks can treat them as in-scope defaults
+- verifier sign-off when the verifier flags issues — Claude reports, operator decides
+- `CLAUDE.md` edits and any change to `.claude/settings.json` or `.claude/settings.local.json` — these encode opinions, permissions, and harness behaviour. Claude may draft specific changes but never writes to these files without explicit operator approval in the current turn. A previous directive does not authorise a later edit.
 - ADRs — Claude can draft, operator must approve
 - README content — encodes opinions; must sound like the operator. Operator approves drafts before commit.
-- `git push` to remote — Claude drafts commit messages and the push command; the operator runs the push. An earlier `gh repo create --push` or any prior session's push is *not* implicit authorization for subsequent pushes. Each `git push` requires an explicit operator instruction in the current turn.
+- `git push` to remote — Claude drafts commit messages and the push command; the operator runs the push. An earlier `gh repo create --push` or any prior session's push is _not_ implicit authorization for subsequent pushes. Each `git push` requires an explicit operator instruction in the current turn.
 - Release tags — Claude proposes; the operator approves and creates.
 
 ## What runs without further approval
@@ -335,7 +369,8 @@ Within an approved task spec, Claude executes freely:
 - generating runbook updates
 - regenerating `/sdlc/STATE.md`
 - proposing the next compilation, plan, or task
-- on `auto` tasks that pass verification: marking the task done and moving it to `/sdlc/work/done/`
+- on tasks that pass verification with no unresolved gate escalations: marking the task done and moving it to `/sdlc/work/done/`
+- after a task closes cleanly, starting the next `active` task under the same parent story (auto-progress; see Execute). Stop at the story boundary.
 - drafting README content (operator approves before commit)
 - drafting commit messages and tag names
 
@@ -352,3 +387,4 @@ External thinking that informed this SDLC:
 - Augment Code's Coordinator / Implementor / Verifier pattern.
 - Andrej Karpathy's LLM-managed wiki pattern — raw sources compiled by an LLM into structured artefacts; structure emerges from content rather than being imposed upfront. This SDLC adapts that pattern from knowledge management to development work.
 - Loose-coupling, shared-edges principle from Reimagined Industries' Agent OS architecture, applied to the workflow itself.
+- Mark Stretfford's original SDLC harness: https://github.com/markstrefford/claude-skills/tree/main/sdlc
