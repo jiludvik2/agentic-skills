@@ -1,9 +1,9 @@
 ---
-name: agent-component-advisor
+name: skill-tool-hook-decision
 description: Use this skill whenever the user is deciding how to implement an agent capability or business requirement in Claude Code, Microsoft Agent Framework, or any agentic AI system — choosing between a prompt-driven skill, code-driven skill, tool (including MCP), or hook/middleware. Triggers include questions like "should this be a skill or a tool?", "how should I architect this?", "where does this belong?", "skill vs MCP", "should this run as a hook?", or any time the user is designing a new agent capability, refactoring an existing one, packaging an MCP server, or auditing an architectural decision. Use proactively whenever the user mentions agent design, SKILL.md, MCP server design, hooks, function calling, or framework-level component choices, even if they don't explicitly ask for help choosing. Returns a structured verdict naming the primary component type, the composition pattern if multiple components are needed, the rationale grounded in criteria, and any anti-patterns the design risks falling into.
 ---
 
-# Agent Component Advisor
+# Skill / Tool / Hook Decision
 
 A documented decision tree for choosing the right component type when realising a requirement on Claude Code, Microsoft Agent Framework, or any agentic AI system.
 

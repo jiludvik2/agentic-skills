@@ -1,4 +1,4 @@
-# agent-component-advisor
+# skill-tool-hook-decision
 
 A Claude Code skill for choosing the right component type when realising a business requirement on Claude Code, Microsoft Agent Framework, or any agentic AI system. Walks a documented decision tree (Tree A) and returns a structured verdict naming the primary component type, the composition pattern, the rationale grounded in named criteria, and any anti-patterns the design risks falling into.
 
@@ -30,7 +30,7 @@ It deliberately does **not** trigger for trivial cases ("read this file with the
 
 ## Installation
 
-Drop `agent-component-advisor.skill` into your Claude Code skills directory:
+Drop `skill-tool-hook-decision.skill` into your Claude Code skills directory:
 
 ```
 ~/.claude/skills/
@@ -41,13 +41,13 @@ Or distribute via a plugin marketplace.
 To extract and inspect first:
 
 ```
-unzip agent-component-advisor.skill -d agent-component-advisor/
+unzip skill-tool-hook-decision.skill -d skill-tool-hook-decision/
 ```
 
 ## What's inside
 
 ```
-agent-component-advisor/
+skill-tool-hook-decision/
 ├── README.md                            (this file)
 ├── SKILL.md                             (entry point: when to trigger, procedure, output template)
 ├── evals/
@@ -94,4 +94,4 @@ Out of scope: pick a specific library, model variant, vendor, or internal implem
 
 ## Version
 
-`agent-component-advisor` v2.1 — May 2026.
+`skill-tool-hook-decision` v2.1 — May 2026.
