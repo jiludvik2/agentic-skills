@@ -8,7 +8,7 @@ A growing collection of skills, frameworks, and reference architectures for agen
 |---|---|---|
 | [`skill-tool-hook-decision`](./skill-tool-hook-decision/) | Decides whether a business requirement should be implemented as a prompt-driven skill, code-driven skill, tool, or hook. Walks a documented decision tree and returns a structured verdict. | v2.1 |
 | [`reqs-quality-review`](./reqs-quality-review/) | Reviews whether a user story or epic is ready to support implementation. Grades verifiable criteria (INVEST, Gherkin acceptance criteria, splitting patterns) and surfaces team-context questions separately. | new |
-| [`sdlc`](./sdlc/SDLC.md) | AI-native, spec-anchored SDLC for solo operators working with AI agents. Filesystem-as-source-of-truth + verb cycle (capture → compile → plan → execute → verify → file → document), no external tracker. | v5.0 |
+| [`sdlc`](./sdlc/SDLC.md) | AI-native, spec-anchored SDLC for solo operators working with AI agents. Filesystem-as-source-of-truth + verb cycle (capture → compile → plan → execute → verify → file → document), no external tracker. | v5.6 |
 
 More skills will be added here over time. Packaged skills live in their own top-level folder containing a `SKILL.md`, references, evals, and a `.skill` file ready to install. Framework skills (like `sdlc`) are markdown-only — adopted by copying the framework doc into a target repo and pointing `CLAUDE.md` at it.
 
