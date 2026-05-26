@@ -65,6 +65,19 @@ semgrep, gitleaks, trivy, eslint (+ sonarjs), dependency-cruiser, jscpd, knip, p
 - Subprocess-only tools may be GPL/LGPL when invoked as a separate process (Semgrep LGPL-2.1, gitleaks MIT, Trivy Apache-2.0). **No AGPL anywhere**, even via subprocess — TruffleHog rejected on this basis in favour of gitleaks.
 - Enforced in CI via `scripts/license_audit.py` against an allow-list.
 
+## Invocation conventions
+
+All project tooling must be invoked via `uv run <tool>`, not via bare `python` or direct tool binaries.
+
+| Do | Don't | Why |
+|---|---|---|
+| `uv run pytest tests/...` | `python -m pytest tests/...` | pyenv global is 3.13; project venv is 3.12 (uv-managed). Bare `python` hits the wrong interpreter. |
+| `uv run pytest tests/... -v` | `rtk proxy python -m pytest ...` | `rtk proxy` bypasses RTK filtering but still uses pyenv's 3.13, which lacks project deps. `uv run pytest -v` already produces full uncompressed output. |
+| `uv run ruff check .` | `ruff check .` | Same venv isolation reason. |
+| `uv run mypy --strict ...` | `mypy --strict ...` | Same. |
+
+There is no `.python-version` pin because pyenv only has 3.13 installed; the project's 3.12 is fetched and managed exclusively by uv.
+
 ## Pinning policy
 
 Exact pins (`==`). Version bumps are deliberate, reviewed events, not incidental. Rationale and governance context: **adr-0003**.
