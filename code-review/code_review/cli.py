@@ -4,6 +4,8 @@ import asyncio
 import dataclasses
 import json
 import os
+import shutil
+from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
@@ -13,6 +15,37 @@ from code_review.contracts import AnalyzerOutput, ReviewRequest
 from code_review.diff import resolve_diff_paths
 
 app = typer.Typer(add_completion=False)
+
+_CAPABILITIES_PATH = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review" / "capabilities.json"
+
+
+class ReviewScope(str, Enum):
+    lite = "lite"
+    standard = "standard"
+    full = "full"
+
+
+def _probe_analyzer(adapter_cls: type[Any]) -> dict[str, Any]:
+    """Recompute runtime availability for one analyzer.
+
+    Subprocess-based adapters declare a ``required_binary`` ClassVar; if the binary is
+    absent from PATH they are unavailable. Library-based adapters (no ``required_binary``)
+    are always available since their dependency is pinned in the package.
+    """
+    binary = getattr(adapter_cls, "required_binary", None)
+    if binary is None:
+        return {"status": "available", "error": None}
+    if shutil.which(binary) is None:
+        return {"status": "unavailable", "error": f"{binary} not found on PATH"}
+    return {"status": "available", "error": None}
+
+
+def _build_capabilities() -> dict[str, Any]:
+    from code_review.adapters import REGISTRY
+
+    static = json.loads(_CAPABILITIES_PATH.read_text(encoding="utf-8"))
+    runtime = {name: _probe_analyzer(cls) for name, cls in REGISTRY.items()}
+    return {"static": static, "analyzers": runtime}
 
 
 def _guard_output_in_cwd(output: str) -> None:
@@ -81,11 +114,11 @@ def main(
     target: Optional[str] = typer.Option(None, "--target", help="Target path to analyse"),
     diff: Optional[str] = typer.Option(None, "--diff", help="Git diff range to scope analysis"),
     output: Optional[str] = typer.Option(None, "--output", help="Output file path (must be within CWD)"),
-    capabilities: bool = typer.Option(False, "--capabilities", help="Print available analyzers as JSON and exit"),
+    review_scope: Optional[ReviewScope] = typer.Option(None, "--review-scope", help="Review depth: lite, standard, or full"),
+    capabilities: bool = typer.Option(False, "--capabilities", help="Print static + runtime capabilities as JSON and exit"),
 ) -> None:
     if capabilities:
-        from code_review.adapters import REGISTRY
-        typer.echo(json.dumps({"analyzers": list(REGISTRY.keys())}))
+        typer.echo(json.dumps(_build_capabilities()))
         raise typer.Exit(0)
 
     if output is not None:

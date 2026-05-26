@@ -36,6 +36,7 @@ class SemgrepAdapter:
     kind: ClassVar[str] = "deterministic"
     default_timeout_s: ClassVar[int] = 120
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
+    required_binary: ClassVar[str] = "semgrep"
 
     async def run(self, request: ReviewRequest) -> AnalyzerOutput:
         if not request.target_paths:
