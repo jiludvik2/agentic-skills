@@ -78,6 +78,18 @@ All project tooling must be invoked via `uv run <tool>`, not via bare `python` o
 
 There is no `.python-version` pin because pyenv only has 3.13 installed; the project's 3.12 is fetched and managed exclusively by uv.
 
+## File placement conventions
+
+The system sandbox blocks writes to `.claude/skills/code-review/` (`denyWithinAllow`). Only skill definition files belong there; agents cannot write project artifacts into that tree.
+
+| Artifact type | Correct location | Never here |
+|---|---|---|
+| JSON schemas (output contracts) | `code_review/schemas/` | `.claude/skills/code-review/schemas/` |
+| Test fixtures | `tests/fixtures/` | `.claude/skills/code-review/` |
+| Generated output | `code_review/` subtree or `tests/fixtures/` | `.claude/skills/` anywhere |
+
+Attempting `mkdir .claude/skills/code-review/<anything>` will fail with "Operation not permitted" unless `dangerouslyDisableSandbox: true` is set — which should not be a routine workaround.
+
 ## Pinning policy
 
 Exact pins (`==`). Version bumps are deliberate, reviewed events, not incidental. Rationale and governance context: **adr-0003**.
