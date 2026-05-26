@@ -4,8 +4,9 @@ kind: story
 project: code-review
 status: active
 parent: epic-reviewer-subagent
+children: [s1-t0-skill-scaffold-and-schemas, s1-t1-capabilities-json-content, s1-t2-capabilities-runtime-introspection, s1-t3-setup-script, s1-t4-reviewer-scope-integration]
 created: 2026-05-26
-updated: 2026-05-26  # scope model: single reviewer, lite/standard/full scopes
+updated: 2026-05-26  # scope model: single reviewer, lite/standard/full scopes; plan approved
 ---
 
 # s1 — Reviewer skill packaging and capability declaration
