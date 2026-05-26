@@ -7,6 +7,10 @@ description: Deterministic analyzer layer for the Reviewer sub-agent — runs Se
 
 A deterministic code-analysis layer the Reviewer sub-agent shells out to. It runs one or more analyzers (s0: Semgrep + Radon; later stories add the rest) against a target or a diff range and returns a single consolidated JSON document — SARIF findings plus complexity/coupling metrics — that the LLM design-review step then reasons over.
 
+## Status
+
+This skill is being delivered across story s1; this document describes its full intended surface. As of s0 the following is **live**: the `code_review` CLI with `--analyzer`, `--target`, `--diff`, and `--output`, plus `--capabilities` (currently emitting only the registered analyzer-name list). **Landing in s1**: scope selection via `--review-scope` and the SDLC `review_scope` config (s1-t2/t4), the rich `--capabilities` merge of static declaration with runtime availability checks (s1-t2), the `capabilities.json` instance (s1-t1), and `scripts/setup.sh` (s1-t3). Features below that are not yet live are noted here rather than in each section.
+
 ## Invocation
 
 ```

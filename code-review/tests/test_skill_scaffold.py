@@ -39,23 +39,39 @@ def test_skill_md_exists_with_frontmatter() -> None:
     assert fm.get("description"), "SKILL.md frontmatter missing non-empty 'description'"
 
 
+def _section_body(text: str, header: str) -> str:
+    """Return the text from a `#+ header` line up to the next header of the same-or-higher level."""
+    m = re.search(rf"^(#+)\s*{re.escape(header)}\s*$", text, re.MULTILINE)
+    assert m, f"missing section header: {header}"
+    level = len(m.group(1))
+    rest = text[m.end():]
+    nxt = re.search(rf"^#{{1,{level}}}\s", rest, re.MULTILINE)
+    return rest[: nxt.start()] if nxt else rest
+
+
 def test_skill_md_has_required_sections() -> None:
     text = _skill_text()
     for header in ("Review scopes", "Install", "Configure", "Sandbox configuration"):
         assert re.search(rf"^#+\s*{re.escape(header)}", text, re.MULTILINE), f"missing section: {header}"
-    # Review scopes section names all three values
-    scopes_section = text.split("Review scopes", 1)[1]
+    # Review scopes section names all three values — anchored to the actual section body
+    scopes_section = _section_body(text, "Review scopes")
     for scope in ("lite", "standard", "full"):
         assert scope in scopes_section, f"Review scopes section does not mention '{scope}'"
 
 
 def test_skill_md_sandbox_snippet_is_valid_json() -> None:
     text = _skill_text()
-    # the fenced json block following the Sandbox configuration header
-    after = text.split("Sandbox configuration", 1)[1]
-    m = re.search(r"```json\n(.*?)\n```", after, re.DOTALL)
+    section = _section_body(text, "Sandbox configuration")
+    m = re.search(r"```json\n(.*?)\n```", section, re.DOTALL)
     assert m, "no ```json fenced block under Sandbox configuration"
-    json.loads(m.group(1))
+    parsed = json.loads(m.group(1))
+    assert "sandbox" in parsed, "sandbox snippet missing top-level 'sandbox' key"
+
+
+def test_skill_md_has_status_section() -> None:
+    section = _section_body(_skill_text(), "Status")
+    assert "--capabilities" in section, "Status section must describe --capabilities state"
+    assert "setup.sh" in section, "Status section must note setup.sh as forthcoming"
 
 
 def test_skill_md_references_schemas() -> None:
