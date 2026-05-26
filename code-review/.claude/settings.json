@@ -42,6 +42,7 @@
       "Bash(uv run uvicorn:*)",
       "Bash(pytest:*)",
       "Bash(ruff:*)",
+      "Bash(mypy:*)",
       "Bash(pyright:*)",
       "Bash(pre-commit:*)",
 
