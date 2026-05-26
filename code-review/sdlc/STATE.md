@@ -1,10 +1,10 @@
 # State — last updated 2026-05-26
 
-**Active focus:** Plan for `s0-analyzer-facade-and-two-adapters` produced and awaiting operator approval. Eight tasks (`s0-t0` … `s0-t7`) are filed in `/sdlc/work/active/`. Execution is blocked until the operator approves the plan.
+**Active focus:** Executing s0 — `s0-t0` complete, auto-progressing to `s0-t1` (contracts module).
 
-**Last completed:** s0 plan: 8 tasks decomposed covering scaffold (t0), contracts (t1), CLI skeleton + paths (t2), Semgrep adapter (t3), Radon adapter (t4), concurrent fan-out + FakeAnalyzer (t5), diff-scoped analysis (t6), error isolation + atomic write (t7). Settings files and `.gitignore` committed and pushed.
+**Last completed:** `s0-t0` — package scaffolded and all 4 tests GREEN: `pyproject.toml` (PEP 621, hatchling, exact pins), `code_review/__init__.py` (`__version__`), `schemas/sarif-2.1.0.json` (fetched from SchemaStore), `.gitignore` (covers `runs/`, `cache/`, `node_modules/`, `.venv/`).
 
-**Next:** Operator approves (or edits) the plan. On approval, execute t0 first — write tests, confirm they fail, scaffold the package. Auto-progress through t1–t7 per SDLC §Execute.
+**Next:** `s0-t1` — contracts module: `Analyzer` Protocol, `AnalyzerOutput`, `MetricSet`, `ReviewRequest`. Write tests first.
 
 ## Open questions
-- None.
+- `excludedCommands: ["uv *"]` not bypassing Seatbelt sandbox (SCDynamicStore panic). All `uv` commands require `dangerouslyDisableSandbox: true`. Needs investigation.

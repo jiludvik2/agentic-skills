@@ -84,7 +84,8 @@
     "filesystem": {
       "allowWrite": [
         "~/Library/Application Support/rtk",
-        "/Users/jiri/Code/2026/agentic-skills/.git"
+        "/Users/jiri/Code/2026/agentic-skills/.git",
+        "~/.cache/uv"
       ],
       "denyRead": ["~/.ssh", "~/.aws", "~/.gnupg", "~/.config/gh", "~/.config/gcloud", "~/.netrc"]
     },
