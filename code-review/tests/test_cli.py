@@ -1,14 +1,17 @@
 import json
+import re
 import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 from typer.testing import CliRunner
 
 import code_review.adapters as adapters_mod
 from code_review.cli import app
+from code_review.contracts import AnalyzerOutput, ReviewRequest
 from tests.conftest import FakeAnalyzer, FakeAnalyzer2, SlowFakeAnalyzer
 
 
@@ -120,3 +123,96 @@ def test_diff_scope_excludes_unchanged_files(monkeypatch: pytest.MonkeyPatch):
     assert result.exit_code == 0, result.output
     assert received_paths == [("changed.py",)], f"Expected only changed.py; got {received_paths}"
     assert "unchanged.py" not in str(result.output)
+
+
+def test_adapter_error_does_not_crash_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    class OkAdapter:
+        name: ClassVar[str] = "ok_adapter"
+        kind: ClassVar[str] = "deterministic"
+        default_timeout_s: ClassVar[int] = 30
+        scope_restrictions: ClassVar[frozenset[str]] = frozenset()
+
+        async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+            return AnalyzerOutput(sarif={}, status="ok")
+
+    class ErrAdapter:
+        name: ClassVar[str] = "err_adapter"
+        kind: ClassVar[str] = "deterministic"
+        default_timeout_s: ClassVar[int] = 30
+        scope_restrictions: ClassVar[frozenset[str]] = frozenset()
+
+        async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+            return AnalyzerOutput(sarif={}, status="error", error="missing binary: semgrep")
+
+    monkeypatch.setitem(adapters_mod.REGISTRY, "ok_adapter", OkAdapter)
+    monkeypatch.setitem(adapters_mod.REGISTRY, "err_adapter", ErrAdapter)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["--analyzer", "ok_adapter", "--analyzer", "err_adapter", "--target", "."])
+
+    assert result.exit_code != 0
+    # JSON parse succeeds iff no Python traceback polluted stdout
+    data = json.loads(result.output)
+    assert "ok_adapter" in data["analyzers"]
+    assert "err_adapter" in data["analyzers"]
+    assert data["analyzers"]["ok_adapter"]["status"] == "ok"
+    assert data["analyzers"]["err_adapter"]["status"] == "error"
+    assert data["analyzers"]["err_adapter"]["error"]
+
+
+def test_atomic_write_tmp_then_rename(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
+    monkeypatch.chdir(tmp_path)
+
+    output_path = tmp_path / "result.json"
+    runner = CliRunner()
+    result = runner.invoke(app, ["--analyzer", "fake", "--output", str(output_path), "--target", "."])
+
+    assert result.exit_code == 0, result.output
+    assert output_path.exists()
+    assert not (tmp_path / "result.json.tmp").exists()
+    with output_path.open() as f:
+        data = json.load(f)
+    assert "analyzers" in data
+
+
+def test_stdout_summary_only_when_output_flag(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
+    monkeypatch.chdir(tmp_path)
+
+    output_path = tmp_path / "result.json"
+    runner = CliRunner()
+    result = runner.invoke(app, ["--analyzer", "fake", "--output", str(output_path), "--target", "."])
+
+    assert result.exit_code == 0, result.output
+    summary = result.output.strip()
+    assert re.match(r"analyzers: \d+ \| findings: \d+ \| duration: .+s", summary), repr(summary)
+    assert "{" not in result.output
+
+
+@pytest.mark.parametrize("bad_path", [
+    "/tmp/x.json",
+    str(Path.home() / "x.json"),
+    "/etc/x",
+])
+def test_output_outside_cwd_rejected_all_cases(bad_path: str) -> None:
+    result = _run("--output", bad_path)
+    assert result.returncode != 0
+    combined = result.stdout + result.stderr
+    assert "sandbox" in combined.lower()
+    assert not Path(bad_path).exists()
+
+
+def test_cwd_guard_accepts_symlink_inside_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(subdir)
+
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
+    monkeypatch.chdir(tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["--analyzer", "fake", "--output", str(link / "result.json"), "--target", "."])
+
+    assert "sandbox" not in result.output.lower()

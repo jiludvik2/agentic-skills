@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
+import os
 from pathlib import Path
 from typing import Any, Optional
 
@@ -36,6 +37,13 @@ def _output_to_dict(output: AnalyzerOutput) -> dict[str, Any]:
     }
 
 
+async def _safe_run(adapter: Any, request: ReviewRequest) -> AnalyzerOutput:
+    try:
+        return await adapter.run(request)  # type: ignore[no-any-return]
+    except Exception as exc:
+        return AnalyzerOutput(sarif={}, status="error", error=str(exc))
+
+
 async def _run_analyzers(
     names: list[str],
     target: str | None,
@@ -60,7 +68,7 @@ async def _run_analyzers(
     task_map: dict[str, asyncio.Task[AnalyzerOutput]] = {}
     async with asyncio.TaskGroup() as tg:
         for name in names:
-            task_map[name] = tg.create_task(REGISTRY[name]().run(request))
+            task_map[name] = tg.create_task(_safe_run(REGISTRY[name](), request))
 
     return {
         "analyzers": {name: _output_to_dict(t.result()) for name, t in task_map.items()}
@@ -95,7 +103,27 @@ def main(
         raise typer.Exit(1)
 
     result = asyncio.run(_run_analyzers(analyzer, target, diff))
-    typer.echo(json.dumps(result))
+    analyzers_dict: dict[str, Any] = result["analyzers"]
+    has_error = any(v["status"] == "error" for v in analyzers_dict.values())
+    json_content = json.dumps(result)
+
+    if output is not None:
+        output_path = Path(output)
+        tmp_file = output_path.parent / (output_path.name + ".tmp")
+        tmp_file.write_text(json_content)
+        os.rename(tmp_file, output_path)
+        n_findings = sum(
+            len(run.get("results", []))
+            for v in analyzers_dict.values()
+            for run in (v.get("sarif") or {}).get("runs", [])
+        )
+        total_s = sum(v.get("duration_s", 0.0) for v in analyzers_dict.values())
+        typer.echo(f"analyzers: {len(analyzers_dict)} | findings: {n_findings} | duration: {total_s:.2f}s")
+    else:
+        typer.echo(json_content)
+
+    if has_error:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
