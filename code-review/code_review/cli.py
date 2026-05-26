@@ -13,7 +13,7 @@ import jsonschema
 import typer
 
 from code_review.aggregator import aggregate
-from code_review.config import load_config
+from code_review.config import ConfigError, load_config
 from code_review.contracts import AnalyzerOutput, MetricSet, ReviewRequest
 from code_review.diff import resolve_diff_paths
 from code_review.hotspots import compute_hotspots
@@ -190,7 +190,12 @@ def main(
         typer.echo(f"Error: unknown analyzer(s): {', '.join(unknown)}", err=True)
         raise typer.Exit(1)
 
-    config = load_config(_SKILL_DIR)
+    try:
+        config = load_config(_SKILL_DIR)
+    except ConfigError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
     scope = review_scope.value if review_scope is not None else "lite"
     result = asyncio.run(
         _run_analyzers(

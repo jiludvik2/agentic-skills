@@ -216,10 +216,44 @@ def test_schema_validation_failure_is_non_fatal(monkeypatch: pytest.MonkeyPatch)
 
     monkeypatch.setattr("code_review.cli.jsonschema.validate", _raise)
 
+    # Typer's CliRunner mixes stderr into result.output; the warning lands there.
     result = runner.invoke(app, ["--analyzer", "fake_a", "--target", "."])
 
     assert result.exit_code == 0, f"Schema validation failure must not crash CLI: {result.output}"
-    # CliRunner mixes stderr into result.output by default; result.stderr is None in that mode.
-    assert "schema" in result.output.lower() or "schema" in (result.stderr or "").lower(), (
-        "Expected schema warning in output"
-    )
+    assert "schema" in result.output.lower(), "Expected schema warning in output"
+
+
+def test_missing_schema_file_skipped_silently(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake_a", _FakeA)
+    nonexistent = tmp_path / "no-such-schema.json"
+    monkeypatch.setattr("code_review.cli._SCHEMA_PATH", nonexistent)
+
+    result = runner.invoke(app, ["--analyzer", "fake_a", "--target", "."])
+
+    assert result.exit_code == 0, f"Missing schema must not crash CLI: {result.output}"
+    data = json.loads(result.output)
+    assert "sarif" in data
+
+
+# ---------------------------------------------------------------------------
+# ConfigError handling
+# ---------------------------------------------------------------------------
+
+
+def test_config_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
+    from code_review.config import ConfigError
+
+    def _raise(_skill_dir: Any) -> None:
+        raise ConfigError("injected: bad toml")
+
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake_a", _FakeA)
+    monkeypatch.setattr("code_review.cli.load_config", _raise)
+
+    # Typer's CliRunner mixes stderr into result.output; error message lands there.
+    result = runner.invoke(app, ["--analyzer", "fake_a", "--target", "."])
+
+    assert result.exit_code != 0, "ConfigError must produce non-zero exit"
+    assert "injected: bad toml" in result.output, "Error message must appear in output"
+    assert "Traceback" not in result.output, "Must not leak a raw Python traceback"
