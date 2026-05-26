@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -14,7 +13,6 @@ from tests.conftest import FakeAnalyzer
 REPO_ROOT = Path(__file__).parent.parent
 REVIEWER_MD = REPO_ROOT / ".claude" / "skills" / "code-review" / "agents" / "reviewer.md"
 SETUP = REPO_ROOT / "scripts" / "setup.sh"
-PREFETCH = REPO_ROOT / "scripts" / "prefetch_caches.py"
 
 
 def _reviewer_text() -> str:
@@ -69,14 +67,16 @@ def test_cli_accepts_review_scope_values(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def _write_neutralised_setup(skill: Path) -> Path:
-    """Copy setup.sh into a synthetic skill tree with the network-dependent step neutralised."""
-    (skill / "scripts").mkdir(parents=True)
-    (skill / "agents").mkdir(parents=True)
+    """Copy setup.sh into a synthetic skill tree with steps 1-3 neutralised, isolating
+    the step-4 install path under test."""
+    (skill / "scripts").mkdir(parents=True, exist_ok=True)
+    (skill / "agents").mkdir(parents=True, exist_ok=True)
     sh = skill / "scripts" / "setup.sh"
-    text = SETUP.read_text(encoding="utf-8").replace("uv sync --frozen", "true", 1)
+    text = SETUP.read_text(encoding="utf-8")
+    text = text.replace("uv sync --frozen", "true", 1)
+    text = text.replace('python "${SCRIPT_DIR}/prefetch_caches.py"', "true", 1)
     sh.write_text(text, encoding="utf-8")
     sh.chmod(0o755)
-    shutil.copy(PREFETCH, skill / "scripts" / "prefetch_caches.py")
     return sh
 
 

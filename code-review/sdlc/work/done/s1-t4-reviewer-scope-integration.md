@@ -2,10 +2,17 @@
 id: s1-t4-reviewer-scope-integration
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-reviewer-skill-and-capabilities
 created: 2026-05-26
 updated: 2026-05-26
+notes: |
+  Review MINOR-ONLY. Actioned opportunistically: find_host_root relative-path loop guard
+  (&& -n "$d"); tests neutralise steps 1-3 (was only step 1) to isolate the install step;
+  mkdir exist_ok=True. Noted not-actioned: fails-loud test assumes tmp_path has no .claude
+  ancestor (reliably clean). Rejected Nit: reviewer.md "semgrep lands in s3" is wrong —
+  the semgrep adapter shipped in s0-t3 and is in REGISTRY. Deferred Nit: exact review_scope
+  config path pinned when s5 wires runtime dispatch.
 ---
 
 # s1-t4 — Reviewer sub-agent scope integration

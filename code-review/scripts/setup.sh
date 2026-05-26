@@ -25,7 +25,7 @@ fail() {
 # itself or installed under <host>/.claude/skills/code-review.
 find_host_root() {
   local d="$1"
-  while [[ "${d}" != "/" ]]; do
+  while [[ "${d}" != "/" && -n "${d}" ]]; do
     if [[ -d "${d}/.claude" ]]; then
       echo "${d}"
       return 0
