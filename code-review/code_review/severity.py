@@ -1,12 +1,5 @@
 from __future__ import annotations
 
-_SDLC_SEVERITY_BY_LEVEL: dict[str, str] = {
-    "error": "critical",
-    "warning": "minor",
-    "note": "nit",
-    "none": "nit",
-}
-
 _SDLC_SEVERITY_BY_PROPS: dict[str, str] = {
     "critical": "critical",
     "important": "important",
@@ -26,7 +19,7 @@ def map_severity(level: str, properties_severity: str | None) -> str:
       2. properties_severity==critical  → critical
       3. level==warning AND properties_severity in {important, high}  → important
       4. level==note or level==none  → nit
-      5. everything else  → minor (includes unknown levels)
+      5. unknown level (none of the above matched)  → nit
     """
     norm_level = (level or "").lower()
     norm_props = (properties_severity or "").lower()
@@ -43,4 +36,4 @@ def map_severity(level: str, properties_severity: str | None) -> str:
     if norm_level in ("note", "none"):
         return "nit"
 
-    return _SDLC_SEVERITY_BY_PROPS.get(norm_props, "nit")
+    return "nit"

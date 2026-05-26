@@ -20,6 +20,10 @@ MAPPING_TABLE = [
     ("none", None, "nit"),
     # boundary: warning+critical — properties_severity "critical" wins per first OR-rule
     ("warning", "critical", "critical"),
+    # unknown level + non-critical props → nit (unknown level treated as none)
+    ("fatal", "high", "nit"),
+    # unknown level + critical props → critical (OR-rule fires first)
+    ("fatal", "critical", "critical"),
 ]
 
 
