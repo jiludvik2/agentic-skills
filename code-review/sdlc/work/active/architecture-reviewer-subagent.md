@@ -1,7 +1,7 @@
 ---
 id: architecture-reviewer-subagent
 kind: architecture
-project: sdlc
+project: code-review
 status: active
 parent: epic-reviewer-subagent
 created: 2026-05-26
@@ -586,7 +586,7 @@ dev = [
 ]
 
 [project.scripts]
-reviewer = "reviewer.cli:app"
+code-review = "code_review.cli:app"
 
 [build-system]
 requires = ["hatchling"]
