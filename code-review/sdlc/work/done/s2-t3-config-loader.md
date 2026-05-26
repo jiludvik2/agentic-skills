@@ -2,7 +2,7 @@
 id: s2-t3-config-loader
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-aggregator-and-severity-mapping
 created: 2026-05-26
 updated: 2026-05-26

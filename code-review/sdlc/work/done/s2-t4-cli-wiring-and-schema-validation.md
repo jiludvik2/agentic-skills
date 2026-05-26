@@ -2,7 +2,7 @@
 id: s2-t4-cli-wiring-and-schema-validation
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-aggregator-and-severity-mapping
 created: 2026-05-26
 updated: 2026-05-26
