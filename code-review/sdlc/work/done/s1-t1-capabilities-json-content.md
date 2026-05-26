@@ -2,10 +2,16 @@
 id: s1-t1-capabilities-json-content
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-reviewer-skill-and-capabilities
 created: 2026-05-26
 updated: 2026-05-26
+notes: |
+  Review MINOR findings (not filed; revisit when frameworks become verified in s3):
+  - Coverage-discipline framework branch is dead in s1 (all frameworks planned) — re-confirm it fires in s3.
+  - Fixture match uses substring containment (lang in d); harden to startswith / explicit fixture-name when TS fixtures land.
+  - semgrep languages list [python,javascript,typescript] is tool-capability, not s1 verified-coverage (only python verified).
+  Nit: cwe 4.14 / owasp 2021 versions are hand-entered, unverified by any test.
 ---
 
 # s1-t1 — capabilities.json content
