@@ -17,6 +17,9 @@ __pycache__/
 venv/
 node_modules/
 
+# Claude Code local settings (machine-specific personal overrides)
+.claude/settings.local.json
+
 # session artefacts (do not commit local Claude session paths)
 local_*/
 sessions/
