@@ -115,5 +115,7 @@ async def test_semgrep_empty_target_paths_returns_empty_sarif(monkeypatch: pytes
     output = await SemgrepAdapter().run(request)
 
     assert output.status == "ok"
-    assert output.sarif.get("runs", []) == []
+    assert output.sarif.get("runs") == []
+    assert output.sarif.get("version") == "2.1.0"
+    assert "$schema" in output.sarif
     assert called == [], "run_subprocess must not be called for empty target_paths"

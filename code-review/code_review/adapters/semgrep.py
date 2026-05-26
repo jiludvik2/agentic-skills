@@ -39,7 +39,7 @@ class SemgrepAdapter:
 
     async def run(self, request: ReviewRequest) -> AnalyzerOutput:
         if not request.target_paths:
-            return AnalyzerOutput(sarif={"version": "2.1.0", "runs": []})
+            return AnalyzerOutput(sarif=_normalise({"runs": []}))
         cmd = ("semgrep", "--sarif", "--config", "auto", *request.target_paths)
         result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
 

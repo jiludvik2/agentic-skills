@@ -65,9 +65,11 @@ async def test_radon_empty_target_paths_returns_empty_metricset() -> None:
     output = await RadonAdapter().run(request)
 
     assert output.status == "ok"
+    assert output.sarif.get("runs") == []
     assert output.metrics is not None
     assert output.metrics.per_file == {}
     assert output.metrics.per_class == {}
+    assert output.metrics.coupling == {}
 
 
 async def test_radon_sarif_is_valid():
