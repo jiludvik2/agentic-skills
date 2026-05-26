@@ -96,6 +96,6 @@
         "objects.githubusercontent.com"
       ]
     },
-    "excludedCommands": ["gh *", "uv *", "make *", "rtk make *", "pre-commit *"]
+    "excludedCommands": ["gh *", "rtk gh *", "uv *", "rtk uv *", "make *", "rtk make *", "pre-commit *", "rtk pre-commit *"]
   }
 }
