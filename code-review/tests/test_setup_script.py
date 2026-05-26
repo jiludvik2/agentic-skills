@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -9,6 +10,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent
 SETUP = REPO_ROOT / "scripts" / "setup.sh"
 PREFETCH = REPO_ROOT / "scripts" / "prefetch_caches.py"
+
+
+def _run_prefetch(cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(PREFETCH)], capture_output=True, text=True, cwd=cwd
+    )
 
 
 def test_setup_script_exists_and_executable() -> None:
@@ -21,12 +28,14 @@ def test_setup_script_passes_shellcheck_or_bash_n() -> None:
     r = subprocess.run(["bash", "-n", str(SETUP)], capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     if shutil.which("shellcheck"):
-        sc = subprocess.run(["shellcheck", "-S", "error", str(SETUP)], capture_output=True, text=True)
+        sc = subprocess.run(
+            ["shellcheck", "-S", "error", str(SETUP)], capture_output=True, text=True
+        )
         assert sc.returncode == 0, sc.stdout + sc.stderr
 
 
 def test_prefetch_caches_idempotent(tmp_path: Path) -> None:
-    r1 = subprocess.run([sys.executable, str(PREFETCH)], capture_output=True, text=True, cwd=tmp_path)
+    r1 = _run_prefetch(tmp_path)
     assert r1.returncode == 0, r1.stderr
     cache = tmp_path / "cache"
     manifest = cache / "manifest.json"
@@ -34,7 +43,7 @@ def test_prefetch_caches_idempotent(tmp_path: Path) -> None:
     assert manifest.exists(), "cache/manifest.json not created"
     mtime1 = manifest.stat().st_mtime_ns
 
-    r2 = subprocess.run([sys.executable, str(PREFETCH)], capture_output=True, text=True, cwd=tmp_path)
+    r2 = _run_prefetch(tmp_path)
     assert r2.returncode == 0, r2.stderr
     assert cache.exists()
     assert manifest.stat().st_mtime_ns == mtime1, "manifest rewritten on idempotent re-run"
@@ -44,16 +53,14 @@ def test_prefetch_recovers_from_corrupt_manifest(tmp_path: Path) -> None:
     cache = tmp_path / "cache"
     cache.mkdir()
     (cache / "manifest.json").write_text("{ this is not valid json", encoding="utf-8")
-    r = subprocess.run([sys.executable, str(PREFETCH)], capture_output=True, text=True, cwd=tmp_path)
+    r = _run_prefetch(tmp_path)
     assert r.returncode == 0, r.stderr
-    import json as _json
-
-    _json.loads((cache / "manifest.json").read_text(encoding="utf-8"))  # now valid
+    json.loads((cache / "manifest.json").read_text(encoding="utf-8"))  # now valid
 
 
 def test_setup_script_has_no_host_root_traversal() -> None:
     text = SETUP.read_text(encoding="utf-8")
-    assert "../../.." not in text, "fragile host-root traversal must not be present (deferred to s1-t4)"
+    assert "../../.." not in text, "fragile host-root traversal must be absent (deferred to s1-t4)"
     assert "2>/dev/null" not in text, "error-swallowing resolution must not be present"
 
 

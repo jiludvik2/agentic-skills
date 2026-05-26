@@ -7,8 +7,8 @@
 # self-contained and runs inside the sandbox with no network egress.
 #
 # Steps, in order: Python deps -> Node deps (if a JS toolchain is present) ->
-# offline-cache prefetch -> install the scope-aware Reviewer sub-agent into the
-# host project. Any failed step aborts non-zero and names the step.
+# offline-cache prefetch. (Installing the scope-aware Reviewer sub-agent into the
+# host project lands in s1-t4.) Any failed step aborts non-zero and names the step.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
