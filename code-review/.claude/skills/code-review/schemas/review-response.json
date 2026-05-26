@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReviewResponse",
+  "description": "Consolidated output document produced by the code-review CLI.",
+  "type": "object",
+  "required": ["sarif", "metrics", "ranked_hotspots", "analyzers"],
+  "additionalProperties": false,
+  "properties": {
+    "sarif": {
+      "description": "Consolidated SARIF 2.1.0 document across all analyzers.",
+      "type": "object",
+      "required": ["version", "runs"],
+      "properties": {
+        "version": {"type": "string"},
+        "runs": {"type": "array"}
+      }
+    },
+    "metrics": {
+      "description": "Merged MetricSet across all analyzers, or null if no metrics were produced.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["per_file", "per_class", "coupling"],
+          "properties": {
+            "per_file": {"type": "object"},
+            "per_class": {"type": "object"},
+            "coupling": {"type": "object"}
+          }
+        },
+        {"type": "null"}
+      ]
+    },
+    "ranked_hotspots": {
+      "description": "Files ranked by composite hotspot score (severity + complexity + coupling).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "composite_score", "factors"],
+        "properties": {
+          "file": {"type": "string"},
+          "composite_score": {"type": "number"},
+          "factors": {"type": "object"}
+        }
+      }
+    },
+    "analyzers": {
+      "description": "Per-analyzer status, duration, and error information.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["sarif", "metrics", "duration_s", "status", "error"],
+        "properties": {
+          "sarif": {},
+          "metrics": {},
+          "duration_s": {"type": "number"},
+          "status": {"type": "string"},
+          "error": {}
+        }
+      }
+    }
+  }
+}
