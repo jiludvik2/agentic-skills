@@ -91,3 +91,32 @@ def test_consolidated_output_shape(monkeypatch: pytest.MonkeyPatch):
     data = json.loads(result.output)
     assert "fake" in data["analyzers"]
     assert "fake2" in data["analyzers"]
+
+
+def test_diff_scope_excludes_unchanged_files(monkeypatch: pytest.MonkeyPatch):
+    received_paths: list[tuple[str, ...]] = []
+
+    class PathCapturingFake:
+        name = "fake"
+        kind = "deterministic"
+        default_timeout_s = 30
+        scope_restrictions: frozenset[str] = frozenset()
+
+        async def run(self, request: object) -> object:
+            from code_review.contracts import AnalyzerOutput, ReviewRequest
+            assert isinstance(request, ReviewRequest)
+            received_paths.append(request.target_paths)
+            return AnalyzerOutput(sarif={})
+
+    async def _mock_resolve(repo_root: object, diff_range: object) -> tuple[str, ...]:
+        return ("changed.py",)
+
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", PathCapturingFake)
+    monkeypatch.setattr("code_review.cli.resolve_diff_paths", _mock_resolve)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["--analyzer", "fake", "--diff", "HEAD~1..HEAD"])
+
+    assert result.exit_code == 0, result.output
+    assert received_paths == [("changed.py",)], f"Expected only changed.py; got {received_paths}"
+    assert "unchanged.py" not in str(result.output)

@@ -13,13 +13,16 @@ class SubprocessResult:
     error: str | None = None
 
 
-async def run_subprocess(*cmd: str, timeout_s: float = 60.0) -> SubprocessResult:
+async def run_subprocess(
+    *cmd: str, timeout_s: float = 60.0, cwd: str | None = None
+) -> SubprocessResult:
     proc: asyncio.subprocess.Process
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
         )
     except Exception as exc:
         return SubprocessResult(stdout=b"", stderr=b"", returncode=-1, error=str(exc))

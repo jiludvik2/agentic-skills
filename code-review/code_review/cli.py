@@ -9,6 +9,7 @@ from typing import Any, Optional
 import typer
 
 from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.diff import resolve_diff_paths
 
 app = typer.Typer(add_completion=False)
 
@@ -38,13 +39,19 @@ def _output_to_dict(output: AnalyzerOutput) -> dict[str, Any]:
 async def _run_analyzers(
     names: list[str],
     target: str | None,
+    diff: str | None = None,
 ) -> dict[str, Any]:
     from code_review.adapters import REGISTRY
 
-    target_paths: tuple[str, ...] = (target,) if target else (".",)
+    if diff is not None:
+        target_paths = await resolve_diff_paths(Path.cwd(), diff)
+    elif target is not None:
+        target_paths = (target,)
+    else:
+        target_paths = (".",)
     request = ReviewRequest(
         scope="standard",
-        diff_range=None,
+        diff_range=diff,
         target_paths=target_paths,
         languages=frozenset(),
         config={},
@@ -87,7 +94,7 @@ def main(
         typer.echo(f"Error: unknown analyzer(s): {', '.join(unknown)}", err=True)
         raise typer.Exit(1)
 
-    result = asyncio.run(_run_analyzers(analyzer, target))
+    result = asyncio.run(_run_analyzers(analyzer, target, diff))
     typer.echo(json.dumps(result))
 
 
