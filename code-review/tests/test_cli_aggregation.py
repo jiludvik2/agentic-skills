@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, NoReturn
 
 import jsonschema
 import pytest
@@ -245,7 +245,7 @@ def test_missing_schema_file_skipped_silently(
 def test_config_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
     from code_review.config import ConfigError
 
-    def _raise(_skill_dir: Any) -> None:
+    def _raise(_skill_dir: Any) -> NoReturn:
         raise ConfigError("injected: bad toml")
 
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake_a", _FakeA)
