@@ -1,12 +1,11 @@
 # State — last updated 2026-05-26
 
-**Active focus:** Executing s0 — t0–t6 complete and committed. Only `s0-t7` (error isolation + atomic write + hardened CWD guard) remains.
+**Active focus:** s0 complete and closed — all 11 artefacts (t0–t7, fix1, fix2, story) in done/. s1 (reviewer skill packaging) is next but has no task plan yet; waiting for operator approval of proposed plan.
 
-**Last completed:** `s0-t6` — diff-scoped analysis: `code_review/diff.py` (`resolve_diff_paths` via `git diff --name-only`), `--diff` wired into `_run_analyzers`, `cwd` param added to `base.run_subprocess`. 30/30 tests GREEN, mypy strict clean. Adapters already honour `request.target_paths` (Semgrep positional, Radon file collection).
+**Last completed:** `s0-analyzer-facade-and-two-adapters` — 39/39 non-integration tests GREEN, mypy strict clean. Story-level review found 1 Important (empty-target-paths guard), remediated via fix1 + fix2 (2 rounds). fix2 reviewer MINOR-ONLY, story closed cleanly.
 
-**Next:** `s0-t7` — read spec at `sdlc/work/active/s0-t7-error-isolation-and-atomic-write.md`. Write tests first (RED), implement, GREEN, commit. Then s0 story is complete → consider Verify/Review per SDLC.
-
-**Sandbox:** RESOLVED. rtk hook prefixes commands with `rtk `; `excludedCommands` now lists `rtk uv *`/`rtk gh *`/`rtk pre-commit *`. uv/gh/pre-commit run unsandboxed correctly (verified `uv sync` exit 0, no SCDynamicStore panic). pytest/mypy run fine sandboxed. No more `dangerouslyDisableSandbox` needed.
+**Next:** Propose and get operator approval for s1 task plan, then execute.
 
 ## Open questions
-- `sw-delivery-harness/.claude/settings.json` has the same excludedCommands fix applied but uncommitted (separate repo) — commit there when convenient.
+- s1 plan needs operator approval before execution begins (SDLC rule #22: unplanned next story → pause).
+- Story-level review Minors not pursued (noted in done artefacts): _SARIF_EMPTY_RUNS misleading name, $schema URL duplicated × 3, duration_s always 0.0 across all adapters, REGISTRY typed as dict[str, type[Any]] instead of dict[str, type[Analyzer]], logging module never created.

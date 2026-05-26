@@ -2,7 +2,7 @@
 id: s0-t4-radon-adapter
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-analyzer-facade-and-two-adapters
 created: 2026-05-26
 updated: 2026-05-26
