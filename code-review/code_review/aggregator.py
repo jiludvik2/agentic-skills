@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from code_review.contracts import AnalyzerOutput
@@ -53,21 +54,28 @@ def _merge_key(result: dict[str, Any]) -> tuple[str, int, str] | None:
 
 
 def _normalise_taxa(result: dict[str, Any]) -> dict[str, Any]:
-    """Move CWE ids from free-form tags into taxa; remove from tags."""
-    result = dict(result)
-    props = dict(result.get("properties", {}))
+    """Move CWE ids from free-form tags and ruleId into taxa; remove from source fields."""
+    result = copy.deepcopy(result)
+    props = result.setdefault("properties", {})
+    taxa: list[dict[str, Any]] = result.setdefault("taxa", [])
+    existing_cwe_ids = {t.get("id") for t in taxa}
+
+    # CWE from ruleId
+    rule_id: str = result.get("ruleId", "")
+    if rule_id.startswith("CWE") and rule_id not in existing_cwe_ids:
+        taxa.append({"id": rule_id, "toolComponent": {"name": "CWE"}})
+        existing_cwe_ids.add(rule_id)
+
+    # CWE from free-form tags
     tags: list[str] = list(props.get("tags", []))
     cwe_from_tags = [t for t in tags if str(t).startswith("CWE")]
     if cwe_from_tags:
-        tags = [t for t in tags if not str(t).startswith("CWE")]
-        props["tags"] = tags
-        taxa: list[dict[str, Any]] = list(result.get("taxa", []))
-        existing_cwe_ids = {t.get("id") for t in taxa}
+        props["tags"] = [t for t in tags if not str(t).startswith("CWE")]
         for cwe in cwe_from_tags:
             if cwe not in existing_cwe_ids:
                 taxa.append({"id": cwe, "toolComponent": {"name": "CWE"}})
-        result["taxa"] = taxa
-    result["properties"] = props
+                existing_cwe_ids.add(cwe)
+
     return result
 
 
@@ -92,8 +100,8 @@ def aggregate(
     Findings without a CWE are never merged.
     """
     has_cwe = False
-    merged: list[dict[str, Any]] = []  # (key | None, result, sources, original_lines)
-    merge_meta: list[dict[str, Any]] = []  # parallel list of merge state
+    merged: list[dict[str, Any]] = []
+    merge_meta: list[dict[str, Any]] = []
     analyzer_errors: list[dict[str, Any]] = []
 
     for output in outputs:
@@ -106,8 +114,8 @@ def aggregate(
         if runs:
             tool_name = runs[0].get("tool", {}).get("driver", {}).get("name", "unknown")
 
-        for run in runs:
-            for raw_result in run.get("results", []):
+        for sarif_run in runs:
+            for raw_result in sarif_run.get("results", []):
                 result = _normalise_taxa(raw_result)
                 key = _merge_key(result)
 
@@ -119,15 +127,15 @@ def aggregate(
                         if meta["key"] is None:
                             continue
                         mk_uri, mk_line, mk_cwe = meta["key"]
-                        same_cwe = mk_uri == uri and mk_cwe == cwe
-                        if same_cwe and abs(line - mk_line) <= line_tolerance:
-                            # merge: lower line wins
+                        same_group = mk_uri == uri and mk_cwe == cwe
+                        if same_group and abs(line - mk_line) <= line_tolerance:
                             winning_line = min(line, mk_line)
                             orig = dict(meta.get("original_locations", {}))
                             orig[tool_name] = line
-                            loc = merged[i]["locations"][0]["physicalLocation"]["region"]
-                            loc["startLine"] = winning_line
-                            old_level = merged[i]["level"]
+                            merged[i]["locations"][0]["physicalLocation"]["region"][
+                                "startLine"
+                            ] = winning_line
+                            old_level = merged[i].get("level", "none")
                             new_level = result.get("level", "none")
                             merged[i]["level"] = _higher_level(old_level, new_level)
                             props = dict(merged[i].get("properties", {}))
@@ -145,6 +153,7 @@ def aggregate(
                         entry = dict(result)
                         entry_props = dict(entry.get("properties", {}))
                         entry_props["sources"] = [tool_name]
+                        entry_props["original_locations"] = {tool_name: line}
                         entry["properties"] = entry_props
                         merged.append(entry)
                         merge_meta.append({
@@ -152,7 +161,6 @@ def aggregate(
                             "original_locations": {tool_name: line},
                         })
                 else:
-                    # no CWE — never merge, just append
                     entry = dict(result)
                     entry_props = dict(entry.get("properties", {}))
                     entry_props["sources"] = [tool_name]
@@ -160,12 +168,11 @@ def aggregate(
                     merged.append(entry)
                     merge_meta.append({"key": None, "original_locations": {}})
 
-    # apply sdlc_severity to all results
     merged = [_apply_sdlc_severity(r) for r in merged]
 
     supported_taxonomies = [_CWE_TAXONOMY_REF] if has_cwe else []
 
-    sarif_run: dict[str, Any] = {
+    sarif_run_out: dict[str, Any] = {
         "tool": {
             "driver": {
                 "name": "code-review-aggregator",
@@ -179,7 +186,7 @@ def aggregate(
     doc: dict[str, Any] = {
         "version": "2.1.0",
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-        "runs": [sarif_run],
+        "runs": [sarif_run_out],
     }
     if analyzer_errors:
         doc["properties"] = {"analyzer_errors": analyzer_errors}

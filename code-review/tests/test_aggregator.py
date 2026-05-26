@@ -101,7 +101,10 @@ def test_near_line_same_cwe_merges() -> None:
     assert len(results) == 1
     props = results[0].get("properties", {})
     assert results[0]["locations"][0]["physicalLocation"]["region"]["startLine"] == 47
-    assert set(props.get("original_locations", {}).keys()) == {"semgrep", "bandit"}
+    orig = props.get("original_locations", {})
+    assert set(orig.keys()) == {"semgrep", "bandit"}
+    assert orig["semgrep"] == 47
+    assert orig["bandit"] == 49
 
 
 def test_different_cwe_same_line_does_not_merge() -> None:
@@ -226,3 +229,54 @@ def test_error_status_passthrough() -> None:
     errors = consolidated.get("properties", {}).get("analyzer_errors", [])
     assert len(errors) == 1
     assert errors[0]["error"] == "tool crashed"
+
+
+def test_missing_level_does_not_raise() -> None:
+    """A result with no 'level' key is handled without KeyError."""
+    r = _result("src/a.py", 1, cwe="CWE-89")
+    del r["level"]
+    r2 = _result("src/a.py", 2, cwe="CWE-89", level="warning")
+    # near-line merge exercises the merged[i]["level"] path
+    aggregate([_output([r], "tool_a"), _output([r2], "tool_b")])  # must not raise
+
+
+def test_aggregate_does_not_mutate_inputs() -> None:
+    """aggregate() must not corrupt original AnalyzerOutput.sarif data."""
+    r1 = _result("src/auth.py", 47, cwe="CWE-89")
+    r2 = _result("src/auth.py", 45, cwe="CWE-89")  # lower line; near-line merge fires
+    outputs = [_output([r1], "semgrep"), _output([r2], "bandit")]
+
+    aggregate(outputs)
+
+    # r1's original line must be unchanged after aggregation
+    original_line = (
+        outputs[0].sarif["runs"][0]["results"][0]
+        ["locations"][0]["physicalLocation"]["region"]["startLine"]
+    )
+    assert original_line == 47, (
+        f"aggregate() mutated input sarif: startLine changed from 47 to {original_line}"
+    )
+
+
+def test_ruleid_cwe_moved_to_taxa() -> None:
+    """A finding whose ruleId is a CWE id has that CWE appear in taxa."""
+    r: dict[str, Any] = {
+        "ruleId": "CWE-89",
+        "level": "warning",
+        "locations": [
+            {
+                "physicalLocation": {
+                    "artifactLocation": {"uri": "src/auth.py"},
+                    "region": {"startLine": 10},
+                }
+            }
+        ],
+        "properties": {},
+    }
+    consolidated = aggregate([_output([r], "semgrep")])
+    results = consolidated["runs"][0]["results"]
+    assert results
+    taxa = results[0].get("taxa", [])
+    assert any(t.get("id", "").startswith("CWE") for t in taxa), (
+        f"Expected CWE in taxa after ruleId normalisation: {taxa}"
+    )
