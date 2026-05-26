@@ -139,7 +139,36 @@ def test_story_level_scope_includes_all_files() -> None:
     hotspots = compute_hotspots(consolidated, metrics, diff_files=None)
 
     files = {h["file"] for h in hotspots}
-    assert {"src/auth.py", "src/utils.py"}.issubset(files)
+    assert files == {"src/auth.py", "src/utils.py"}
+
+
+def test_empty_diff_files_is_story_level_scope() -> None:
+    """diff_files=set() (empty set) must behave identically to diff_files=None (story-level)."""
+    consolidated = _sarif_with_results([
+        _finding("src/auth.py", "critical"),
+        _finding("src/utils.py", "important"),
+    ])
+    metrics = _metric_set()
+
+    hotspots_none = compute_hotspots(consolidated, metrics, diff_files=None)
+    hotspots_empty = compute_hotspots(consolidated, metrics, diff_files=set())
+
+    assert hotspots_empty == hotspots_none, (
+        f"empty-set scope should equal story-level (None): {hotspots_empty!r}"
+    )
+
+
+def test_story_level_scope_includes_metric_only_files() -> None:
+    """Files that appear only in MetricSet (no SARIF findings) are included in story-level."""
+    consolidated = _sarif_with_results([])
+    metrics = _metric_set(per_file={"src/complex.py": {"cyclomatic_complexity": 10}})
+
+    hotspots = compute_hotspots(consolidated, metrics, diff_files=None)
+
+    files = {h["file"] for h in hotspots}
+    assert "src/complex.py" in files, (
+        f"MetricSet-only file should appear in story-level hotspots: {hotspots}"
+    )
 
 
 # ---------------------------------------------------------------------------

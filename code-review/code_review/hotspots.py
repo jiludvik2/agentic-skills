@@ -71,14 +71,14 @@ def compute_hotspots(
             uri = _get_file_uri(result)
             if uri is None:
                 continue
-            if diff_files is not None and uri not in diff_files:
+            if diff_files and uri not in diff_files:
                 continue
             sdlc_sev = result.get("properties", {}).get("sdlc_severity", "minor")
             severity_sums[uri] = severity_sums.get(uri, 0.0) + sev.get(sdlc_sev, 0.0)
 
     # collect all candidate files
     candidate_files: set[str] = set(severity_sums.keys())
-    if diff_files is not None:
+    if diff_files:
         candidate_files = candidate_files & diff_files
     elif metrics is not None:
         candidate_files |= set(metrics.per_file.keys())
