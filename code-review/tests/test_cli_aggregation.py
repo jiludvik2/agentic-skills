@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 import code_review.adapters as adapters_mod
 from code_review.cli import app
+from code_review.config import ConfigError
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 
 _SCHEMA_PATH = (
@@ -243,8 +244,6 @@ def test_missing_schema_file_skipped_silently(
 
 
 def test_config_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
-    from code_review.config import ConfigError
-
     def _raise(_skill_dir: Any) -> NoReturn:
         raise ConfigError("injected: bad toml")
 
