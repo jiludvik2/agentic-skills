@@ -56,6 +56,11 @@ class RadonAdapter:
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
 
     async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+        if not request.target_paths:
+            return AnalyzerOutput(
+                sarif=dict(_SARIF_EMPTY_RUNS),
+                metrics=MetricSet(per_file={}, per_class={}, coupling={}),
+            )
         files = _collect_python_files(request.target_paths)
         per_file: dict[str, dict[str, Any]] = {}
         for f in files:

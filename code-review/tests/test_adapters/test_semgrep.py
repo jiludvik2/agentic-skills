@@ -91,3 +91,29 @@ async def test_base_subprocess_timeout(monkeypatch: pytest.MonkeyPatch):
     result = await run_subprocess("semgrep", "--version", timeout_s=0.05)
 
     assert result.timed_out is True
+
+
+async def test_semgrep_empty_target_paths_returns_empty_sarif(monkeypatch: pytest.MonkeyPatch) -> None:
+    from code_review.adapters.semgrep import SemgrepAdapter
+    from code_review.contracts import ReviewRequest
+
+    called: list[tuple[object, ...]] = []
+
+    async def _mock_run(*args: object, **kwargs: object) -> object:
+        called.append(args)
+        return None
+
+    monkeypatch.setattr("code_review.adapters.semgrep.run_subprocess", _mock_run)
+
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(),
+        languages=frozenset(),
+        config={},
+    )
+    output = await SemgrepAdapter().run(request)
+
+    assert output.status == "ok"
+    assert output.sarif.get("runs", []) == []
+    assert called == [], "run_subprocess must not be called for empty target_paths"

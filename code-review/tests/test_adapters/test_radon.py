@@ -51,6 +51,25 @@ async def test_radon_high_cc_function_detected():
     assert max_cc >= 10, f"Expected CC ≥ 10, got {max_cc}"
 
 
+async def test_radon_empty_target_paths_returns_empty_metricset() -> None:
+    from code_review.adapters.radon import RadonAdapter
+    from code_review.contracts import ReviewRequest
+
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(),
+        languages=frozenset(),
+        config={},
+    )
+    output = await RadonAdapter().run(request)
+
+    assert output.status == "ok"
+    assert output.metrics is not None
+    assert output.metrics.per_file == {}
+    assert output.metrics.per_class == {}
+
+
 async def test_radon_sarif_is_valid():
     from code_review.adapters.radon import RadonAdapter
 
