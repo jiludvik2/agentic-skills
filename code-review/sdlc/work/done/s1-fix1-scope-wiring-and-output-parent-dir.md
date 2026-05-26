@@ -2,7 +2,7 @@
 id: s1-fix1-scope-wiring-and-output-parent-dir
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-reviewer-skill-and-capabilities
 sources: [s1-story-level-review]
 created: 2026-05-26

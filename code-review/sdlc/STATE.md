@@ -1,11 +1,12 @@
 # State — last updated 2026-05-26
 
-**Active focus:** s0 complete and closed — all 11 artefacts (t0–t7, fix1, fix2, story) in done/. s1 (reviewer skill packaging) is next but has no task plan yet; waiting for operator approval of proposed plan.
+**Active focus:** s1 (reviewer skill packaging) complete and closed — all tasks (t0, t0-fix1, t1, t2, t3, t3-fix1, t4) + story-level fix (s1-fix1) in done/. Story-level review remediated (2 Important: --review-scope wiring, --output parent dir), reviewer CLEAN. 74/74 non-integration GREEN; ruff + mypy strict clean.
 
-**Last completed:** `s0-analyzer-facade-and-two-adapters` — 39/39 non-integration tests GREEN, mypy strict clean. Story-level review found 1 Important (empty-target-paths guard), remediated via fix1 + fix2 (2 rounds). fix2 reviewer MINOR-ONLY, story closed cleanly.
+**Last completed:** `s1-reviewer-skill-and-capabilities` — skill scaffold + SKILL.md + contract schemas, capabilities.json, --capabilities runtime introspection, setup.sh installer, scope-aware bundled reviewer.md. `--review-scope` now flows into the request; `--output` creates its parent dir.
 
-**Next:** Propose and get operator approval for s1 task plan, then execute.
+**Next:** `s2-aggregator-and-severity-mapping` — UNPLANNED. Proposed task plan awaiting operator approval (see chat). Plan approval stays human (SDLC rule #22).
 
 ## Open questions
-- s1 plan needs operator approval before execution begins (SDLC rule #22: unplanned next story → pause).
-- Story-level review Minors not pursued (noted in done artefacts): _SARIF_EMPTY_RUNS misleading name, $schema URL duplicated × 3, duration_s always 0.0 across all adapters, REGISTRY typed as dict[str, type[Any]] instead of dict[str, type[Analyzer]], logging module never created.
+- s2 plan needs operator approval before execution (unplanned next story → pause).
+- Ruff is now part of the per-task green-bar (was missed in s0/s1 → 40 violations cleared mid-s1; see memory feedback-run-ruff-in-green-bar). Verifier/reviewer sub-agents still don't run ruff — keep running it locally.
+- Known deferred debt (noted in done artefacts): --capabilities output lacks a schema + `analyzers` key shape differs from review-response; `_SKILL_DIR` sibling-path assumption breaks for a wheel install; semgrep integration test needs the binary on PATH (sandbox-gated).
