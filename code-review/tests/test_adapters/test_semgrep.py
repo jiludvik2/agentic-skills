@@ -2,7 +2,7 @@ import asyncio
 import json
 import shutil
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import jsonschema
 import pytest
@@ -93,7 +93,9 @@ async def test_base_subprocess_timeout(monkeypatch: pytest.MonkeyPatch):
     assert result.timed_out is True
 
 
-async def test_semgrep_empty_target_paths_returns_empty_sarif(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_semgrep_empty_target_paths_returns_empty_sarif(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from code_review.adapters.semgrep import SemgrepAdapter
     from code_review.contracts import ReviewRequest
 

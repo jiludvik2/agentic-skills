@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -24,17 +24,17 @@ class MetricSet:
 @dataclass(frozen=True)
 class AnalyzerOutput:
     sarif: dict[str, Any]
-    metrics: Optional[MetricSet] = None
+    metrics: MetricSet | None = None
     duration_s: float = 0.0
     status: str = "ok"
-    error: Optional[str] = None
-    raw_output_path: Optional[str] = None
+    error: str | None = None
+    raw_output_path: str | None = None
 
 
 @dataclass(frozen=True)
 class ReviewRequest:
     scope: str
-    diff_range: Optional[str]
+    diff_range: str | None
     target_paths: tuple[str, ...]
     languages: frozenset[str]
     config: dict[str, Any]

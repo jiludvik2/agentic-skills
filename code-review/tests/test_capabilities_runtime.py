@@ -23,7 +23,9 @@ def test_capabilities_static_section_matches_file() -> None:
     assert data["static"] == expected
 
 
-def test_capabilities_runtime_marks_missing_binary_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_capabilities_runtime_marks_missing_binary_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("shutil.which", lambda name: None)
     runner = CliRunner()
     result = runner.invoke(app, ["--capabilities"])
@@ -35,7 +37,9 @@ def test_capabilities_runtime_marks_missing_binary_unavailable(monkeypatch: pyte
     assert data["analyzers"]["radon"]["status"] == "available"
 
 
-def test_capabilities_runtime_marks_present_binary_available(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_capabilities_runtime_marks_present_binary_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("shutil.which", lambda name: f"/usr/local/bin/{name}")
     runner = CliRunner()
     result = runner.invoke(app, ["--capabilities"])
@@ -69,7 +73,9 @@ def test_review_scope_flag_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
     runner = CliRunner()
     for scope in ("lite", "standard", "full"):
-        result = runner.invoke(app, ["--analyzer", "fake", "--target", ".", "--review-scope", scope])
+        result = runner.invoke(
+            app, ["--analyzer", "fake", "--target", ".", "--review-scope", scope]
+        )
         assert result.exit_code == 0, f"{scope}: {result.output}"
     bad = runner.invoke(app, ["--analyzer", "fake", "--target", ".", "--review-scope", "bogus"])
     assert bad.exit_code != 0

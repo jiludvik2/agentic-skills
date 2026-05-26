@@ -5,9 +5,9 @@ import dataclasses
 import json
 import os
 import shutil
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import typer
 
@@ -16,10 +16,11 @@ from code_review.diff import resolve_diff_paths
 
 app = typer.Typer(add_completion=False)
 
-_CAPABILITIES_PATH = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review" / "capabilities.json"
+_SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"
+_CAPABILITIES_PATH = _SKILL_DIR / "capabilities.json"
 
 
-class ReviewScope(str, Enum):
+class ReviewScope(StrEnum):
     lite = "lite"
     standard = "standard"
     full = "full"
@@ -110,12 +111,20 @@ async def _run_analyzers(
 
 @app.command()
 def main(
-    analyzer: list[str] = typer.Option([], "--analyzer", help="Analyzer to run (repeat for multiple)"),
-    target: Optional[str] = typer.Option(None, "--target", help="Target path to analyse"),
-    diff: Optional[str] = typer.Option(None, "--diff", help="Git diff range to scope analysis"),
-    output: Optional[str] = typer.Option(None, "--output", help="Output file path (must be within CWD)"),
-    review_scope: Optional[ReviewScope] = typer.Option(None, "--review-scope", help="Review depth: lite, standard, or full"),
-    capabilities: bool = typer.Option(False, "--capabilities", help="Print static + runtime capabilities as JSON and exit"),
+    analyzer: list[str] = typer.Option(
+        [], "--analyzer", help="Analyzer to run (repeat for multiple)"
+    ),
+    target: str | None = typer.Option(None, "--target", help="Target path to analyse"),
+    diff: str | None = typer.Option(None, "--diff", help="Git diff range to scope analysis"),
+    output: str | None = typer.Option(
+        None, "--output", help="Output file path (must be within CWD)"
+    ),
+    review_scope: ReviewScope | None = typer.Option(
+        None, "--review-scope", help="Review depth: lite, standard, or full"
+    ),
+    capabilities: bool = typer.Option(
+        False, "--capabilities", help="Print static + runtime capabilities as JSON and exit"
+    ),
 ) -> None:
     if capabilities:
         typer.echo(json.dumps(_build_capabilities()))
@@ -151,7 +160,10 @@ def main(
             for run in (v.get("sarif") or {}).get("runs", [])
         )
         total_s = sum(v.get("duration_s", 0.0) for v in analyzers_dict.values())
-        typer.echo(f"analyzers: {len(analyzers_dict)} | findings: {n_findings} | duration: {total_s:.2f}s")
+        typer.echo(
+            f"analyzers: {len(analyzers_dict)} | findings: {n_findings} "
+            f"| duration: {total_s:.2f}s"
+        )
     else:
         typer.echo(json_content)
 

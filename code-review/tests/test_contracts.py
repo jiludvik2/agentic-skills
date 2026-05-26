@@ -5,9 +5,9 @@ import pytest
 
 
 def test_protocol_members_present():
-    from code_review.contracts import Analyzer
-
     import typing
+
+    from code_review.contracts import Analyzer
 
     hints = typing.get_type_hints(Analyzer)
     assert "name" in hints

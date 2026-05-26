@@ -148,7 +148,9 @@ def test_adapter_error_does_not_crash_cli(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setitem(adapters_mod.REGISTRY, "err_adapter", ErrAdapter)
 
     runner = CliRunner()
-    result = runner.invoke(app, ["--analyzer", "ok_adapter", "--analyzer", "err_adapter", "--target", "."])
+    result = runner.invoke(
+        app, ["--analyzer", "ok_adapter", "--analyzer", "err_adapter", "--target", "."]
+    )
 
     assert result.exit_code != 0
     # JSON parse succeeds iff no Python traceback polluted stdout
@@ -166,7 +168,9 @@ def test_atomic_write_tmp_then_rename(monkeypatch: pytest.MonkeyPatch, tmp_path:
 
     output_path = tmp_path / "result.json"
     runner = CliRunner()
-    result = runner.invoke(app, ["--analyzer", "fake", "--output", str(output_path), "--target", "."])
+    result = runner.invoke(
+        app, ["--analyzer", "fake", "--output", str(output_path), "--target", "."]
+    )
 
     assert result.exit_code == 0, result.output
     assert output_path.exists()
@@ -176,13 +180,17 @@ def test_atomic_write_tmp_then_rename(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert "analyzers" in data
 
 
-def test_stdout_summary_only_when_output_flag(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_stdout_summary_only_when_output_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
     monkeypatch.chdir(tmp_path)
 
     output_path = tmp_path / "result.json"
     runner = CliRunner()
-    result = runner.invoke(app, ["--analyzer", "fake", "--output", str(output_path), "--target", "."])
+    result = runner.invoke(
+        app, ["--analyzer", "fake", "--output", str(output_path), "--target", "."]
+    )
 
     assert result.exit_code == 0, result.output
     summary = result.output.strip()
@@ -203,7 +211,9 @@ def test_output_outside_cwd_rejected_all_cases(bad_path: str) -> None:
     assert not Path(bad_path).exists()
 
 
-def test_cwd_guard_accepts_symlink_inside_cwd(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_cwd_guard_accepts_symlink_inside_cwd(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     link = tmp_path / "link"
@@ -213,6 +223,8 @@ def test_cwd_guard_accepts_symlink_inside_cwd(monkeypatch: pytest.MonkeyPatch, t
     monkeypatch.chdir(tmp_path)
 
     runner = CliRunner()
-    result = runner.invoke(app, ["--analyzer", "fake", "--output", str(link / "result.json"), "--target", "."])
+    result = runner.invoke(
+        app, ["--analyzer", "fake", "--output", str(link / "result.json"), "--target", "."]
+    )
 
     assert "sandbox" not in result.output.lower()

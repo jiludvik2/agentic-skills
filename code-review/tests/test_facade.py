@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 import code_review.adapters as adapters_mod
 from code_review.cli import app
-from tests.conftest import FakeAnalyzer, FakeAnalyzer2
+from tests.conftest import FakeAnalyzer
 
 
 def test_fake_adapter_no_subprocess(monkeypatch: pytest.MonkeyPatch):

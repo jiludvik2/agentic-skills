@@ -2,7 +2,6 @@ import json
 from pathlib import Path
 
 import jsonschema
-import pytest
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
 SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "sarif-2.1.0.json"

@@ -52,7 +52,9 @@ def _section_body(text: str, header: str) -> str:
 def test_skill_md_has_required_sections() -> None:
     text = _skill_text()
     for header in ("Review scopes", "Install", "Configure", "Sandbox configuration"):
-        assert re.search(rf"^#+\s*{re.escape(header)}", text, re.MULTILINE), f"missing section: {header}"
+        assert re.search(rf"^#+\s*{re.escape(header)}", text, re.MULTILINE), (
+            f"missing section: {header}"
+        )
     # Review scopes section names all three values — anchored to the actual section body
     scopes_section = _section_body(text, "Review scopes")
     for scope in ("lite", "standard", "full"):

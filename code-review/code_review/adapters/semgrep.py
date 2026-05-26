@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
 from typing import Any, ClassVar
@@ -67,9 +68,7 @@ class SemgrepAdapter:
             return AnalyzerOutput(sarif={}, status="error", error=f"invalid JSON: {exc}")
 
         sarif = _normalise(sarif)
-        try:
+        with contextlib.suppress(jsonschema.ValidationError):
             jsonschema.validate(sarif, _schema())
-        except jsonschema.ValidationError:
-            pass
 
         return AnalyzerOutput(sarif=sarif)

@@ -32,9 +32,15 @@ markers = ["integration: requires external tools on PATH"]
 [tool.ruff]
 target-version = "py311"
 line-length = 100
+# Fixtures hold deliberately bad code for analyzers to flag — do not lint them.
+extend-exclude = ["tests/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# typer.Option(...) in argument defaults is the framework idiom, not a B008 bug.
+"code_review/cli.py" = ["B008"]
 
 [tool.mypy]
 python_version = "3.11"

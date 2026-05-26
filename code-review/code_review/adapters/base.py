@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from dataclasses import dataclass
 
 
@@ -31,11 +32,9 @@ async def run_subprocess(
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_s)
         rc = proc.returncode if proc.returncode is not None else -1
         return SubprocessResult(stdout=stdout, stderr=stderr, returncode=rc)
-    except asyncio.TimeoutError:
-        try:
+    except TimeoutError:
+        with contextlib.suppress(ProcessLookupError, OSError):
             proc.kill()
-        except (ProcessLookupError, OSError):
-            pass
         return SubprocessResult(stdout=b"", stderr=b"", returncode=-1, timed_out=True)
     except Exception as exc:
         return SubprocessResult(stdout=b"", stderr=b"", returncode=-1, error=str(exc))

@@ -43,7 +43,8 @@ def test_analyzers_match_s0_registry() -> None:
     assert {"semgrep", "radon"} <= ana_ids
     for a in caps["analyzers"]:
         assert a["id"] in REGISTRY, f"analyzer '{a['id']}' not in REGISTRY"
-        for field in ("kind", "languages", "rule_classes", "taxonomies_tagged", "default_timeout_s"):
+        required = ("kind", "languages", "rule_classes", "taxonomies_tagged", "default_timeout_s")
+        for field in required:
             assert field in a, f"analyzer '{a['id']}' missing field '{field}'"
 
 
@@ -59,7 +60,9 @@ def test_stack_coverage_frameworks_have_fixtures() -> None:
     fixture_dirs = [p.name for p in FIXTURES.iterdir() if p.is_dir()]
     for lang, info in caps["stack_coverage"].items():
         if info.get("status") == "verified":
-            assert any(lang in d for d in fixture_dirs), f"verified language '{lang}' lacks a fixture"
+            assert any(lang in d for d in fixture_dirs), (
+                f"verified language '{lang}' lacks a fixture"
+            )
         for fw in info.get("frameworks", []):
             if fw.get("status") == "verified":
                 assert any(fw["name"] in d for d in fixture_dirs), (
