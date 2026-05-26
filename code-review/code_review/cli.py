@@ -84,6 +84,7 @@ async def _safe_run(adapter: Any, request: ReviewRequest) -> AnalyzerOutput:
 
 
 def _merge_metrics(outputs: list[AnalyzerOutput]) -> MetricSet | None:
+    # Last-write-wins per file key; analyzers are expected to report disjoint files.
     merged: MetricSet | None = None
     for out in outputs:
         if out.metrics is None:
@@ -221,8 +222,7 @@ def main(
         os.rename(tmp_file, output_path)
         n_findings = sum(
             len(run.get("results", []))
-            for v in analyzers_dict.values()
-            for run in (v.get("sarif") or {}).get("runs", [])
+            for run in result.get("sarif", {}).get("runs", [])
         )
         total_s = sum(v.get("duration_s", 0.0) for v in analyzers_dict.values())
         typer.echo(

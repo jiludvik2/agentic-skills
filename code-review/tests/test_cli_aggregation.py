@@ -219,6 +219,7 @@ def test_schema_validation_failure_is_non_fatal(monkeypatch: pytest.MonkeyPatch)
     result = runner.invoke(app, ["--analyzer", "fake_a", "--target", "."])
 
     assert result.exit_code == 0, f"Schema validation failure must not crash CLI: {result.output}"
+    # CliRunner mixes stderr into result.output by default; result.stderr is None in that mode.
     assert "schema" in result.output.lower() or "schema" in (result.stderr or "").lower(), (
         "Expected schema warning in output"
     )

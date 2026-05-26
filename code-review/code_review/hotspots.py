@@ -57,8 +57,8 @@ def compute_hotspots(
 ) -> list[dict[str, Any]]:
     """Compute ranked per-file hotspot scores from consolidated SARIF + MetricSet.
 
-    diff_files=None → story-level scope (all files).
-    diff_files=set  → per-task scope (restrict to files in the set).
+    diff_files=None or set() → story-level scope (all files).
+    diff_files=<non-empty set> → per-task scope (restrict to files in the set).
     Weights fall back to capabilities.json defaults when not provided.
     """
     default_weights, default_sev_scores = _load_defaults()
