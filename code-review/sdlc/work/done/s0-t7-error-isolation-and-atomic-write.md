@@ -2,10 +2,15 @@
 id: s0-t7-error-isolation-and-atomic-write
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-analyzer-facade-and-two-adapters
 created: 2026-05-26
 updated: 2026-05-26
+notes: |
+  Review MINOR findings (not filed as fix tasks):
+  - _safe_run exception branch (adapter raises) not directly tested; only return-error path covered.
+  - test_cwd_guard_accepts_symlink_inside_cwd lacks exit_code assertion; "sandbox" absence check only.
+  - test_output_tmp_rejected/home/etc overlap with new parametrized test_output_outside_cwd_rejected_all_cases.
 ---
 
 # s0-t7 — Error isolation, atomic write, and CWD output guard
