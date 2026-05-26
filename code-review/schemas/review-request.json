@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-review.skill/schemas/review-request.json",
+  "title": "code-review CLI request",
+  "description": "The input contract for `python -m code_review.cli` — the arguments the sub-agent supplies.",
+  "type": "object",
+  "required": ["analyzers"],
+  "additionalProperties": false,
+  "properties": {
+    "analyzers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string"},
+      "description": "Analyzer ids to run (each maps to --analyzer)."
+    },
+    "target": {
+      "type": ["string", "null"],
+      "description": "Target path to analyse (--target). Must be inside CWD."
+    },
+    "diff": {
+      "type": ["string", "null"],
+      "description": "Git diff range to scope analysis (--diff), e.g. HEAD~1..HEAD."
+    },
+    "output": {
+      "type": ["string", "null"],
+      "description": "Output file path (--output). Must be inside CWD for sandbox compatibility."
+    },
+    "review_scope": {
+      "enum": ["lite", "standard", "full", null],
+      "description": "Review scope (--review-scope). Defaults to lite when unset."
+    }
+  }
+}
