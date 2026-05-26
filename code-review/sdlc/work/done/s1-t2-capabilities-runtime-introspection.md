@@ -2,10 +2,22 @@
 id: s1-t2-capabilities-runtime-introspection
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-reviewer-skill-and-capabilities
 created: 2026-05-26
 updated: 2026-05-26
+notes: |
+  Review MINOR findings:
+  - _build_capabilities reads capabilities.json without a guard; a missing file yields a raw
+    FileNotFoundError traceback, contradicting the s0-t7 no-traceback discipline. Worth an
+    opportunistic try/except → clean typer.Exit(1) next time cli.py is touched. (file is
+    committed + always present, so low live risk.)
+  - Runtime section keyed `analyzers` collides by name with static.analyzers (list). REJECTED
+    the rename: task AC pins `analyzers.<name>.status` as the access pattern; nesting
+    disambiguates. Rationale recorded so it isn't re-flagged.
+  Nits (dropped): library "available if importable" is unconditional (radon import happens at
+  module load, so moot); _CAPABILITIES_PATH parent-hop is fragile for a wheel install (no wheel
+  target today).
 ---
 
 # s1-t2 — --capabilities runtime introspection + analyzer-registry round-trip
