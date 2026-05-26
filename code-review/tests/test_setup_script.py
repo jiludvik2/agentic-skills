@@ -40,6 +40,23 @@ def test_prefetch_caches_idempotent(tmp_path: Path) -> None:
     assert manifest.stat().st_mtime_ns == mtime1, "manifest rewritten on idempotent re-run"
 
 
+def test_prefetch_recovers_from_corrupt_manifest(tmp_path: Path) -> None:
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    (cache / "manifest.json").write_text("{ this is not valid json", encoding="utf-8")
+    r = subprocess.run([sys.executable, str(PREFETCH)], capture_output=True, text=True, cwd=tmp_path)
+    assert r.returncode == 0, r.stderr
+    import json as _json
+
+    _json.loads((cache / "manifest.json").read_text(encoding="utf-8"))  # now valid
+
+
+def test_setup_script_has_no_host_root_traversal() -> None:
+    text = SETUP.read_text(encoding="utf-8")
+    assert "../../.." not in text, "fragile host-root traversal must not be present (deferred to s1-t4)"
+    assert "2>/dev/null" not in text, "error-swallowing resolution must not be present"
+
+
 def test_setup_script_fails_loud_on_bad_step(tmp_path: Path) -> None:
     # Inject a failing command in place of the first real step; the script must abort
     # non-zero and name the step in the error.

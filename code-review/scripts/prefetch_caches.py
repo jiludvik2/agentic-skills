@@ -5,12 +5,15 @@ Stub for s1: the artifact map is empty. Real fetches (Trivy DB, Semgrep rule pac
 land with the analyzers that need them in s3. The contract this establishes now:
 
 - caches live under ``cache/`` in the current working directory;
-- a content-addressed ``cache/manifest.json`` records what has been fetched;
+- ``cache/manifest.json`` records the artifact set (id -> expected content hash) that
+  has been fetched — manifest-addressed, not a verification of on-disk bytes;
 - the script is idempotent — when the on-disk manifest already matches the desired
   artifact set, nothing is re-downloaded and the manifest is not rewritten.
 
-This lets s3 add an entry to ``_ARTIFACTS`` (id -> content hash) and get idempotent
-download-on-change behaviour for free.
+This lets s3 add an entry to ``_ARTIFACTS`` (id -> expected hash) and get idempotent
+download-on-change behaviour. s3 must verify the on-disk artifact bytes against the
+expected hash before skipping a fetch; manifest equality alone does not detect a
+truncated or corrupted cached file.
 """
 from __future__ import annotations
 
@@ -29,7 +32,11 @@ def main() -> int:
 
     existing: dict[str, str] | None = None
     if manifest_path.exists():
-        existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        try:
+            existing = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            # Corrupt/partial manifest — treat as absent and rewrite cleanly (self-heal).
+            existing = None
 
     if existing == _ARTIFACTS:
         print("prefetch: cache up to date; nothing to fetch")

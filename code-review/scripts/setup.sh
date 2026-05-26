@@ -36,17 +36,8 @@ fi
 step "Prefetch offline caches"
 ( cd "${SKILL_ROOT}" && python "${SCRIPT_DIR}/prefetch_caches.py" ) || fail "prefetch_caches.py"
 
-# 4. Install the Reviewer sub-agent into the host project — guarded; the skill's
-#    scope-aware reviewer.md is provided in s1-t4. Host root is three levels up
-#    from the skill dir (.claude/skills/code-review -> host root).
-SKILL_AGENT="${SKILL_ROOT}/agents/reviewer.md"
-HOST_AGENTS_DIR="$(cd "${SKILL_ROOT}/../../.." 2>/dev/null && pwd)/.claude/agents"
-if [[ -f "${SKILL_AGENT}" ]]; then
-  step "Install Reviewer sub-agent"
-  mkdir -p "${HOST_AGENTS_DIR}" || fail "create ${HOST_AGENTS_DIR}"
-  cp "${SKILL_AGENT}" "${HOST_AGENTS_DIR}/reviewer.md" || fail "copy reviewer.md"
-else
-  step "Install Reviewer sub-agent (skipped — skill reviewer.md not present yet)"
-fi
+# 4. Install the Reviewer sub-agent into the host project — added in s1-t4, which owns
+#    the scope-aware reviewer.md source and a verified walk-up-to-.claude host-root
+#    resolution (fail-loud, no fragile fixed-depth traversal).
 
 step "Done. The code-review skill is installed and ready."
