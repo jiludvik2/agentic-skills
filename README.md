@@ -8,9 +8,9 @@ A growing collection of skills, frameworks, and reference architectures for agen
 |---|---|---|
 | [`skill-tool-hook-decision`](./skill-tool-hook-decision/) | Decides whether a business requirement should be implemented as a prompt-driven skill, code-driven skill, tool, or hook. Walks a documented decision tree and returns a structured verdict. | v2.1 |
 | [`reqs-quality-review`](./reqs-quality-review/) | Reviews whether a user story or epic is ready to support implementation. Grades verifiable criteria (INVEST, Gherkin acceptance criteria, splitting patterns) and surfaces team-context questions separately. | new |
-| [`sdlc`](./sdlc/SDLC.md) | AI-native, spec-anchored SDLC for solo operators working with AI agents. Filesystem-as-source-of-truth + verb cycle (capture → compile → plan → execute → verify → review → file → document), no external tracker. | v6.1 |
+| [`sdlc`](./sdlc/) | AI-native, spec-anchored SDLC for solo operators working with AI agents. Filesystem-as-source-of-truth + verb cycle (capture → compile → plan → execute → verify → review → file → document), no external tracker. Self-bootstrapping: scaffolds itself into a project on first use. | v6.4 |
 
-More skills will be added here over time. Packaged skills live in their own top-level folder containing a `SKILL.md`, references, evals, and a `.skill` file ready to install. Framework skills (like `sdlc`) are markdown-only — adopted by copying the framework doc into a target repo and pointing `CLAUDE.md` at it.
+More skills will be added here over time. Packaged skills live in their own top-level folder containing a `SKILL.md`, references, evals, and a `.skill` file ready to install. The `sdlc` skill is self-bootstrapping: install it like any skill, and its first invocation in a project scaffolds the framework into that project (see [`sdlc/README.md`](./sdlc/README.md)).
 
 ## Installing a skill
 
@@ -26,7 +26,7 @@ Or extract it first to inspect:
 unzip <skill-name>/<skill-name>.skill -d ~/.claude/skills/
 ```
 
-For framework skills (like `sdlc`), copy the framework doc into the target repo and point `CLAUDE.md` at it.
+The `sdlc` skill installs the same way, then bootstraps itself: on first invocation in a project it scaffolds the `/sdlc/` tree, copies its canonical process doc and sub-agents in, and points `CLAUDE.md` at them. See [`sdlc/README.md`](./sdlc/README.md).
 
 See each skill's own `README.md` (or framework doc) for full usage, trigger details, and methodology.
 
@@ -46,8 +46,13 @@ agentic-skills/
 ├── reqs-quality-review/                    (skill, markdown-only)
 │   ├── SKILL.md
 │   └── references/
-├── sdlc/                                    (framework skill)
-│   └── SDLC.md
+├── sdlc/                                   (self-bootstrapping skill)
+│   ├── SKILL.md
+│   ├── README.md
+│   └── references/
+│       ├── SDLC.md
+│       ├── verifier.md
+│       └── reviewer.md
 └── docs/                                    (cross-cutting reference material)
     └── *.md
 ```

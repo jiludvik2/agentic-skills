@@ -1,8 +1,8 @@
 ---
 title: Reimagined Software Delivery Lifecycle
 purpose: How Claude Code should approach all development work in this repo
-version: 6.1
-updated: 2026-05-24
+version: 6.4
+updated: 2026-05-25
 ---
 
 # SDLC
@@ -137,7 +137,7 @@ Act on a task. Tests first, then implementation. Claude writes the tests defined
 
 When the task is complete: update `status: done`, commit with a message referencing the task id (e.g. `task-12: extract simulation engine module`), move the file to `/sdlc/work/done/`. Closing a task means Verify and Review have both signed off — see those verbs below.
 
-**Auto-progress within a story.** Once a task closes cleanly — verifier signed off, reviewer signed off (CLEAN, MINOR-ONLY, or HAS-CRITICAL-OR-IMPORTANT with all such findings spawned as fix tasks), no unresolved gate escalations, commit landed — immediately begin the next `active` task under the same parent story without waiting for further operator approval. The operator approved the plan; executing the plan is what that approval covers. Review-spawned fix tasks slot into the front of the remaining task queue under their parent and are auto-progressed the same way, subject to rule #25's 2-round remediation bound. Stop the loop at the **story boundary**: when the last task of the story closes cleanly, run the story-level Review (Verify is implicit per-task and not re-run on the cumulative diff), remediate any Critical/Important findings via the same auto-progress chain, then pause and report; the operator decides whether to start the next story.
+**Auto-progress within a story.** Once a task closes cleanly — verifier signed off, reviewer signed off (CLEAN, MINOR-ONLY, or HAS-CRITICAL-OR-IMPORTANT with all such findings spawned as fix tasks), no unresolved gate escalations, commit landed — immediately begin the next `active` task under the same parent story without waiting for further operator approval. The operator approved the plan; executing the plan is what that approval covers. Review-spawned fix tasks slot into the front of the remaining task queue under their parent and are auto-progressed the same way, subject to rule #25's 2-round remediation bound. At the **story boundary** — when the last task of the story closes cleanly — run the story-level Review (Verify is implicit per-task and not re-run on the cumulative diff), remediate any Critical/Important findings via the same auto-progress chain, then **auto-progress into the next `active` story under the same epic without waiting for operator approval, provided that next story already has an operator-approved plan** (operator-approved story-boundary auto-cross). If the next story is unplanned, propose its plan and pause — plan approval stays human (see "What stays human"). Stop the loop at the **epic boundary**: when the last story of the epic closes cleanly, pause and report; the operator decides whether to start the next epic.
 
 The loop also halts immediately on any of: verifier failure, reviewer's 2-round bound exceeded, an Autonomy-gate escalation, a hard-stop trigger, three failed attempts on the same sub-problem, or any operator directive ("pause", "stop", "hold on", or any instruction to do something else). Operator interruption always wins over auto-progression — there is no "let me finish this task first."
 
@@ -253,6 +253,8 @@ Answer each in order. Stop and escalate the first time the answer is NO.
 **1. Reversible?**
 Can a wrong outcome be undone in under a minute, by you, with `git checkout`, `git reset`, deleting a local file, or uninstalling a package — and with no external side effects and no operator cleanup required? If the action writes outside the project tree, mutates an external system, commits a secret, force-pushes, deploys, sends a message, calls a paid API, or creates ongoing cost, the answer is NO.
 
+**Sandbox note.** If the project enables an OS sandbox for Bash (e.g. `.claude/settings.json` → `sandbox`), a command that runs to completion *inside* the sandbox is reversible by construction — its writes are confined to the project tree and it has no network egress beyond the allow-list — so it answers Reversible? YES automatically. A command that must escape the sandbox (write outside the tree, reach a non-allow-listed domain) fails inside it and re-enters this gate via the permission prompt; that prompt is the escalation. Some toolchains cannot run under the sandbox and must be excluded from it (record which, and why, in an ADR); excluded commands are *not* contained and are judged on their own merits, exactly as before the sandbox existed.
+
 **2. In-scope?**
 Does the action follow directly from one of:
 
@@ -291,6 +293,8 @@ The TDD/BDD inner loop. Gating these would defeat the point of the harness.
 - Refactoring within a module to clean up after green tests, with no change to public behavior
 - Choosing internal variable names, function decomposition, and file organization inside an existing package
 - Reading any file in the project tree, the user story log, or the decisions log
+- **(when an OS sandbox is enabled)** Any Bash command that runs to completion inside the sandbox — writes confined to the project tree, no egress beyond the allow-list. Containment is the reversibility guarantee (see Gate 1's Sandbox note). This subsumes the test/lint/format/typecheck/read commands above for the contained case. Commands **excluded** from the sandbox are not contained and remain subject to the gate.
+- Adding a **non-license-significant** dependency (permissive licence, not paid SaaS, not abandoned) that an accepted story's acceptance criteria imply, *provided* it is pinned in `stack-pins.md` in the same commit; and internal-only library/module choices that do not change the runtime, framework, datastore, or public API (also recorded in `stack-pins.md`). The pin record preserves the audit trail. The major-stack hard-stop (language/framework/runtime/datastore/package-manager/CI) and the license-significant-dependency hard-stop are unchanged.
 
 ### Escalation interface (minimal)
 
@@ -384,46 +388,29 @@ When in doubt, prefer the SDLC artefact over the memory entry. Memory is a conve
 17. **Run the `document` verb at epic close.** An epic in `/sdlc/work/done/` without a current `README.md` reflecting what shipped is incomplete and must be reopened.
 18. **Verify publication state at epic close.** If a publication-target ADR exists (`adr-0001-publication.md` or equivalent) with anything other than "nowhere" as the target, `git remote -v` must be non-empty and `git log @{u}..HEAD` must be empty before the epic moves to `done/`. If not, pause and report.
 19. **Audit dormant skills periodically.** If 10+ messages have passed in a session without a loaded skill being invoked, suggest the operator disable it via `/plugin`. Skills foundational to this repo's workflow are exempt — at minimum the project's `sdlc` skill itself; the operator declares any others.
-20. **Commit at task boundaries.** Each task close ends in a commit before the next task begins. Starting a new task with uncommitted work from the previous one mixes diffs, breaks the verifier's spec→diff alignment check, and forces re-sequencing. No exceptions.
-21. **Run the pre-dispatch verifier self-check.** Before invoking the verifier sub-agent, walk the spec's AC bullets and confirm each has evidence in the diff. Skipping the self-check is the single largest source of verifier round-trips.
-22. **Auto-progress within a story; pause at the boundary.** When a task closes cleanly (verifier and reviewer both signed off, commit landed, no unresolved gate escalations, no open Critical/Important Review findings without spawned fix tasks), begin the next `active` task in the same story without waiting for operator approval. Review-spawned fix tasks slot into the front of the remaining task queue under the same parent and are auto-progressed the same way (subject to rule #25). At story close — after the last task closes cleanly — run the story-level Review before pausing at the story boundary; remediate any Critical/Important findings via the same auto-progress chain before pausing. Halt the loop on verifier failure, reviewer's 2-round bound exceeded, gate escalation, hard-stop, or any operator directive to pause or change course.
-23. **Save a `feedback` memory when a CLAUDE.md or SDLC.md guideline gets violated within a session.** Documentation alone is not enough — documented rules can slip across long execution stretches. When the operator catches a violation (or you catch one mid-session), save a `feedback` memory codifying the rule with `Why:` (the rule's source and the incident that triggered the save) and `How to apply:` (the concrete signal that should trigger compliance). The memory makes the rule load as operator-given feedback in future sessions rather than only via documentation reading.
-24. **Audit the Bash allowlist at session close.** If three or more permission prompts fire during a session for commands that the autonomy gate's free-pass list considers safe (running tests/lint/build/format, reading files inside the project, internal git inspection), batch them through the `fewer-permission-prompts` skill. The operator approves the proposed additions before they land in `.claude/settings.json`. Below the three-prompt threshold, take the prompts and move on rather than churning the allowlist with speculative entries.
-25. **Bound code-review remediation at 2 rounds per finding chain.** Round 1 = fix tasks for the original Critical/Important findings from a Review pass. Round 2 = fix tasks for Critical/Important findings on the round-1 fix tasks themselves. If a round 3 would be needed, halt via the Autonomy gate's escalation interface; the operator decides whether to iterate further, accept the findings as known debt (recorded in an ADR or the parent task's notes), or rework the parent task. The bound applies per finding chain, not per task — distinct round-1 findings may have independent round-2 chains running in parallel, but no chain extends past round 2 without operator approval.
-26. **Run `make audit` at story close and record the result.** Before a story moves to `/sdlc/work/done/`, run `make audit` (the pip-audit supply-chain gate) and record its outcome — pass, or the allow-listed exceptions — in the story's close notes or the closure commit message. A non-clean `make audit` blocks story closure unless every finding is allow-listed in `.pip-audit-ignore` with a rationale and an unexpired `expires=` date. The CI workflow (`.github/workflows/audit.yml`) enforces the same gate on every PR and push to `main`; this rule makes the evidence explicit at the story boundary so a green CI run isn't the only record. (Introduced by [[p0-fu-pip-audit-in-ci]].)
+20. **Commit at task boundaries.** Each task close ends in a commit before the next begins — uncommitted carryover mixes diffs and breaks the verifier's spec→diff alignment. No exceptions.
+21. **Run the pre-dispatch verifier self-check** (see the Verify verb) before every verifier dispatch — the single largest source of verifier round-trips.
+22. **Auto-progress within a story, and across already-planned stories within an epic; pause at the epic boundary.** Full close-clean conditions, the unplanned-next-story pause, and the halt triggers live in the Execute verb (operator-approved auto-cross).
+23. **Save a `feedback` memory when a CLAUDE.md/SDLC.md guideline is violated in a session** (operator-caught or self-caught). Codify the rule with `Why:` (source + triggering incident) and `How to apply:` (the signal that should trigger compliance), so it loads as operator feedback in future sessions, not only via doc-reading.
+24. **Audit the Bash allowlist at session close.** If ≥3 permission prompts fired for free-pass-safe commands (tests/lint/build/format, project reads, internal git), batch them through the `fewer-permission-prompts` skill (operator approves additions). Below 3, take the prompts — don't churn the allowlist with speculative entries.
+25. **Bound code-review remediation at 2 rounds per finding chain** — a needed round 3 halts via the gate's escalation interface for an operator call (iterate / accept as debt / rework). Mechanics in the Review verb.
+26. **Run the project's supply-chain/security gate at story close and record the result.** If the project defines a dependency-audit or security gate (e.g. a `make audit` target wrapping `pip-audit`, or `npm audit`, `cargo audit`, or equivalent), run it before a story moves to `/sdlc/work/done/` and record the outcome — pass or allow-listed exceptions — in the close notes or closure commit. A non-clean result blocks closure unless every finding is allow-listed with a rationale and an expiry. Where CI enforces the same gate on PRs/`main`, this rule makes the evidence explicit at the story boundary. Projects with no such gate skip this rule until one is introduced (via an ADR).
 
 ## What stays human
 
 The operator decides:
 
-- compilation outcomes — Claude proposes, operator approves
-- plan approval — Claude proposes, operator edits, operator approves
-- gate escalations and hard-stop decisions — Claude reports per the escalation interface, operator decides; decisions are then recorded so future gate checks can treat them as in-scope defaults
-- verifier sign-off when the verifier flags issues, and reviewer's rule #25 2-round-bound escalations — Claude reports, operator decides
-- `CLAUDE.md` edits and any change to `.claude/settings.json` or `.claude/settings.local.json` — these encode opinions, permissions, and harness behaviour. Claude may draft specific changes but never writes to these files without explicit operator approval in the current turn. A previous directive does not authorise a later edit.
-- ADRs — Claude can draft, operator must approve
-- README content — encodes opinions; must sound like the operator. Operator approves drafts before commit.
-- `git push` to remote — Claude drafts commit messages and the push command; the operator runs the push. An earlier `gh repo create --push` or any prior session's push is _not_ implicit authorization for subsequent pushes. Each `git push` requires an explicit operator instruction in the current turn.
+- **Compilation outcomes** and **plan approval** — Claude proposes (and edits on request); the operator approves.
+- **Gate escalations and hard-stop decisions** — Claude reports per the escalation interface; the operator decides, and the decision is recorded so future gate checks treat it as an in-scope default.
+- **Verifier sign-off when the verifier flags issues**, and **reviewer rule-#25 2-round-bound escalations** — Claude reports, operator decides.
+- **`CLAUDE.md` and `.claude/settings*.json` edits** — these encode permissions and harness behaviour; Claude may draft but never writes without explicit operator approval in the current turn (a previous directive does not authorise a later edit).
+- **ADRs and README content** — Claude drafts; the operator approves before commit (README must sound like the operator).
+- `git push` — governed by the repo's `CLAUDE.md` push policy, if it has one. A policy may pre-authorise push to `origin` after each local commit, but **force-push, branch deletion, and any non-`origin` remote always require explicit per-turn authorisation.** Repos without such a policy fall back to operator-runs-the-push.
 - Release tags — Claude proposes; the operator approves and creates.
 
 ## What runs without further approval
 
-Within an approved task spec, Claude executes freely:
-
-- writing tests as specified
-- writing implementation against tests
-- iterating on test failures
-- updating documentation when behaviour changes
-- generating runbook updates
-- regenerating `/sdlc/STATE.md`
-- proposing the next compilation, plan, or task
-- dispatching the verifier sub-agent at task close (pre-dispatch self-check first; see rule #21)
-- dispatching the reviewer sub-agent at task close after Verify passes, and at story close for the story-level Review (per-task and story-level dispatches)
-- filing Critical/Important Review findings as `*-fix<N>-*` fix tasks under the parent story, and auto-kicking them off as the next active task in the queue, subject to rule #25's 2-round bound
-- on tasks that pass Verify and Review (CLEAN, MINOR-ONLY, or HAS-CRITICAL-OR-IMPORTANT with all such findings spawned as fix tasks) with no unresolved gate escalations: marking the task done and moving it to `/sdlc/work/done/`
-- after a task closes cleanly, starting the next `active` task under the same parent story — including Review-spawned fix tasks — per the auto-progress rule. Stop at the story boundary after the story-level Review has signed off.
-- drafting README content (operator approves before commit)
-- drafting commit messages and tag names
+Within an approved task spec, everything the **verbs** describe runs without further approval — tests-first implementation and iteration, behaviour-driven doc and runbook updates, the Verify and Review dispatches and their auto-remediation (filing `*-fix<N>-*` tasks per the Review verb, marking tasks done, moving them to `/sdlc/work/done/`), and **auto-progress** per the Execute verb — together with everything on the Autonomy gate's **free-pass list**. Claude also regenerates `/sdlc/STATE.md`, proposes the next compile/plan/task, and drafts README content, commit messages, and tag names (the operator approves README and tags before they land).
 
 ## Scaling note
 
