@@ -2,7 +2,7 @@
 id: s2-aggregator-and-severity-mapping
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-reviewer-subagent
 created: 2026-05-26
 updated: 2026-05-26

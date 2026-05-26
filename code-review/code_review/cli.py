@@ -85,21 +85,20 @@ async def _safe_run(adapter: Any, request: ReviewRequest) -> AnalyzerOutput:
 
 def _merge_metrics(outputs: list[AnalyzerOutput]) -> MetricSet | None:
     # Last-write-wins per file key; analyzers are expected to report disjoint files.
-    merged: MetricSet | None = None
+    per_file: dict[str, dict[str, Any]] = {}
+    per_class: dict[str, dict[str, Any]] = {}
+    coupling: dict[str, dict[str, Any]] = {}
+    any_metrics = False
     for out in outputs:
         if out.metrics is None:
             continue
-        if merged is None:
-            merged = MetricSet(
-                per_file=dict(out.metrics.per_file),
-                per_class=dict(out.metrics.per_class),
-                coupling=dict(out.metrics.coupling),
-            )
-        else:
-            merged.per_file.update(out.metrics.per_file)
-            merged.per_class.update(out.metrics.per_class)
-            merged.coupling.update(out.metrics.coupling)
-    return merged
+        any_metrics = True
+        per_file = {**per_file, **out.metrics.per_file}
+        per_class = {**per_class, **out.metrics.per_class}
+        coupling = {**coupling, **out.metrics.coupling}
+    if not any_metrics:
+        return None
+    return MetricSet(per_file=per_file, per_class=per_class, coupling=coupling)
 
 
 async def _run_analyzers(

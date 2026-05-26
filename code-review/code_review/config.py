@@ -32,6 +32,7 @@ def _load_caps_weights() -> dict[str, float]:
 @dataclass
 class Config:
     dedup_line_tolerance: int = _DEFAULT_DEDUP_TOLERANCE
+    # Parsed from [severity] in code-review.toml; wiring into map_severity() is reserved for s3.
     severity_overrides: dict[str, str] = field(default_factory=dict)
     hotspot_weights: dict[str, float] = field(default_factory=_load_caps_weights)
 
