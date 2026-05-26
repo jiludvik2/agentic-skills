@@ -69,13 +69,5 @@ def test_analyzer_registry_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0, result.output
 
 
-def test_review_scope_flag_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
-    runner = CliRunner()
-    for scope in ("lite", "standard", "full"):
-        result = runner.invoke(
-            app, ["--analyzer", "fake", "--target", ".", "--review-scope", scope]
-        )
-        assert result.exit_code == 0, f"{scope}: {result.output}"
-    bad = runner.invoke(app, ["--analyzer", "fake", "--target", ".", "--review-scope", "bogus"])
-    assert bad.exit_code != 0
+# --review-scope value acceptance/rejection is covered by
+# tests/test_scope_dispatch.py::test_cli_accepts_review_scope_values (the task that owns scope).

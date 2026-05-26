@@ -7,8 +7,8 @@
 # self-contained and runs inside the sandbox with no network egress.
 #
 # Steps, in order: Python deps -> Node deps (if a JS toolchain is present) ->
-# offline-cache prefetch. (Installing the scope-aware Reviewer sub-agent into the
-# host project lands in s1-t4.) Any failed step aborts non-zero and names the step.
+# offline-cache prefetch -> install the scope-aware Reviewer sub-agent into the host
+# project. Any failed step aborts non-zero and names the step.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,6 +18,21 @@ step() { echo "==> $1"; }
 fail() {
   echo "ERROR: setup.sh failed at step: $1" >&2
   exit 1
+}
+
+# Resolve the host project root: the nearest ancestor of the skill dir that contains a
+# .claude/ directory. No fixed-depth assumption — works whether the skill is the repo
+# itself or installed under <host>/.claude/skills/code-review.
+find_host_root() {
+  local d="$1"
+  while [[ "${d}" != "/" ]]; do
+    if [[ -d "${d}/.claude" ]]; then
+      echo "${d}"
+      return 0
+    fi
+    d="$(dirname "${d}")"
+  done
+  return 1
 }
 
 # 1. Python dependencies (pinned, reproducible).
@@ -36,8 +51,17 @@ fi
 step "Prefetch offline caches"
 ( cd "${SKILL_ROOT}" && python "${SCRIPT_DIR}/prefetch_caches.py" ) || fail "prefetch_caches.py"
 
-# 4. Install the Reviewer sub-agent into the host project — added in s1-t4, which owns
-#    the scope-aware reviewer.md source and a verified walk-up-to-.claude host-root
-#    resolution (fail-loud, no fragile fixed-depth traversal).
+# 4. Install the scope-aware Reviewer sub-agent into the host project. Guarded on the
+#    bundled source existing; host root resolved by walking up to the nearest .claude/.
+SKILL_AGENT="${SKILL_ROOT}/agents/reviewer.md"
+if [[ -f "${SKILL_AGENT}" ]]; then
+  step "Install Reviewer sub-agent"
+  HOST_ROOT="$(find_host_root "${SKILL_ROOT}")" || fail "locate host project root (no .claude/ ancestor)"
+  HOST_AGENTS_DIR="${HOST_ROOT}/.claude/agents"
+  mkdir -p "${HOST_AGENTS_DIR}" || fail "create ${HOST_AGENTS_DIR}"
+  cp "${SKILL_AGENT}" "${HOST_AGENTS_DIR}/reviewer.md" || fail "copy reviewer.md"
+else
+  step "Install Reviewer sub-agent (skipped — bundled agents/reviewer.md not present)"
+fi
 
 step "Done. The code-review skill is installed and ready."
