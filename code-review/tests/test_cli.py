@@ -228,3 +228,45 @@ def test_cwd_guard_accepts_symlink_inside_cwd(
     )
 
     assert "sandbox" not in result.output.lower()
+
+
+class _ScopeCapturingFake:
+    name: ClassVar[str] = "fake"
+    kind: ClassVar[str] = "deterministic"
+    default_timeout_s: ClassVar[int] = 30
+    scope_restrictions: ClassVar[frozenset[str]] = frozenset()
+    seen: ClassVar[list[str]] = []
+
+    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+        type(self).seen.append(request.scope)
+        return AnalyzerOutput(sarif={}, status="ok")
+
+
+def test_review_scope_flows_into_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    _ScopeCapturingFake.seen = []
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", _ScopeCapturingFake)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        app, ["--analyzer", "fake", "--target", ".", "--review-scope", "standard"]
+    )
+    assert result.exit_code == 0, result.output
+    assert _ScopeCapturingFake.seen == ["standard"]
+
+    _ScopeCapturingFake.seen = []
+    result = runner.invoke(app, ["--analyzer", "fake", "--target", "."])
+    assert result.exit_code == 0, result.output
+    assert _ScopeCapturingFake.seen == ["lite"], "unset --review-scope must default to lite"
+
+
+def test_output_creates_missing_parent_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
+    monkeypatch.chdir(tmp_path)
+
+    out = tmp_path / "sub" / "dir" / "result.json"
+    runner = CliRunner()
+    result = runner.invoke(app, ["--analyzer", "fake", "--output", str(out), "--target", "."])
+
+    assert result.exit_code == 0, result.output
+    assert out.exists()
+    assert not (out.parent / "result.json.tmp").exists()

@@ -82,6 +82,7 @@ async def _run_analyzers(
     names: list[str],
     target: str | None,
     diff: str | None = None,
+    scope: str = "lite",
 ) -> dict[str, Any]:
     from code_review.adapters import REGISTRY
 
@@ -92,7 +93,7 @@ async def _run_analyzers(
     else:
         target_paths = (".",)
     request = ReviewRequest(
-        scope="standard",
+        scope=scope,
         diff_range=diff,
         target_paths=target_paths,
         languages=frozenset(),
@@ -144,13 +145,15 @@ def main(
         typer.echo(f"Error: unknown analyzer(s): {', '.join(unknown)}", err=True)
         raise typer.Exit(1)
 
-    result = asyncio.run(_run_analyzers(analyzer, target, diff))
+    scope = review_scope.value if review_scope is not None else "lite"
+    result = asyncio.run(_run_analyzers(analyzer, target, diff, scope))
     analyzers_dict: dict[str, Any] = result["analyzers"]
     has_error = any(v["status"] == "error" for v in analyzers_dict.values())
     json_content = json.dumps(result)
 
     if output is not None:
         output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_file = output_path.parent / (output_path.name + ".tmp")
         tmp_file.write_text(json_content)
         os.rename(tmp_file, output_path)
