@@ -22,7 +22,7 @@ app = typer.Typer(add_completion=False)
 
 _SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"
 _CAPABILITIES_PATH = _SKILL_DIR / "capabilities.json"
-_SCHEMA_PATH = _SKILL_DIR / "schemas" / "review-response.json"
+_SCHEMA_PATH = Path(__file__).resolve().parent / "schemas" / "review-response.json"
 
 
 class ReviewScope(StrEnum):

@@ -15,8 +15,7 @@ from code_review.config import ConfigError
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 
 _SCHEMA_PATH = (
-    Path(__file__).resolve().parent.parent
-    / ".claude" / "skills" / "code-review" / "schemas" / "review-response.json"
+    Path(__file__).resolve().parent.parent / "code_review" / "schemas" / "review-response.json"
 )
 
 runner = CliRunner()
