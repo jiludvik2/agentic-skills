@@ -2,10 +2,10 @@
 id: s4-contract-testing-adapters
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-reviewer-subagent
 created: 2026-05-26
-updated: 2026-05-27  # Pact dropped from scope (ADR-0008); story is now Schemathesis-only. Hypothesis cache aligned to tempfile/$TMPDIR (matches s3 cache refactor)
+updated: 2026-05-27  # CLOSED — see Close notes. Pact dropped (ADR-0008); Schemathesis-only, in-process library (ADR-0009)
 ---
 
 # s4 — Contract testing adapter (Schemathesis)
@@ -98,3 +98,23 @@ Add Schemathesis (schema-driven; runs against a live API) as an analyzer. It dif
 - gRPC / Protobuf contract testing — out of this epic.
 - AsyncAPI (event-driven systems) — separate epic if needed.
 - Running Schemathesis in stateful "links" mode for multi-step API flows — single-operation mode is the default in this story.
+
+## Close notes (2026-05-27)
+
+**Tasks:** t0 (scope gate, severity-override wiring, `[contract_testing]` config, fastapi pin), t1 (SchemathesisAdapter library→SARIF, FastAPI drift fixture, env-var auth, cooperative deadline, `$TMPDIR` cache), t2 (capabilities entry, SKILL.md sandbox docs, sandbox-network test). All committed.
+
+**Story-level review (round 1):** `HAS-CRITICAL-OR-IMPORTANT` — 1 Critical + 2 Important + 4 Minor + 1 Nit.
+- **Critical:** adapter ran only the default `not_a_server_error` check, so AC #1's `response_schema_violation` (naming the divergent field) for 2xx drift was never produced; the fixture even drifted as a 500. → **s4-fix1** (register `response_schema_conformance`, stable Failure-type→ruleId map) + **s4-fix2** (JSONResponse 2xx-drift fixture + strict integration assertions).
+- **Important #2:** loose integration assertions hid the Critical. → s4-fix2.
+- **Important #3:** in-process adapter leaked `HYPOTHESIS_STORAGE_DIRECTORY`. → **s4-fix3** (restore via context manager).
+- **Minors:** #6 (ruleId title-slug fragility) resolved by s4-fix1; #7 (auth-secrecy `output.error` assertion) resolved by s4-fix2; #4 (multi-target hard-return) and #5 (orphaned `--review-scope`) deferred (recorded in s4-fix1 notes). Nit dropped.
+
+**Story-level review (round 2):** `CLEAN` — all 3 round-1 findings confirmed FIXED with run-path + test evidence; zero new findings. Remediation chain closed within the rule-#25 2-round bound.
+
+**Acceptance-criteria sweep:** all 9 scenarios evidenced — see the AC→test table in the close conversation (integration test now hard-asserts `response_schema_violation` naming `user_name`; scope gate, timeout, unreachable, severity-map, auth-secrecy, sandbox-error, cache-redirect+restore, SKILL.md docs all covered).
+
+**Supply-chain gate (rule #26):** project defines no formal gate (#26 formally N/A), but an ad-hoc `pip-audit` was run since the story added a `fastapi` pin. It surfaced 3 starlette CVEs (CVE-2025-54121, CVE-2025-62727, PYSEC-2026-161) introduced by `fastapi==0.115.12` → `starlette 0.46.2`. **Remediated:** bumped `fastapi==0.136.3` (floors `starlette>=1.0.1`, lock resolves `1.1.0`) — re-audit clean of starlette. **Allow-listed:** `pytest 8.3.4` / CVE-2025-71176 (test-only, un-actionable while `schemathesis==4.0.10` pins `pytest<9`; expiry 2026-08-31) — recorded in `stack-pins.md`.
+
+**Final green bar:** 213 passed / 6 skipped, ruff clean, mypy clean (post-bump).
+
+**Epic note:** s4 was the last analyzer story; only **s5 (subagent integration)** remains before epic close + the `document` verb. The co-located ADRs (0008/0009) and architecture doc stay in `active/` until epic close per the co-location rule.

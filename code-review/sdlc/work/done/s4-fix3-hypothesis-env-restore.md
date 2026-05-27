@@ -2,7 +2,7 @@
 id: s4-fix3-hypothesis-env-restore
 kind: task
 project: code-review
-status: active
+status: done
 parent: s4-contract-testing-adapters
 sources: [s4-story-level-review]
 created: 2026-05-27
