@@ -90,6 +90,39 @@ def test_failure_to_sarif_result() -> None:
     assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "api"
 
 
+def test_conformance_failure_maps_to_response_schema_violation() -> None:
+    """A response_schema_conformance failure (class JsonSchemaError, title 'Response violates
+    schema') must map to the stable ruleId schemathesis.response_schema_violation — NOT a slug of
+    the human-readable title (which would be 'response_violates_schema')."""
+    from code_review.adapters.schemathesis_ import _failure_to_sarif_result
+
+    class JsonSchemaError(Exception):  # mirrors Schemathesis 4.0.10's failure class name
+        title = "Response violates schema"
+        message = "'user_name' is a required property"
+        operation = "GET /users/{user_id}"
+
+    result = _failure_to_sarif_result(JsonSchemaError())
+
+    assert result["ruleId"] == "schemathesis.response_schema_violation"
+    assert result["level"] == "error"
+    assert "user_name" in result["message"]["text"]
+    assert result["properties"]["endpoint"] == "GET /users/{user_id}"
+
+
+def test_server_error_maps_to_stable_ruleid() -> None:
+    """A server-error failure maps to schemathesis.server_error regardless of title phrasing."""
+    from code_review.adapters.schemathesis_ import _failure_to_sarif_result
+
+    class ServerError(Exception):  # mirrors Schemathesis 4.0.10's failure class name
+        title = "Server error (5xx)"  # punctuation that a naive slug would mangle
+        message = "500 Internal Server Error"
+        operation = "GET /items"
+
+    result = _failure_to_sarif_result(ServerError())
+
+    assert result["ruleId"] == "schemathesis.server_error"
+
+
 # ---------------------------------------------------------------------------
 # 4. Auth from env var
 # ---------------------------------------------------------------------------

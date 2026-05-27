@@ -19,9 +19,15 @@ Verified API (confirmed via probe scripts against schemathesis==4.0.10):
    - case = hypothesis.find(op.as_strategy(), lambda c: True, settings=...)
    - response = case.call(session=session)  # inject auth via session.headers
    - case.call_and_validate(session=session) raises FailureGroup on any failure.
+   - call_and_validate signature (4.0.10): (base_url, session, headers, checks,
+     additional_checks, excluded_checks, **kwargs). `additional_checks=[...]` APPENDS to the
+     default check set (not_a_server_error); `checks=[...]` REPLACES it.
    - FailureGroup.exceptions is a sequence of Failure instances.
    - Failure attrs: .title (str), .message (str), .operation (str, e.g. "GET /path").
-   - Failure subclasses: ServerError, UndefinedStatusCode, etc.
+   - Failure types (by class name): ServerError (not_a_server_error), JsonSchemaError
+     (response_schema_conformance — title "Response violates schema", message names the missing
+     field, e.g. "'user_name' is a required property"). We map type name → stable ruleId suffix
+     (see _RULEID_SUFFIX_BY_FAILURE_TYPE) rather than slugging the title.
 
 4. Hypothesis settings:
    - Import from hypothesis: settings(max_examples=N, deadline=None, suppress_health_check=...)
@@ -34,7 +40,8 @@ Verified API (confirmed via probe scripts against schemathesis==4.0.10):
 
 6. response_schema_conformance:
    - NOT in schemathesis.checks — it lives in schemathesis.specs.openapi.checks.
-   - Default CHECKS registry only has not_a_server_error.
+   - Default CHECKS registry only has not_a_server_error, so it MUST be passed explicitly
+     (we use additional_checks=[response_schema_conformance]) or 2xx schema drift is invisible.
 """
 
 from __future__ import annotations
@@ -52,6 +59,7 @@ from hypothesis import find as h_find
 from hypothesis import settings as h_settings
 from hypothesis.errors import Flaky, Unsatisfiable
 from schemathesis.core.failures import FailureGroup
+from schemathesis.specs.openapi.checks import response_schema_conformance
 
 from code_review.adapters.sarif_utils import empty_sarif, make_location, normalise_sarif
 from code_review.contracts import AnalyzerOutput, ReviewRequest
@@ -60,12 +68,24 @@ _MAX_EXAMPLES = 5
 _DEADLINE = None  # let Hypothesis manage; we gate on wall-clock timeout ourselves
 
 
+# Map Schemathesis Failure *types* (by class name) to stable SARIF ruleId suffixes. Deriving the
+# suffix from the human-readable `title` is fragile — Schemathesis phrasing ("Response violates
+# schema", "Server error (5xx)") would slug to non-deterministic, AC-violating ruleIds. The
+# response_schema_conformance check raises `JsonSchemaError`; not_a_server_error → `ServerError`.
+_RULEID_SUFFIX_BY_FAILURE_TYPE: dict[str, str] = {
+    "JsonSchemaError": "response_schema_violation",
+    "ServerError": "server_error",
+}
+
+
 def _failure_to_sarif_result(failure: Any) -> dict[str, Any]:
-    title: str = getattr(failure, "title", "") or type(failure).__name__
+    type_name = type(failure).__name__
+    title: str = getattr(failure, "title", "") or type_name
     message: str = getattr(failure, "message", "") or title
     operation: str = getattr(failure, "operation", "unknown")
-    # Normalise title to a snake_case rule suffix
-    rule_suffix = title.lower().replace(" ", "_")
+    # Prefer a stable suffix keyed on the failure type; fall back to a slug of the title for
+    # unknown types (and for the MagicMock-based unit tests that set `.title` directly).
+    rule_suffix = _RULEID_SUFFIX_BY_FAILURE_TYPE.get(type_name) or title.lower().replace(" ", "_")
     text = f"{title}: {message}" if message and message != title else title
     return {
         "ruleId": f"schemathesis.{rule_suffix}",
@@ -92,7 +112,11 @@ async def _run_operation(op: Any, session: requests.Session) -> list[Any]:
             return []
         failures: list[Any] = []
         try:
-            case.call_and_validate(session=session)
+            # additional_checks appends response_schema_conformance to the defaults
+            # (not_a_server_error), so both server errors AND 2xx schema drift are caught.
+            case.call_and_validate(
+                additional_checks=[response_schema_conformance], session=session
+            )
         except FailureGroup as fg:
             failures.extend(fg.exceptions)
         except Exception:
