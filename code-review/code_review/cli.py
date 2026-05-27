@@ -34,10 +34,16 @@ class ReviewScope(StrEnum):
 def _probe_analyzer(adapter_cls: type[Any]) -> dict[str, Any]:
     """Recompute runtime availability for one analyzer.
 
+    JS adapters declare a ``node_tool`` ClassVar and use vendored binaries from
+    node_modules; they are probed via ``probe_js_adapter``.
     Subprocess-based adapters declare a ``required_binary`` ClassVar; if the binary is
     absent from PATH they are unavailable. Library-based adapters (no ``required_binary``)
     are always available since their dependency is pinned in the package.
     """
+    node_tool = getattr(adapter_cls, "node_tool", None)
+    if node_tool is not None:
+        from code_review.adapters.js_base import probe_js_adapter
+        return probe_js_adapter(str(node_tool))
     binary = getattr(adapter_cls, "required_binary", None)
     if binary is None:
         return {"status": "available", "error": None}
