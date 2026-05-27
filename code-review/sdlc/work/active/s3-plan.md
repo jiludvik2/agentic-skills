@@ -14,7 +14,9 @@ updated: 2026-05-27
 
 **Goal:** Add 10 new analyzer adapters (bandit, vulture, pydeps, cohesion, gitleaks, trivy, eslint, jscpd, knip, dependency-cruiser) plus shared infrastructure, per-language auto-selection, and cross-cutting tests.
 
-**Architecture:** Shared SARIF utilities live in `sarif_utils.py`. Python-library adapters use `sys.executable` subprocess; binary adapters declare `required_binary`; JS adapters use vendored `node_modules/.bin/` binaries via `js_base.py`. Non-SARIF-native adapters emit a normalised SARIF shim with `ruleId = "<tool>.<category>"`. `capabilities.json` moves from the sandbox-blocked `.claude/skills/code-review/` to `code_review/` so the plan can update it freely.
+**Architecture:** Shared SARIF utilities live in `sarif_utils.py`. Python-library adapters use `sys.executable` subprocess; binary adapters declare `required_binary`; JS adapters use vendored `node_modules/.bin/` binaries via `js_base.py`. Non-SARIF-native adapters emit a normalised SARIF shim with `ruleId = "<tool>.<category>"`. Per **ADR-0007**, t0 consolidates `capabilities.json` and all four JSON schemas into the `code_review` package as the single source of truth — every package reader resolves them via `Path(__file__)`, the repo-root `/schemas/` and the skill-dir `capabilities.json` are deleted, and bundling is enforced as wheel package-data. This fixes the wheel-install break (`semgrep.py` reading the repo root) and collapses the three duplicate `_SKILL_DIR` constants.
+
+**Test schema-path convention (post-t0):** the canonical SARIF schema for tests is `<repo_root>/code_review/schemas/sarif-2.1.0.json`. In every test template below, where a path is shown as `Path(__file__).parent.parent.parent / "schemas" / "sarif-2.1.0.json"` (repo-root `/schemas/`), read it as `Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"`. The repo-root `/schemas/` directory no longer exists after t0.
 
 **Tech Stack:** Python deps already installed: bandit 1.7.10, vulture 2.13, pydeps 1.12.20, cohesion 1.1.0. Binaries (require manual install via `scripts/setup.sh`): gitleaks, trivy, node. Vendored Node.js (require `npm ci` in `scripts/setup.sh`): eslint + @microsoft/eslint-formatter-sarif, jscpd, knip, @dependency-cruiser/cli.
 
@@ -29,7 +31,8 @@ updated: 2026-05-27
 
 **Create:**
 - `code_review/adapters/sarif_utils.py` — shared SARIF helpers; `collect_python_files` helper extracted here (was duplicated in radon.py)
-- `code_review/capabilities.json` — **moved** from `.claude/skills/code-review/capabilities.json` (sandbox write-blocked)
+- `code_review/capabilities.json` — **moved** from `.claude/skills/code-review/capabilities.json` (ADR-0007)
+- `code_review/schemas/sarif-2.1.0.json`, `code_review/schemas/capabilities.json`, `code_review/schemas/review-request.json` — **moved** from repo-root `/schemas/` (ADR-0007); `review-response.json` already in `code_review/schemas/`
 - `code_review/adapters/bandit.py`
 - `code_review/adapters/vulture.py`
 - `code_review/adapters/pydeps.py`
@@ -63,26 +66,40 @@ updated: 2026-05-27
 
 **Modify:**
 - `code_review/adapters/base.py` — add `env` parameter to `run_subprocess`
-- `code_review/adapters/semgrep.py` — offline mode: `SEMGREP_USER_DATA_FOLDER` + local rules fallback + `--metrics off`
+- `code_review/adapters/semgrep.py` — t0: repoint `_SCHEMA_PATH` to `code_review/schemas/` + import `normalise_sarif` from sarif_utils; t7: offline mode
 - `code_review/adapters/radon.py` — use `collect_python_files` from `sarif_utils`
 - `code_review/adapters/__init__.py` — add all 10 new adapters to REGISTRY
-- `code_review/config.py` — update `_load_caps_weights` to read from `code_review/capabilities.json`; add `disabled_analyzers: list[str]` field; parse from TOML
-- `code_review/cli.py` — update `_CAPABILITIES_PATH`; extend `_probe_analyzer` for `node_tool`; enforce `disabled_analyzers`; add auto-selection via `lang_select`
-- `.claude/skills/code-review/capabilities.json` — delete via `git rm` (replaced by `code_review/capabilities.json`)
+- `code_review/config.py` — repoint `_load_caps_weights` to package `capabilities.json` + delete module `_SKILL_DIR`; add `disabled_analyzers: list[str]` field; parse from TOML
+- `code_review/hotspots.py` — repoint capabilities read to package + delete `_SKILL_DIR`
+- `code_review/cli.py` — repoint `_CAPABILITIES_PATH` to package (keep `_SKILL_DIR` only for `code-review.toml`); extend `_probe_analyzer` for `node_tool`; enforce `disabled_analyzers`; add auto-selection via `lang_select`
+- `pyproject.toml` — declare `capabilities.json` + `schemas/*.json` as wheel package-data (ADR-0007)
+- `.claude/skills/code-review/SKILL.md` — update contract-location wording (contracts are package-bundled, surfaced via `--capabilities`)
+- Existing tests reading repo-root `/schemas/`: `test_capabilities.py`, `test_scaffold.py`, `test_adapters/test_radon.py`, `test_adapters/test_semgrep.py`, `test_skill_scaffold.py` — repoint to `code_review/schemas/`
+
+**Delete (ADR-0007):**
+- `.claude/skills/code-review/capabilities.json` — `git rm` (now in package)
+- repo-root `/schemas/sarif-2.1.0.json`, `/schemas/capabilities.json`, `/schemas/review-request.json`, `/schemas/review-response.json` — `git mv` the first three into the package, `git rm` the `review-response.json` duplicate
 
 ---
 
-## Task 0: Shared infrastructure
+## Task 0: Shared infrastructure + contract consolidation (ADR-0007)
+
+**Implements ADR-0007.** Establishes `sarif_utils.py` and the `env` subprocess param, then consolidates `capabilities.json` + all four schemas into the `code_review` package as the single source of truth (package-relative reads, repo-root `/schemas/` and skill-dir copy deleted, wheel package-data declared).
 
 **Files:**
 - Create: `code_review/adapters/sarif_utils.py`
-- Create: `code_review/capabilities.json`
-- Modify: `code_review/adapters/base.py`
-- Modify: `code_review/adapters/radon.py`
-- Modify: `code_review/adapters/semgrep.py` (import update only)
-- Modify: `code_review/config.py` (capabilities path update only)
-- Modify: `code_review/cli.py` (`_CAPABILITIES_PATH` update only)
-- Delete: `.claude/skills/code-review/capabilities.json`
+- Create: `code_review/capabilities.json` (from skill dir)
+- Move into `code_review/schemas/`: `sarif-2.1.0.json`, `capabilities.json`, `review-request.json` (from repo-root `/schemas/`)
+- Modify: `code_review/adapters/base.py` (env param)
+- Modify: `code_review/adapters/radon.py` (collect_python_files import)
+- Modify: `code_review/adapters/semgrep.py` (normalise import + `_SCHEMA_PATH` → package)
+- Modify: `code_review/config.py` (caps read → package, delete `_SKILL_DIR`)
+- Modify: `code_review/hotspots.py` (caps read → package, delete `_SKILL_DIR`)
+- Modify: `code_review/cli.py` (`_CAPABILITIES_PATH` → package, keep `_SKILL_DIR` for TOML)
+- Modify: `pyproject.toml` (wheel package-data)
+- Modify: `.claude/skills/code-review/SKILL.md` (contract-location wording)
+- Modify existing tests: `test_capabilities.py`, `test_scaffold.py`, `test_adapters/test_radon.py`, `test_adapters/test_semgrep.py`, `test_skill_scaffold.py`
+- Delete: `.claude/skills/code-review/capabilities.json`; repo-root `/schemas/` (after moves)
 - Test: `tests/test_adapters/test_sarif_utils.py`
 
 - [ ] **Step 1: Write failing tests for sarif_utils**
@@ -255,64 +272,99 @@ async def run_subprocess(
     # ... rest unchanged
 ```
 
-- [ ] **Step 6: Move capabilities.json — copy content to code_review/capabilities.json**
+- [ ] **Step 6: Consolidate contracts into the package (ADR-0007)**
 
-Read `.claude/skills/code-review/capabilities.json`, write identical content to `code_review/capabilities.json`, then remove the old file with `git rm`:
+Move the three repo-root schemas into the package, copy `capabilities.json` in from the skill dir, and remove the stale duplicates. `review-response.json` is already in `code_review/schemas/`, so the repo-root copy is a duplicate to delete.
 
 ```bash
+git mv schemas/sarif-2.1.0.json code_review/schemas/sarif-2.1.0.json
+git mv schemas/capabilities.json code_review/schemas/capabilities.json
+git mv schemas/review-request.json code_review/schemas/review-request.json
+git rm schemas/review-response.json        # duplicate; package copy is canonical
 cp .claude/skills/code-review/capabilities.json code_review/capabilities.json
 git rm .claude/skills/code-review/capabilities.json
+git add code_review/capabilities.json
+# repo-root /schemas/ should now be empty:
+rmdir schemas 2>/dev/null || ls -A schemas
 ```
 
-- [ ] **Step 7: Update cli.py and config.py to use the new capabilities.json path**
+- [ ] **Step 7: Repoint every package reader to `Path(__file__)`**
 
-In `code_review/cli.py`, change:
+`code_review/cli.py` — change:
 ```python
 _CAPABILITIES_PATH = _SKILL_DIR / "capabilities.json"
 ```
-to:
+to (keep `_SKILL_DIR` itself — `load_config(_SKILL_DIR)` at line ~193 still uses it for `code-review.toml`):
 ```python
 _CAPABILITIES_PATH = Path(__file__).resolve().parent / "capabilities.json"
 ```
 
-In `code_review/config.py`, in `_load_caps_weights()`, change:
-```python
-caps_path = _SKILL_DIR / "capabilities.json"
-```
-to:
-```python
-caps_path = Path(__file__).resolve().parent / "capabilities.json"
-```
+`code_review/config.py` — in `_load_caps_weights()` change `caps_path = _SKILL_DIR / "capabilities.json"` to `caps_path = Path(__file__).resolve().parent / "capabilities.json"`, then **delete the module-level `_SKILL_DIR` constant** (line 9) — it is now unused (`load_config` takes `skill_dir` as a parameter for the TOML path).
 
-- [ ] **Step 8: Update radon.py to use shared collect_python_files**
+`code_review/hotspots.py` — change `caps_path = _SKILL_DIR / "capabilities.json"` (line ~25) to `caps_path = Path(__file__).resolve().parent / "capabilities.json"`, then **delete the module-level `_SKILL_DIR` constant** (line 9).
 
-In `code_review/adapters/radon.py`, delete the local `_collect_python_files` function and add at top of file:
+`code_review/adapters/semgrep.py` — change `_SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "sarif-2.1.0.json"` to `_SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "sarif-2.1.0.json"` (semgrep.py is in `code_review/adapters/`, so `parent.parent` = `code_review/`).
+
+- [ ] **Step 8: Update radon.py + semgrep.py imports to use sarif_utils**
+
+In `code_review/adapters/radon.py`, delete the local `_collect_python_files` function and add at top:
 ```python
 from code_review.adapters.sarif_utils import collect_python_files as _collect_python_files
 ```
 
-Update `semgrep.py` to import `normalise_sarif` from sarif_utils instead of defining it locally. Delete the local `_normalise` function and replace with:
+In `code_review/adapters/semgrep.py`, delete the local `_normalise` function and replace with:
 ```python
 from code_review.adapters.sarif_utils import normalise_sarif as _normalise
 ```
 
-- [ ] **Step 9: Run full suite + ruff + mypy, confirm green**
+- [ ] **Step 9: Repoint existing tests to `code_review/schemas/`**
+
+Update these test files to read schemas from the package (`<repo_root>/code_review/schemas/…`):
+- `tests/test_capabilities.py:10` — `SCHEMA = REPO_ROOT / "schemas" / "capabilities.json"` → `REPO_ROOT / "code_review" / "schemas" / "capabilities.json"`
+- `tests/test_scaffold.py:25` — `REPO_ROOT / "schemas" / "sarif-2.1.0.json"` → `REPO_ROOT / "code_review" / "schemas" / "sarif-2.1.0.json"`
+- `tests/test_adapters/test_radon.py:7` — `Path(__file__).parent.parent.parent / "schemas" / "sarif-2.1.0.json"` → `... / "code_review" / "schemas" / "sarif-2.1.0.json"`
+- `tests/test_adapters/test_semgrep.py:11` — same substitution as test_radon.py
+- `tests/test_skill_scaffold.py` — its `test_contract_schemas_are_valid_jsonschema` must load the three schemas from `code_review/schemas/`; and `test_skill_md_references_schemas` must match the **new** SKILL.md wording (see Step 10). Adjust both assertions accordingly.
+
+- [ ] **Step 10: Update SKILL.md contract-location wording**
+
+In `.claude/skills/code-review/SKILL.md`, replace the line that reads (line ~25):
+> The request and response contracts are described by `schemas/review-request.json` and `schemas/review-response.json`. The full static capability declaration lives in `capabilities.json` and validates against `schemas/capabilities.json`.
+
+with:
+> The request/response contracts and capability declaration are bundled inside the `code_review` package (`code_review/schemas/*.json`, `code_review/capabilities.json`) and travel with it on install — they are not separate files in the skill directory. To see the live capability declaration merged with runtime availability, run `python -m code_review.cli --capabilities`.
+
+Then make `tests/test_skill_scaffold.py::test_skill_md_references_schemas` assert against whatever tokens this new wording guarantees (e.g. `code_review/capabilities.json`, `--capabilities`) rather than the old skill-dir-relative paths.
+
+- [ ] **Step 11: Declare schemas + capabilities as wheel package-data**
+
+In `pyproject.toml`, under `[tool.hatch.build.targets.wheel]`, add an `artifacts` key so a non-editable build bundles the JSON (they are committed, so hatchling includes them by default — this makes it explicit and guards against future ignore rules):
+```toml
+[tool.hatch.build.targets.wheel]
+packages = ["code_review"]
+artifacts = ["code_review/capabilities.json", "code_review/schemas/*.json"]
+```
+Verify the wheel carries them:
+```bash
+uv build --wheel 2>&1 | tail -3
+python3 -c "import zipfile,glob; w=sorted(glob.glob('dist/*.whl'))[-1]; print([n for n in zipfile.ZipFile(w).namelist() if n.endswith('.json')])"
+```
+Expected: the printed list includes `code_review/capabilities.json` and the four `code_review/schemas/*.json`. (If `uv build` is unavailable offline, skip the build check and rely on the committed-files default.)
+
+- [ ] **Step 12: Run full suite + ruff + mypy, confirm green**
 
 ```bash
 uv run pytest --tb=short -q
 uv run ruff check .
 uv run mypy --config-file pyproject.toml code_review/
 ```
-Expected: 1 pre-existing Semgrep integration failure, everything else green; ruff and mypy clean.
+Expected: 1 pre-existing Semgrep integration failure (fixed later in t7), everything else green; ruff and mypy clean. Confirm no test still references repo-root `/schemas/`.
 
-- [ ] **Step 10: Commit**
+- [ ] **Step 13: Commit**
 
 ```bash
-git add code_review/adapters/sarif_utils.py code_review/capabilities.json \
-    code_review/adapters/base.py code_review/adapters/radon.py \
-    code_review/adapters/semgrep.py code_review/config.py code_review/cli.py \
-    tests/test_adapters/test_sarif_utils.py
-git commit -m "code-review s3-t0: sarif_utils, move capabilities.json, env in run_subprocess"
+git add -A
+git commit -m "code-review s3-t0: package-bundle contracts (ADR-0007) + sarif_utils + env param"
 ```
 
 ---
