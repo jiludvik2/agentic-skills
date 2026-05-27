@@ -66,12 +66,13 @@
         "additionalProperties": false,
         "properties": {
           "id": {"type": "string"},
-          "kind": {"enum": ["deterministic", "llm", "deterministic-runtime"]},
+          "kind": {"enum": ["deterministic", "llm", "deterministic-runtime", "contract"]},
           "languages": {"type": "array", "items": {"type": "string"}},
           "rule_classes": {"type": "array", "items": {"type": "string"}},
           "taxonomies_tagged": {"type": "array", "items": {"type": "string"}},
           "default_timeout_s": {"type": "number", "minimum": 0},
-          "scope_restriction": {"type": ["string", "null"]}
+          "scope_restriction": {"type": ["string", "null"]},
+          "review_scope": {"type": "string"}
         }
       }
     },

@@ -68,7 +68,8 @@
     {"id": "eslint", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["quality", "security"], "taxonomies_tagged": [], "default_timeout_s": 90, "scope_restriction": null},
     {"id": "jscpd", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["duplication"], "taxonomies_tagged": [], "default_timeout_s": 60, "scope_restriction": null},
     {"id": "knip", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["dead-code"], "taxonomies_tagged": [], "default_timeout_s": 120, "scope_restriction": null},
-    {"id": "depcruiser", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["coupling"], "taxonomies_tagged": [], "default_timeout_s": 90, "scope_restriction": null}
+    {"id": "depcruiser", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["coupling"], "taxonomies_tagged": [], "default_timeout_s": 90, "scope_restriction": null},
+    {"id": "schemathesis", "kind": "contract", "languages": [], "rule_classes": ["contract"], "taxonomies_tagged": [], "default_timeout_s": 600, "scope_restriction": "story-level", "review_scope": "full"}
   ],
   "hotspots": {
     "weights": {

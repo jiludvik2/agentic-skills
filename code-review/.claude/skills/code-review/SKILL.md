@@ -74,3 +74,19 @@ The skill is designed to run entirely inside Claude Code's OS sandbox after `set
 ```
 
 At `lite` and `standard` scope the analyzers need no network at runtime, so `allowedDomains` stays empty. At `full` scope, add the contract-testing target hosts (the base URLs Schemathesis/Pact exercise) to `allowedDomains` — and nothing else. Credential paths stay in `denyRead` so no analyzer subprocess can read them.
+
+### Contract testing (story-level, full scope)
+
+Story-level reviews at `full` scope invoke Schemathesis. It needs network access to the targets you configure in `code-review.toml`'s `[contract_testing]` section. Add only those specific hosts (e.g., `localhost`, your internal service hostname) to `sandbox.allowedDomains` — never widen to wildcards or public-internet hosts.
+
+```json
+{
+  "sandbox": {
+    "network": {
+      "allowedDomains": ["localhost", "api.internal.example.com"]
+    }
+  }
+}
+```
+
+If Schemathesis cannot reach the configured target, the adapter returns `status: "error"` with an `error` field naming the unreachable host and reminding you to check `sandbox.allowedDomains`. Other analyzers' results are preserved in the consolidated output.

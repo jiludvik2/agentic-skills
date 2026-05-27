@@ -86,6 +86,41 @@ async def test_trivy_no_temp_files_in_cwd(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_schemathesis_sandbox_blocked_network_names_allowed_domains() -> None:
+    """When the network rejects the Schemathesis target, error must name sandbox.allowedDomains."""
+    from unittest.mock import patch
+
+    from code_review.adapters.schemathesis_ import SchemathesisAdapter
+    from code_review.contracts import ReviewRequest
+
+    request = ReviewRequest(
+        scope="story-level",
+        diff_range=None,
+        target_paths=(),
+        languages=frozenset(),
+        config={
+            "contract_testing": {
+                "api": {
+                    "spec_url": "http://localhost:8080/openapi.json",
+                    "base_url": "http://localhost:8080",
+                    "timeout_s": 5,
+                }
+            }
+        },
+    )
+
+    with patch(
+        "schemathesis.openapi.from_url",
+        side_effect=OSError("Network access blocked by sandbox"),
+    ):
+        output = await SchemathesisAdapter().run(request)
+
+    assert output.status == "error"
+    assert output.error is not None
+    assert "sandbox.allowedDomains" in output.error
+
+
+@pytest.mark.asyncio
 async def test_semgrep_no_temp_files_in_cwd(tmp_path: Path) -> None:
     """SemgrepAdapter must not create any files in CWD."""
     from code_review.adapters.base import SubprocessResult

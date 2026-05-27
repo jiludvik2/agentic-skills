@@ -54,6 +54,16 @@ def test_taxonomies_include_sdlc_severity() -> None:
     assert set(values) == {"critical", "important", "minor", "nit"}
 
 
+def test_schemathesis_capabilities_entry() -> None:
+    caps = _load_caps()
+    entries = [a for a in caps["analyzers"] if a["id"] == "schemathesis"]
+    assert entries, "schemathesis not found in capabilities.analyzers"
+    entry = entries[0]
+    assert entry["default_timeout_s"] == 600
+    assert entry.get("review_scope") == "full", "schemathesis must be full-scope only"
+    assert entry.get("scope_restriction") == "story-level", "schemathesis is story-level-only"
+
+
 def test_stack_coverage_frameworks_have_fixtures() -> None:
     """Coverage discipline: anything marked verified must be backed by a real fixture."""
     caps = _load_caps()
