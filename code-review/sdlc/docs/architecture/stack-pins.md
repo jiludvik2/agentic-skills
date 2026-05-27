@@ -45,8 +45,17 @@ Status: harvested from the architecture's pin sections at first compile. No proj
 | pytest-asyncio | `0.25.0` |
 | mypy | `1.13.0` |
 | ruff | `0.15.14` |
-| fastapi | `0.115.12` |
+| fastapi | `0.136.3` |
 | uvicorn | `0.34.3` |
+
+**Security floor (transitive):** `fastapi==0.136.3` floors `starlette>=1.0.1` (lock resolves `1.1.0`),
+clearing CVE-2025-54121, CVE-2025-62727, PYSEC-2026-161 introduced by the original `fastapi==0.115.12`
+pin (→ `starlette 0.46.2`). See s4 close notes.
+
+**Known allow-listed advisory:** `pytest 8.3.4` / CVE-2025-71176 (fix 9.0.3) — un-actionable: the
+runtime pin `schemathesis==4.0.10` requires `pytest>=8,<9`, so pytest cannot reach 9.x without bumping
+schemathesis (a separate story). Test-only, never shipped at runtime. **Expiry: 2026-08-31** — revisit
+when schemathesis is next bumped; if still pinned, re-affirm or escalate.
 
 ## Subprocess-only tools (runtime prerequisites, NOT Python deps)
 

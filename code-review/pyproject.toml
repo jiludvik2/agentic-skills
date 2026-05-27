@@ -54,6 +54,6 @@ dev = [
     "mypy==1.13.0",
     "ruff==0.15.14",
     "types-jsonschema==4.23.0.20241208",
-    "fastapi==0.115.12",
+    "fastapi==0.136.3",
     "uvicorn==0.34.3",
 ]
