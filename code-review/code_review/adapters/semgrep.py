@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -53,15 +54,6 @@ class SemgrepAdapter:
         else:
             config_arg = "auto"
 
-        user_data_dir = Path.cwd() / ".cache" / "semgrep"
-        user_data_dir.mkdir(parents=True, exist_ok=True)
-        env = {
-            **os.environ,
-            # Redirect semgrep's log/settings files so it never writes to ~/.semgrep
-            "SEMGREP_LOG_FILE": str(user_data_dir / "semgrep.log"),
-            "SEMGREP_SETTINGS_FILE": str(user_data_dir / "settings.yaml"),
-        }
-
         cmd = (
             "semgrep", "--sarif",
             "--config", config_arg,
@@ -70,7 +62,15 @@ class SemgrepAdapter:
             "--x-ignore-semgrepignore-files",
             *request.target_paths,
         )
-        result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s, env=env)
+        with tempfile.TemporaryDirectory(prefix="code-review-semgrep-") as _tmp:
+            tmp = Path(_tmp)
+            env = {
+                **os.environ,
+                # Redirect semgrep's log/settings files so it never writes to ~/.semgrep
+                "SEMGREP_LOG_FILE": str(tmp / "semgrep.log"),
+                "SEMGREP_SETTINGS_FILE": str(tmp / "settings.yaml"),
+            }
+            result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s, env=env)
 
         if result.error is not None:
             msg = result.error

@@ -16,6 +16,7 @@ build/
 # Runtime outputs
 runs/
 cache/
+.cache/
 
 # JS/TS tooling
 node_modules/

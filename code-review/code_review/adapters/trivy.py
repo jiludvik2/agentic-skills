@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import uuid
+import tempfile
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -29,18 +29,18 @@ class TrivyAdapter:
                 ),
             )
         source = request.target_paths[0] if request.target_paths else "."
-        tmp_path = Path.cwd() / f".trivy-{uuid.uuid4().hex}.sarif"
-        cmd = (
-            "trivy", "fs",
-            "--format", "sarif",
-            "--output", str(tmp_path),
-            "--cache-dir", str(_TRIVY_CACHE_DIR),
-            "--skip-db-update",
-            "--offline-scan",
-            source,
-        )
-        result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
-        try:
+        with tempfile.TemporaryDirectory(prefix="code-review-trivy-") as _tmp:
+            tmp_path = Path(_tmp) / "report.sarif"
+            cmd = (
+                "trivy", "fs",
+                "--format", "sarif",
+                "--output", str(tmp_path),
+                "--cache-dir", str(_TRIVY_CACHE_DIR),
+                "--skip-db-update",
+                "--offline-scan",
+                source,
+            )
+            result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
             if result.error is not None:
                 return AnalyzerOutput(sarif={}, status="error", error=result.error)
             if result.timed_out:
@@ -56,6 +56,3 @@ class TrivyAdapter:
                                       error="trivy produced no output file")
             sarif: dict[str, Any] = json.loads(tmp_path.read_text())
             return AnalyzerOutput(sarif=sarif)
-        finally:
-            if tmp_path.exists():
-                tmp_path.unlink()

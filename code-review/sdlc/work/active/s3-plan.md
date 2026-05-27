@@ -2450,83 +2450,84 @@ if explicitly_disabled:
 
 - [ ] **Step 9: Write sandbox compatibility test**
 
+Note: gitleaks, trivy, and semgrep all use `tempfile.TemporaryDirectory` for scratch files
+(not CWD-relative paths). The sandbox test verifies that no stray files appear in CWD
+and that the adapters return valid output despite writing to $TMPDIR.
+
 ```python
 # tests/test_sandbox_compatibility.py
 """
-Verify adapters write only inside CWD. Approach: monkeypatch Path.cwd() to a
-temporary directory and run adapters that write temp files; assert all temp
-files land inside that directory.
+Verify adapters do not litter the working directory with temp files.
+All binary adapters (gitleaks, trivy, semgrep) use tempfile.TemporaryDirectory
+so their scratch files land in $TMPDIR and are auto-cleaned — never in CWD.
 """
+import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
+import json
 
 
-async def test_gitleaks_temp_file_inside_cwd(tmp_path):
-    """GitleaksAdapter temp SARIF file must land inside CWD."""
+async def test_gitleaks_no_temp_files_in_cwd(tmp_path):
+    """GitleaksAdapter must not create any files in CWD."""
     from code_review.adapters.base import SubprocessResult
     from code_review.adapters.gitleaks import GitleaksAdapter
     from code_review.contracts import ReviewRequest
-
-    written_paths: list[Path] = []
 
     def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
         for arg in args:
             s = str(arg)
             if s.endswith(".sarif"):
-                p = Path(s)
-                written_paths.append(p)
-                p.write_text('{"version":"2.1.0","$schema":"x","runs":[]}')
+                Path(s).write_text('{"version":"2.1.0","$schema":"x","runs":[]}')
                 break
         return SubprocessResult(b"", b"", 0)
 
+    before = set(tmp_path.iterdir())
     with (
         patch("code_review.adapters.gitleaks.run_subprocess", side_effect=fake_run),
-        patch("code_review.adapters.gitleaks.Path") as mock_path_cls,
+        patch("os.getcwd", return_value=str(tmp_path)),
     ):
-        mock_path_cls.cwd.return_value = tmp_path
-        mock_path_cls.return_value = tmp_path  # so the path ctor uses tmp_path
         request = ReviewRequest(scope="per-task", diff_range=None,
                                 target_paths=(".",), languages=frozenset(), config={})
-        await GitleaksAdapter().run(request)
+        output = await GitleaksAdapter().run(request)
 
-    for p in written_paths:
-        assert str(tmp_path) in str(p), \
-            f"Temp file {p} is not inside CWD {tmp_path}"
+    after = set(tmp_path.iterdir())
+    assert before == after, f"Unexpected files in CWD: {after - before}"
+    assert output.status == "ok"
 
 
-async def test_trivy_temp_file_inside_cwd(tmp_path):
-    """TrivyAdapter temp SARIF file must land inside CWD."""
+async def test_trivy_no_temp_files_in_cwd(tmp_path):
+    """TrivyAdapter must not create any files in CWD."""
     from code_review.adapters.base import SubprocessResult
     from code_review.adapters.trivy import TrivyAdapter
     from code_review.contracts import ReviewRequest
 
-    written_paths: list[Path] = []
     cache_dir = tmp_path / "trivy-db"
     cache_dir.mkdir()
 
     def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
         for i, arg in enumerate(args):
             if str(arg) == "--output" and i + 1 < len(args):
-                p = Path(str(args[i + 1]))
-                written_paths.append(p)
-                p.write_text('{"version":"2.1.0","$schema":"x","runs":[]}')
+                Path(str(args[i + 1])).write_text(
+                    '{"version":"2.1.0","$schema":"x","runs":[]}'
+                )
                 break
         return SubprocessResult(b"", b"", 0)
 
+    before = set(tmp_path.iterdir())
     with (
         patch("code_review.adapters.trivy._TRIVY_CACHE_DIR", cache_dir),
         patch("code_review.adapters.trivy.run_subprocess", side_effect=fake_run),
-        patch("code_review.adapters.trivy.Path") as mock_path_cls,
+        patch("os.getcwd", return_value=str(tmp_path)),
     ):
-        mock_path_cls.cwd.return_value = tmp_path
         request = ReviewRequest(scope="per-task", diff_range=None,
                                 target_paths=(str(tmp_path),),
                                 languages=frozenset(), config={})
-        await TrivyAdapter().run(request)
+        output = await TrivyAdapter().run(request)
 
-    for p in written_paths:
-        assert str(tmp_path) in str(p), \
-            f"Temp file {p} is not inside CWD {tmp_path}"
+    after = set(tmp_path.iterdir() )
+    assert {p for p in after if p != cache_dir} == {p for p in before if p != cache_dir}, \
+        f"Unexpected files in CWD: {after - before}"
+    assert output.status == "ok"
 ```
 
 - [ ] **Step 10: Run all new tests**
@@ -2568,7 +2569,7 @@ git commit -m "code-review s3-t11: REGISTRY wiring, lang_select, disabled_analyz
   - JS vendored binaries → t8-t10 use `node_binary()` from js_base
   - Trivy offline → t6 uses `--skip-db-update --offline-scan`, cache-absent error
   - Semgrep offline → t7 uses local rules + `SEMGREP_USER_DATA_FOLDER`
-  - No writes outside CWD → t11 sandbox test; gitleaks/trivy use CWD-relative temp
+  - No writes outside CWD → t11 sandbox test; gitleaks/trivy/semgrep all use tempfile.TemporaryDirectory
   - disabled_analyzers → t11 Config field + cli enforcement
   - Per-language selection → t11 lang_select.py
   - Timeout handling → `run_subprocess` already handles this in base.py; each adapter returns `status="timeout"` on `result.timed_out`

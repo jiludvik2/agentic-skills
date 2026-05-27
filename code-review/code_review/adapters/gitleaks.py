@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import uuid
+import tempfile
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -18,17 +18,17 @@ class GitleaksAdapter:
 
     async def run(self, request: ReviewRequest) -> AnalyzerOutput:
         source = request.target_paths[0] if request.target_paths else "."
-        tmp_path = Path.cwd() / f".gitleaks-{uuid.uuid4().hex}.sarif"
-        cmd = (
-            "gitleaks", "detect",
-            "--source", source,
-            "--report-format", "sarif",
-            "--report-path", str(tmp_path),
-            "--no-git",
-            "--exit-code", "0",
-        )
-        result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
-        try:
+        with tempfile.TemporaryDirectory(prefix="code-review-gitleaks-") as _tmp:
+            tmp_path = Path(_tmp) / "report.sarif"
+            cmd = (
+                "gitleaks", "detect",
+                "--source", source,
+                "--report-format", "sarif",
+                "--report-path", str(tmp_path),
+                "--no-git",
+                "--exit-code", "0",
+            )
+            result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
             if result.error is not None:
                 return AnalyzerOutput(sarif={}, status="error", error=result.error)
             if result.timed_out:
@@ -44,6 +44,3 @@ class GitleaksAdapter:
                                       error="gitleaks produced no report file")
             sarif: dict[str, Any] = json.loads(tmp_path.read_text())
             return AnalyzerOutput(sarif=sarif)
-        finally:
-            if tmp_path.exists():
-                tmp_path.unlink()
