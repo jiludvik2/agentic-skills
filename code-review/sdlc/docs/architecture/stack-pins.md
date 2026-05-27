@@ -45,6 +45,8 @@ Status: harvested from the architecture's pin sections at first compile. No proj
 | pytest-asyncio | `0.25.0` |
 | mypy | `1.13.0` |
 | ruff | `0.15.14` |
+| fastapi | `0.115.12` |
+| uvicorn | `0.34.3` |
 
 ## Subprocess-only tools (runtime prerequisites, NOT Python deps)
 

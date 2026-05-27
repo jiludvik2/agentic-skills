@@ -32,6 +32,44 @@ def test_map_severity_table(level: str, props_sev: str | None, expected: str) ->
     assert map_severity(level, props_sev) == expected
 
 
+def _make_sarif_with_rule(level: str, rule_id: str) -> dict:
+    return {
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {"name": "test-tool"}},
+            "results": [{
+                "ruleId": rule_id,
+                "level": level,
+                "locations": [{"physicalLocation": {
+                    "artifactLocation": {"uri": "src/a.py"},
+                    "region": {"startLine": 1},
+                }}],
+                "properties": {},
+            }],
+        }],
+    }
+
+
+def test_aggregate_override_wins_for_known_rule_id() -> None:
+    from code_review.aggregator import aggregate
+    from code_review.contracts import AnalyzerOutput
+
+    output = AnalyzerOutput(sarif=_make_sarif_with_rule("note", "my-rule"))
+    results = aggregate([output], severity_overrides={"my-rule": "critical"})
+    finding = results["runs"][0]["results"][0]
+    assert finding["properties"]["sdlc_severity"] == "critical"
+
+
+def test_aggregate_override_absent_uses_map_severity() -> None:
+    from code_review.aggregator import aggregate
+    from code_review.contracts import AnalyzerOutput
+
+    output = AnalyzerOutput(sarif=_make_sarif_with_rule("error", "other-rule"))
+    results = aggregate([output], severity_overrides={"my-rule": "nit"})
+    finding = results["runs"][0]["results"][0]
+    assert finding["properties"]["sdlc_severity"] == "critical"
+
+
 def test_map_severity_unknown_strings_never_raise() -> None:
     unknown_pairs = [
         ("bogus", "bogus"),

@@ -27,13 +27,16 @@ def _load_caps_weights() -> dict[str, float]:
     return {k: float(v) for k, v in raw.items()}
 
 
+_VALID_SDLC_LABELS = frozenset({"critical", "important", "minor", "nit"})
+
+
 @dataclass
 class Config:
     dedup_line_tolerance: int = _DEFAULT_DEDUP_TOLERANCE
-    # Parsed from [severity] in code-review.toml; wiring into map_severity() is reserved for s3.
     severity_overrides: dict[str, str] = field(default_factory=dict)
     hotspot_weights: dict[str, float] = field(default_factory=_load_caps_weights)
     disabled_analyzers: list[str] = field(default_factory=list)
+    contract_testing: dict[str, Any] = field(default_factory=dict)
 
 
 def load_config(skill_dir: Path) -> Config:
@@ -53,6 +56,12 @@ def load_config(skill_dir: Path) -> Config:
     severity_overrides: dict[str, str] = {
         str(k): str(v) for k, v in raw.get("severity", {}).items()
     }
+    for rule_id, label in severity_overrides.items():
+        if label not in _VALID_SDLC_LABELS:
+            raise ConfigError(
+                f"Invalid severity override for '{rule_id}': '{label}' is not one of "
+                f"{sorted(_VALID_SDLC_LABELS)}"
+            )
 
     base_weights = _load_caps_weights()
     toml_weights: dict[str, Any] = raw.get("hotspots", {}).get("weights", {})
@@ -62,9 +71,14 @@ def load_config(skill_dir: Path) -> Config:
         str(x) for x in raw.get("disabled_analyzers", [])
     ]
 
+    contract_testing: dict[str, Any] = dict(
+        raw.get("contract_testing", {}).get("targets", {})
+    )
+
     return Config(
         dedup_line_tolerance=dedup_tolerance,
         severity_overrides=severity_overrides,
         hotspot_weights=hotspot_weights,
         disabled_analyzers=disabled_analyzers,
+        contract_testing=contract_testing,
     )

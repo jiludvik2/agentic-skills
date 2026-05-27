@@ -177,3 +177,50 @@ def test_malformed_toml_raises_config_error(tmp_path: Path) -> None:
     with pytest.raises(ConfigError) as exc_info:
         load_config(tmp_path)
     assert str(tmp_path) in str(exc_info.value) or "code-review.toml" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# severity_overrides validation
+# ---------------------------------------------------------------------------
+
+
+def test_invalid_severity_override_value_raises_config_error(tmp_path: Path) -> None:
+    (tmp_path / "code-review.toml").write_text(
+        textwrap.dedent("""\
+            [severity]
+            "rule-x" = "blocker"
+        """)
+    )
+    with pytest.raises(ConfigError, match="blocker"):
+        load_config(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# [contract_testing] section
+# ---------------------------------------------------------------------------
+
+
+def test_contract_testing_parses_single_target(tmp_path: Path) -> None:
+    (tmp_path / "code-review.toml").write_text(
+        textwrap.dedent("""\
+            [contract_testing.targets.petstore]
+            spec_url = "http://localhost:8000/openapi.json"
+            base_url = "http://localhost:8000"
+            timeout_s = 60
+
+            [contract_testing.targets.petstore.auth]
+            token_env = "PETSTORE_TOKEN"
+        """)
+    )
+    config = load_config(tmp_path)
+    assert "petstore" in config.contract_testing
+    target = config.contract_testing["petstore"]
+    assert target["spec_url"] == "http://localhost:8000/openapi.json"
+    assert target["base_url"] == "http://localhost:8000"
+    assert target["timeout_s"] == 60
+    assert target["auth"]["token_env"] == "PETSTORE_TOKEN"
+
+
+def test_contract_testing_absent_is_empty(tmp_path: Path) -> None:
+    config = load_config(tmp_path)
+    assert config.contract_testing == {}

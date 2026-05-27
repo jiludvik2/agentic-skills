@@ -79,12 +79,19 @@ def _normalise_taxa(result: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def _apply_sdlc_severity(result: dict[str, Any]) -> dict[str, Any]:
+def _apply_sdlc_severity(
+    result: dict[str, Any],
+    overrides: dict[str, str] | None = None,
+) -> dict[str, Any]:
     result = dict(result)
     props = dict(result.get("properties", {}))
     level = result.get("level", "none")
     props_sev = props.get("severity")
-    props["sdlc_severity"] = map_severity(level, props_sev)
+    label = map_severity(level, props_sev)
+    rule_id: str = result.get("ruleId", "")
+    if overrides and rule_id in overrides:
+        label = overrides[rule_id]
+    props["sdlc_severity"] = label
     result["properties"] = props
     return result
 
@@ -92,6 +99,7 @@ def _apply_sdlc_severity(result: dict[str, Any]) -> dict[str, Any]:
 def aggregate(
     outputs: list[AnalyzerOutput],
     line_tolerance: int = 3,
+    severity_overrides: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Merge multiple per-analyzer AnalyzerOutputs into one consolidated SARIF.
 
@@ -168,7 +176,7 @@ def aggregate(
                     merged.append(entry)
                     merge_meta.append({"key": None, "original_locations": {}})
 
-    merged = [_apply_sdlc_severity(r) for r in merged]
+    merged = [_apply_sdlc_severity(r, severity_overrides) for r in merged]
 
     supported_taxonomies = [_CWE_TAXONOMY_REF] if has_cwe else []
 

@@ -31,6 +31,11 @@ class ReviewScope(StrEnum):
     full = "full"
 
 
+class TimingScope(StrEnum):
+    per_task = "per-task"
+    story_level = "story-level"
+
+
 def _probe_analyzer(adapter_cls: type[Any]) -> dict[str, Any]:
     """Recompute runtime availability for one analyzer.
 
@@ -111,9 +116,11 @@ async def _run_analyzers(
     names: list[str],
     target: str | None,
     diff: str | None = None,
-    scope: str = "lite",
+    scope: str = "per-task",
     line_tolerance: int = 3,
     hotspot_weights: dict[str, float] | None = None,
+    severity_overrides: dict[str, str] | None = None,
+    contract_testing: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     from code_review.adapters import REGISTRY
 
@@ -132,7 +139,7 @@ async def _run_analyzers(
         diff_range=diff,
         target_paths=target_paths,
         languages=frozenset(),
-        config={},
+        config={"contract_testing": contract_testing or {}},
     )
 
     task_map: dict[str, asyncio.Task[AnalyzerOutput]] = {}
@@ -143,7 +150,11 @@ async def _run_analyzers(
     per_analyzer = {name: t.result() for name, t in task_map.items()}
     outputs = list(per_analyzer.values())
 
-    consolidated_sarif = aggregate(outputs, line_tolerance=line_tolerance)
+    consolidated_sarif = aggregate(
+        outputs,
+        line_tolerance=line_tolerance,
+        severity_overrides=severity_overrides,
+    )
     merged_metrics = _merge_metrics(outputs)
     hotspots = compute_hotspots(
         consolidated_sarif,
@@ -175,6 +186,9 @@ def main(
     ),
     review_scope: ReviewScope | None = typer.Option(
         None, "--review-scope", help="Review depth: lite, standard, or full"
+    ),
+    scope: TimingScope = typer.Option(
+        TimingScope.per_task, "--scope", help="Timing scope: per-task or story-level"
     ),
     capabilities: bool = typer.Option(
         False, "--capabilities", help="Print static + runtime capabilities as JSON and exit"
@@ -217,15 +231,28 @@ def main(
         )
         raise typer.Exit(1)
 
-    scope = review_scope.value if review_scope is not None else "lite"
+    timing_scope = scope.value
+    for name in analyzer:
+        adapter_cls = REGISTRY[name]
+        restrictions: frozenset[str] = getattr(adapter_cls, "scope_restrictions", frozenset())
+        if restrictions and timing_scope not in restrictions:
+            allowed = ", ".join(sorted(restrictions))
+            typer.echo(
+                f"Error: analyzer '{name}' requires --scope {{{allowed}}} (got '{timing_scope}')",
+                err=True,
+            )
+            raise typer.Exit(1)
+
     result = asyncio.run(
         _run_analyzers(
             analyzer,
             target,
             diff,
-            scope,
+            timing_scope,
             line_tolerance=config.dedup_line_tolerance,
             hotspot_weights=config.hotspot_weights,
+            severity_overrides=config.severity_overrides,
+            contract_testing=config.contract_testing,
         )
     )
     analyzers_dict: dict[str, Any] = result["analyzers"]

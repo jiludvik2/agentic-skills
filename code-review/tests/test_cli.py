@@ -242,21 +242,21 @@ class _ScopeCapturingFake:
         return AnalyzerOutput(sarif={}, status="ok")
 
 
-def test_review_scope_flows_into_request(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_timing_scope_flows_into_request(monkeypatch: pytest.MonkeyPatch) -> None:
     _ScopeCapturingFake.seen = []
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", _ScopeCapturingFake)
     runner = CliRunner()
 
     result = runner.invoke(
-        app, ["--analyzer", "fake", "--target", ".", "--review-scope", "standard"]
+        app, ["--analyzer", "fake", "--target", ".", "--scope", "story-level"]
     )
     assert result.exit_code == 0, result.output
-    assert _ScopeCapturingFake.seen == ["standard"]
+    assert _ScopeCapturingFake.seen == ["story-level"]
 
     _ScopeCapturingFake.seen = []
     result = runner.invoke(app, ["--analyzer", "fake", "--target", "."])
     assert result.exit_code == 0, result.output
-    assert _ScopeCapturingFake.seen == ["lite"], "unset --review-scope must default to lite"
+    assert _ScopeCapturingFake.seen == ["per-task"], "unset --scope must default to per-task"
 
 
 def test_output_creates_missing_parent_dir(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
