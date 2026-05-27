@@ -9,6 +9,7 @@ import pytest
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
 SCHEMA_PATH = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
+RULES_PATH = Path(__file__).parent.parent / "fixtures" / "semgrep-rules"
 
 
 def test_semgrep_protocol_conformance():
@@ -33,7 +34,7 @@ async def test_semgrep_produces_valid_sarif():
         diff_range=None,
         target_paths=(str(FIXTURE_PATH),),
         languages=frozenset({"python"}),
-        config={},
+        config={"semgrep_rules": str(RULES_PATH)},
     )
     output = await SemgrepAdapter().run(request)
 

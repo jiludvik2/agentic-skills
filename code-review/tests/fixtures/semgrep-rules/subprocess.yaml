@@ -1,0 +1,10 @@
+rules:
+  - id: subprocess-shell-true
+    patterns:
+      - pattern: subprocess.run(..., shell=True, ...)
+    message: >
+      subprocess.run with shell=True is a security risk (CWE-78).
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-78"
