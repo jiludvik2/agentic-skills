@@ -115,7 +115,7 @@ async def test_auth_token_read_from_env_not_in_sarif() -> None:
         session_headers_captured.update(dict(session.headers))
         return []
 
-    mock_op = MagicMock()
+    mock_op = MagicMock(spec=["ok", "as_strategy"])
     mock_op.ok.return_value = mock_op
 
     mock_schema = MagicMock()
@@ -160,8 +160,6 @@ async def test_hypothesis_cache_redirected_to_tmpdir(tmp_path: Path) -> None:
 
     storage_dir_seen: list[str] = []
 
-    _orig_from_url = __import__("schemathesis").openapi.from_url
-
     def capturing_from_url(*args: Any, **kwargs: Any) -> Any:
         storage_dir_seen.append(os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY", ""))
         raise ConnectionError("simulated unreachable")
@@ -176,7 +174,6 @@ async def test_hypothesis_cache_redirected_to_tmpdir(tmp_path: Path) -> None:
     assert storage_dir_seen[0].startswith(str(tmp_path)), (
         f"HYPOTHESIS_STORAGE_DIRECTORY={storage_dir_seen[0]!r} is not under TMPDIR={tmp_path}"
     )
-    assert not (Path.cwd() / ".hypothesis").exists() or True  # allowed to exist from earlier
 
 
 # ---------------------------------------------------------------------------
@@ -220,9 +217,9 @@ async def test_timeout_status_with_partial_findings() -> None:
     from code_review.adapters.schemathesis_ import SchemathesisAdapter
 
     # Two mock operations — op1 produces a finding, op2 should never execute.
-    mock_op1 = MagicMock()
+    mock_op1 = MagicMock(spec=["ok", "as_strategy"])
     mock_op1.ok.return_value = mock_op1
-    mock_op2 = MagicMock()
+    mock_op2 = MagicMock(spec=["ok", "as_strategy"])
     mock_op2.ok.return_value = mock_op2
 
     mock_schema = MagicMock()

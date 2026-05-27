@@ -50,6 +50,7 @@ import schemathesis.openapi
 from hypothesis import HealthCheck, Phase
 from hypothesis import find as h_find
 from hypothesis import settings as h_settings
+from hypothesis.errors import Flaky, Unsatisfiable
 from schemathesis.core.failures import FailureGroup
 
 from code_review.adapters.sarif_utils import empty_sarif, make_location, normalise_sarif
@@ -85,13 +86,15 @@ async def _run_operation(op: Any, session: requests.Session) -> list[Any]:
         )
         try:
             case = h_find(op.as_strategy(), lambda c: True, settings=settings)
+        except (Unsatisfiable, Flaky):
+            raise  # diagnostic errors — propagate, don't swallow
         except Exception:
             return []
         failures: list[Any] = []
         try:
             case.call_and_validate(session=session)
         except FailureGroup as fg:
-            failures.extend(list(fg.exceptions))
+            failures.extend(fg.exceptions)
         except Exception:
             pass
         return failures
@@ -110,62 +113,64 @@ class SchemathesisAdapter:
         if not targets:
             return AnalyzerOutput(sarif=empty_sarif("schemathesis", "4.0.10"))
 
-        tmpdir = tempfile.mkdtemp(dir=os.environ.get("TMPDIR", tempfile.gettempdir()))
-        os.environ["HYPOTHESIS_STORAGE_DIRECTORY"] = tmpdir
+        with tempfile.TemporaryDirectory(
+            dir=os.environ.get("TMPDIR", tempfile.gettempdir())
+        ) as tmpdir:
+            os.environ["HYPOTHESIS_STORAGE_DIRECTORY"] = tmpdir
 
-        all_results: list[dict[str, Any]] = []
-        final_status = "ok"
+            all_results: list[dict[str, Any]] = []
+            final_status = "ok"
 
-        for _target_name, cfg in targets.items():
-            spec_url: str = cfg["spec_url"]
-            base_url: str = cfg["base_url"]
-            token_env: str = cfg.get("auth", {}).get("token_env", "")
-            timeout_s: float = float(cfg.get("timeout_s", self.default_timeout_s))
-            token = os.environ.get(token_env, "") if token_env else ""
+            for _target_name, cfg in targets.items():
+                spec_url: str = cfg["spec_url"]
+                base_url: str = cfg["base_url"]
+                token_env: str = cfg.get("auth", {}).get("token_env", "")
+                timeout_s: float = float(cfg.get("timeout_s", self.default_timeout_s))
+                token = os.environ.get(token_env, "") if token_env else ""
 
-            session = requests.Session()
-            if token:
-                session.headers["Authorization"] = f"Bearer {token}"
+                with requests.Session() as session:
+                    if token:
+                        session.headers["Authorization"] = f"Bearer {token}"
 
-            try:
-                schema = await asyncio.to_thread(
-                    schemathesis.openapi.from_url, spec_url
-                )
-            except Exception as exc:
-                return AnalyzerOutput(
-                    sarif={},
-                    status="error",
-                    error=(
-                        f"cannot reach {base_url}: {exc}. "
-                        "Check sandbox.allowedDomains includes the target host."
-                    ),
-                )
+                    try:
+                        schema = await asyncio.to_thread(
+                            schemathesis.openapi.from_url, spec_url
+                        )
+                    except Exception as exc:
+                        return AnalyzerOutput(
+                            sarif={},
+                            status="error",
+                            error=(
+                                f"cannot reach {base_url}: {exc}. "
+                                "Check sandbox.allowedDomains includes the target host."
+                            ),
+                        )
 
-            start = time.monotonic()
-            ops = [item.ok() for item in schema.get_all_operations() if hasattr(item, "ok")]
+                    start = time.monotonic()
+                    ops = [item.ok() for item in schema.get_all_operations() if hasattr(item, "ok")]
 
-            for op in ops:
-                if time.monotonic() - start > timeout_s:
-                    final_status = "timeout"
-                    break
-                failures = await _run_operation(op, session)
-                for f in failures:
-                    all_results.append(_failure_to_sarif_result(f))
+                    for op in ops:
+                        if time.monotonic() - start > timeout_s:
+                            final_status = "timeout"
+                            break
+                        failures = await _run_operation(op, session)
+                        for f in failures:
+                            all_results.append(_failure_to_sarif_result(f))
 
-        sarif = normalise_sarif(
-            {
-                "runs": [
-                    {
-                        "tool": {
-                            "driver": {
-                                "name": "schemathesis",
-                                "version": "4.0.10",
-                                "rules": [],
-                            }
-                        },
-                        "results": all_results,
-                    }
-                ]
-            }
-        )
-        return AnalyzerOutput(sarif=sarif, status=final_status)
+            sarif = normalise_sarif(
+                {
+                    "runs": [
+                        {
+                            "tool": {
+                                "driver": {
+                                    "name": "schemathesis",
+                                    "version": "4.0.10",
+                                    "rules": [],
+                                }
+                            },
+                            "results": all_results,
+                        }
+                    ]
+                }
+            )
+            return AnalyzerOutput(sarif=sarif, status=final_status)
