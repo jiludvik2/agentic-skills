@@ -47,9 +47,11 @@ Verified API (confirmed via probe scripts against schemathesis==4.0.10):
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import tempfile
 import time
+from collections.abc import Iterator
 from typing import Any, ClassVar
 
 import requests
@@ -66,6 +68,23 @@ from code_review.contracts import AnalyzerOutput, ReviewRequest
 
 _MAX_EXAMPLES = 5
 _DEADLINE = None  # let Hypothesis manage; we gate on wall-clock timeout ourselves
+
+
+@contextlib.contextmanager
+def _hypothesis_storage(tmpdir: str) -> Iterator[None]:
+    """Point Hypothesis's example DB at `tmpdir` for the duration of the run, then restore the
+    process env. The adapter runs in-process (ADR-0009), so an unrestored mutation of the
+    process-global HYPOTHESIS_STORAGE_DIRECTORY would leak across analyzers and across runs."""
+    key = "HYPOTHESIS_STORAGE_DIRECTORY"
+    prev = os.environ.get(key)
+    os.environ[key] = tmpdir
+    try:
+        yield
+    finally:
+        if prev is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = prev
 
 
 # Map Schemathesis Failure *types* (by class name) to stable SARIF ruleId suffixes. Deriving the
@@ -137,11 +156,12 @@ class SchemathesisAdapter:
         if not targets:
             return AnalyzerOutput(sarif=empty_sarif("schemathesis", "4.0.10"))
 
-        with tempfile.TemporaryDirectory(
-            dir=os.environ.get("TMPDIR", tempfile.gettempdir())
-        ) as tmpdir:
-            os.environ["HYPOTHESIS_STORAGE_DIRECTORY"] = tmpdir
-
+        with (
+            tempfile.TemporaryDirectory(
+                dir=os.environ.get("TMPDIR", tempfile.gettempdir())
+            ) as tmpdir,
+            _hypothesis_storage(tmpdir),
+        ):
             all_results: list[dict[str, Any]] = []
             final_status = "ok"
 

@@ -217,6 +217,37 @@ async def test_hypothesis_cache_redirected_to_tmpdir(tmp_path: Path) -> None:
 
 
 @pytest.mark.asyncio
+async def test_hypothesis_env_var_restored_after_run(monkeypatch: Any) -> None:
+    """The adapter must not leave HYPOTHESIS_STORAGE_DIRECTORY mutated in the process env
+    (it runs in-process per ADR-0009, so a leak crosses analyzers/runs)."""
+    from code_review.adapters.schemathesis_ import SchemathesisAdapter
+
+    request = _make_request({
+        "target": {
+            "spec_url": "http://localhost:9/openapi.json",
+            "base_url": "http://localhost:9",
+            "auth": {"token_env": "NONE"},
+            "timeout_s": 1,
+        }
+    })
+
+    def boom(*a: Any, **k: Any) -> Any:
+        raise ConnectionError("unreachable")  # enters the tmpdir block, then errors out
+
+    # Case 1: var previously unset → must be absent again after the run.
+    monkeypatch.delenv("HYPOTHESIS_STORAGE_DIRECTORY", raising=False)
+    with patch("schemathesis.openapi.from_url", side_effect=boom):
+        await SchemathesisAdapter().run(request)
+    assert "HYPOTHESIS_STORAGE_DIRECTORY" not in os.environ
+
+    # Case 2: var previously set to a sentinel → must be restored to the sentinel.
+    monkeypatch.setenv("HYPOTHESIS_STORAGE_DIRECTORY", "/sentinel/path")
+    with patch("schemathesis.openapi.from_url", side_effect=boom):
+        await SchemathesisAdapter().run(request)
+    assert os.environ["HYPOTHESIS_STORAGE_DIRECTORY"] == "/sentinel/path"
+
+
+@pytest.mark.asyncio
 async def test_unreachable_target_returns_error() -> None:
     from code_review.adapters.schemathesis_ import SchemathesisAdapter
 
