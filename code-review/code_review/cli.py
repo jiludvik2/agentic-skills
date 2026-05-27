@@ -165,6 +165,9 @@ def main(
     analyzer: list[str] = typer.Option(
         [], "--analyzer", help="Analyzer to run (repeat for multiple)"
     ),
+    language: list[str] = typer.Option(
+        [], "--language", help="Language to analyse (repeat for multiple; enables auto-selection)"
+    ),
     target: str | None = typer.Option(None, "--target", help="Target path to analyse"),
     diff: str | None = typer.Option(None, "--diff", help="Git diff range to scope analysis"),
     output: str | None = typer.Option(
@@ -184,11 +187,15 @@ def main(
     if output is not None:
         _guard_output_in_cwd(output)
 
-    if not analyzer:
-        typer.echo("Error: --analyzer is required", err=True)
-        raise typer.Exit(1)
-
     from code_review.adapters import REGISTRY
+
+    # Auto-select adapters from language(s) when --analyzer is omitted
+    if not analyzer:
+        if not language:
+            typer.echo("Error: --analyzer or --language is required", err=True)
+            raise typer.Exit(1)
+        from code_review.lang_select import select_adapters
+        analyzer = select_adapters(frozenset(language))
 
     unknown = [n for n in analyzer if n not in REGISTRY]
     if unknown:
@@ -200,6 +207,15 @@ def main(
     except ConfigError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from exc
+
+    disabled = set(config.disabled_analyzers)
+    explicitly_disabled = [n for n in analyzer if n in disabled]
+    if explicitly_disabled:
+        typer.echo(
+            f"Error: analyzer(s) disabled in code-review.toml: {', '.join(explicitly_disabled)}",
+            err=True,
+        )
+        raise typer.Exit(1)
 
     scope = review_scope.value if review_scope is not None else "lite"
     result = asyncio.run(

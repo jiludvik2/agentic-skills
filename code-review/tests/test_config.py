@@ -147,6 +147,27 @@ def test_hotspot_weights_override_affects_score(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# disabled_analyzers
+# ---------------------------------------------------------------------------
+
+
+def test_load_config_reads_disabled_analyzers(tmp_path: Path) -> None:
+    toml = tmp_path / "code-review.toml"
+    toml.write_text('disabled_analyzers = ["trivy", "pydeps"]\n')
+    from code_review.config import load_config
+
+    cfg = load_config(tmp_path)
+    assert cfg.disabled_analyzers == ["trivy", "pydeps"]
+
+
+def test_load_config_disabled_analyzers_default_empty(tmp_path: Path) -> None:
+    from code_review.config import load_config
+
+    cfg = load_config(tmp_path)  # no toml file
+    assert cfg.disabled_analyzers == []
+
+
+# ---------------------------------------------------------------------------
 # Malformed TOML → ConfigError
 # ---------------------------------------------------------------------------
 

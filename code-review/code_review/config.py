@@ -33,6 +33,7 @@ class Config:
     # Parsed from [severity] in code-review.toml; wiring into map_severity() is reserved for s3.
     severity_overrides: dict[str, str] = field(default_factory=dict)
     hotspot_weights: dict[str, float] = field(default_factory=_load_caps_weights)
+    disabled_analyzers: list[str] = field(default_factory=list)
 
 
 def load_config(skill_dir: Path) -> Config:
@@ -57,8 +58,13 @@ def load_config(skill_dir: Path) -> Config:
     toml_weights: dict[str, Any] = raw.get("hotspots", {}).get("weights", {})
     hotspot_weights = {**base_weights, **{k: float(v) for k, v in toml_weights.items()}}
 
+    disabled_analyzers: list[str] = [
+        str(x) for x in raw.get("disabled_analyzers", [])
+    ]
+
     return Config(
         dedup_line_tolerance=dedup_tolerance,
         severity_overrides=severity_overrides,
         hotspot_weights=hotspot_weights,
+        disabled_analyzers=disabled_analyzers,
     )

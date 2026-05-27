@@ -270,3 +270,31 @@ def test_output_creates_missing_parent_dir(monkeypatch: pytest.MonkeyPatch, tmp_
     assert result.exit_code == 0, result.output
     assert out.exists()
     assert not (out.parent / "result.json.tmp").exists()
+
+
+def test_cli_requires_analyzer_or_language() -> None:
+    """Without --analyzer or --language the CLI must error with the new message."""
+    runner = CliRunner()
+    result = runner.invoke(app, ["--target", "."])
+    assert result.exit_code != 0
+    assert "--analyzer or --language is required" in result.output
+
+
+def test_cli_auto_selects_adapters_from_language(monkeypatch: pytest.MonkeyPatch) -> None:
+    """--language python must auto-select adapters and run them."""
+    from code_review.lang_select import select_adapters
+
+    # Register a fake for every adapter lang_select would pick for python
+    expected_adapters = select_adapters(frozenset({"python"}))
+    for name in expected_adapters:
+        # Create a unique class per name to avoid shared state
+        cls = type(name, (FakeAnalyzer,), {"name": name})
+        monkeypatch.setitem(adapters_mod.REGISTRY, name, cls)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["--language", "python", "--target", "."])
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    for name in expected_adapters:
+        assert name in data["analyzers"], f"Expected {name} in analyzers"

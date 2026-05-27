@@ -23,16 +23,16 @@
     "python": {
       "status": "verified",
       "version_range": ">=3.11",
-      "analyzer_classes": ["security", "complexity"],
+      "analyzer_classes": ["security", "dead-code", "coupling", "cohesion", "complexity"],
       "frameworks": [
         {"name": "fastapi", "version_range": ">=0.100,<1.0", "status": "planned"},
         {"name": "django", "version_range": ">=4.2,<6.0", "status": "planned"}
       ]
     },
     "typescript": {
-      "status": "planned",
+      "status": "verified",
       "version_range": ">=5.0,<6.0",
-      "analyzer_classes": [],
+      "analyzer_classes": ["quality", "security", "duplication", "dead-code", "coupling"],
       "frameworks": [
         {"name": "next", "version_range": ">=14,<16", "status": "planned"},
         {"name": "react", "version_range": ">=18,<20", "status": "planned"},
@@ -58,7 +58,17 @@
       "taxonomies_tagged": [],
       "default_timeout_s": 60,
       "scope_restriction": null
-    }
+    },
+    {"id": "bandit", "kind": "deterministic", "languages": ["python"], "rule_classes": ["security"], "taxonomies_tagged": ["cwe"], "default_timeout_s": 60, "scope_restriction": null},
+    {"id": "vulture", "kind": "deterministic", "languages": ["python"], "rule_classes": ["dead-code"], "taxonomies_tagged": [], "default_timeout_s": 60, "scope_restriction": null},
+    {"id": "pydeps", "kind": "deterministic", "languages": ["python"], "rule_classes": ["coupling"], "taxonomies_tagged": [], "default_timeout_s": 120, "scope_restriction": null},
+    {"id": "cohesion", "kind": "deterministic", "languages": ["python"], "rule_classes": ["cohesion"], "taxonomies_tagged": [], "default_timeout_s": 60, "scope_restriction": null},
+    {"id": "gitleaks", "kind": "deterministic", "languages": ["python", "javascript", "typescript"], "rule_classes": ["secrets"], "taxonomies_tagged": [], "default_timeout_s": 60, "scope_restriction": null},
+    {"id": "trivy", "kind": "deterministic", "languages": ["python", "javascript", "typescript"], "rule_classes": ["security", "dependency"], "taxonomies_tagged": ["cve"], "default_timeout_s": 180, "scope_restriction": null},
+    {"id": "eslint", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["quality", "security"], "taxonomies_tagged": [], "default_timeout_s": 90, "scope_restriction": null},
+    {"id": "jscpd", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["duplication"], "taxonomies_tagged": [], "default_timeout_s": 60, "scope_restriction": null},
+    {"id": "knip", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["dead-code"], "taxonomies_tagged": [], "default_timeout_s": 120, "scope_restriction": null},
+    {"id": "depcruiser", "kind": "deterministic", "languages": ["javascript", "typescript"], "rule_classes": ["coupling"], "taxonomies_tagged": [], "default_timeout_s": 90, "scope_restriction": null}
   ],
   "hotspots": {
     "weights": {
