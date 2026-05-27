@@ -6,6 +6,7 @@ from code_review.adapters.gitleaks import GitleaksAdapter
 from code_review.adapters.pydeps import PydepsAdapter
 from code_review.adapters.radon import RadonAdapter
 from code_review.adapters.semgrep import SemgrepAdapter
+from code_review.adapters.trivy import TrivyAdapter
 from code_review.adapters.vulture import VultureAdapter
 
 # NB: typed `type[Any]` not `type[Analyzer]` — mypy rejects `type[Protocol]` as a
@@ -19,5 +20,6 @@ REGISTRY: dict[str, type[Any]] = {
     "pydeps": PydepsAdapter,
     "semgrep": SemgrepAdapter,
     "radon": RadonAdapter,
+    "trivy": TrivyAdapter,
     "vulture": VultureAdapter,
 }
