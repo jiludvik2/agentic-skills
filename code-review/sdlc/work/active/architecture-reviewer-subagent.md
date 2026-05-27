@@ -99,7 +99,7 @@ Four things to note about this picture:
 - The sub-agent and the CLI are in **the same process tree as the operator's Claude Code session**. The LLM design review at step 6 is a turn of that session.
 - At **`lite` scope, the CLI is never invoked** — the sub-agent skips steps 4–5 and does LLM-only review, exactly matching the current SDLC reviewer's behaviour. The `code-review` skill is installed but inert. This is the zero-overhead path for PoC projects.
 - At **`standard` and `full` scope**, the CLI fans out across the appropriate analyzer set (see §5 for the scope-to-analyzer mapping). The difference between `standard` and `full` is that `full` adds coupling/cohesion and contract testing.
-- Every analyzer runs as a **subprocess**, invoked via `asyncio.create_subprocess_exec` from the CLI's event loop. The CLI never imports an analyzer as a Python library, except where the analyzer is itself a Python library (Bandit, Radon, vulture).
+- Every analyzer runs as a **subprocess**, invoked via `asyncio.create_subprocess_exec` from the CLI's event loop. The CLI never imports an analyzer as a Python library, except where the analyzer is itself a Python library (Bandit, Radon, vulture, **Schemathesis**). **Schemathesis (s4) is the exception that also performs network egress in-process** — run under a cooperative deadline via `asyncio.to_thread`, egress still gated by `sandbox.allowedDomains`; see **ADR-0009**.
 - The CLI is **pure JSON in / JSON out**. It does not write to `/sdlc/work/active/` itself. The sub-agent files fix tasks; the CLI's only output is the consolidated review document.
 
 ## 3. Module layout

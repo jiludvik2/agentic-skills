@@ -5,7 +5,7 @@
 **Next:** `s4-plan.md` written (t0/t1/t2) — **awaiting operator review**, then execute s4-t0 tests-first.
 
 ## s4 shape (Schemathesis-only)
-- One adapter: Schemathesis (schema-driven, runs against a live API → JUnit XML → SARIF), `full` scope, story-level only, 600s timeout.
+- One adapter: Schemathesis (schema-driven, runs against a live API → SARIF), used as an **in-process library** (ADR-0009), `full` scope, story-level only, 600s timeout via cooperative deadline.
 - Proposed tasks: t0 infra (scope-restriction gate, timeout budgets, `[contract_testing]` config, severity→critical default + override wiring, FastAPI test-dep pin) · t1 adapter + FastAPI fixture + skipif tests · t2 SKILL.md sandbox docs + capabilities scope assignment + cross-cutting tests.
 
 ## Open questions / known debt
