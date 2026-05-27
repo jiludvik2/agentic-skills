@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, ClassVar
 
-import jsonschema  # type: ignore[import-untyped]
+import jsonschema
 
 from code_review.adapters.base import run_subprocess
 from code_review.contracts import AnalyzerOutput, ReviewRequest
