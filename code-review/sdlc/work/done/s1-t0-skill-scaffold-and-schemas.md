@@ -2,7 +2,7 @@
 id: s1-t0-skill-scaffold-and-schemas
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-reviewer-skill-and-capabilities
 created: 2026-05-26
 updated: 2026-05-26
