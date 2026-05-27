@@ -2,7 +2,7 @@
 
 **Active focus:** s4 (contract testing) — **scope reduced to Schemathesis-only**; Pact dropped (ADR-0008). Story spec updated and ready to Plan.
 **Last completed:** s3 closed + cleanup commit `842c123` (tempfile temp-dirs for gitleaks/semgrep/trivy, schema de-duplication). All three s3 milestones (t0–t11) done; 191 passed / 6 skipped.
-**Next:** write `s4-plan.md` (Schemathesis adapter) per the Plan verb, then execute tests-first.
+**Next:** `s4-plan.md` written (t0/t1/t2) — **awaiting operator review**, then execute s4-t0 tests-first.
 
 ## s4 shape (Schemathesis-only)
 - One adapter: Schemathesis (schema-driven, runs against a live API → JUnit XML → SARIF), `full` scope, story-level only, 600s timeout.
