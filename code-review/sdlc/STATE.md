@@ -1,8 +1,8 @@
 # State — last updated 2026-05-27
 
-**Active focus:** s4 (contract testing) — **scope reduced to Schemathesis-only**; Pact dropped (ADR-0008). Story spec updated and ready to Plan.
-**Last completed:** s3 closed + cleanup commit `842c123` (tempfile temp-dirs for gitleaks/semgrep/trivy, schema de-duplication). All three s3 milestones (t0–t11) done; 191 passed / 6 skipped.
-**Next:** `s4-plan.md` written (t0/t1/t2) — **awaiting operator review**, then execute s4-t0 tests-first.
+**Active focus:** s4 (contract testing, Schemathesis-only) — **planned and approved**, not yet executed. Pact dropped (ADR-0008); Schemathesis as in-process library (ADR-0009).
+**Last completed:** s4 planning — `s4-plan.md` (t0/t1/t2) + ADR-0008 + ADR-0009 committed (`6538676`). s3 closed earlier this session (`842c123`); 191 passed / 6 skipped.
+**Next:** execute **s4-t0** tests-first (scope-restriction gate, severity-override wiring, `[contract_testing]` config, fastapi pin). Then t1 (adapter), t2 (capabilities/SKILL.md/sandbox test).
 
 ## s4 shape (Schemathesis-only)
 - One adapter: Schemathesis (schema-driven, runs against a live API → SARIF), used as an **in-process library** (ADR-0009), `full` scope, story-level only, 600s timeout via cooperative deadline.
