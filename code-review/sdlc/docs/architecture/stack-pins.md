@@ -48,7 +48,7 @@ Status: harvested from the architecture's pin sections at first compile. No proj
 
 ## Subprocess-only tools (runtime prerequisites, NOT Python deps)
 
-semgrep, gitleaks, trivy, eslint (+ sonarjs), dependency-cruiser, jscpd, knip, pact. Installed by `scripts/setup.sh`; presence verified at runtime via `python -m code_review.cli --capabilities`. Invoked as separate processes (license isolation — see floor below).
+semgrep, gitleaks, trivy, eslint (+ sonarjs), dependency-cruiser, jscpd, knip. Installed by `scripts/setup.sh`; presence verified at runtime via `python -m code_review.cli --capabilities`. Invoked as separate processes (license isolation — see floor below). (Pact was listed here but dropped — ADR-0008.)
 
 ## Tooling config pins
 

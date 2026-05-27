@@ -1,28 +1,17 @@
 # State — last updated 2026-05-27
 
-**Active focus:** s3 complete (all three milestones). Next: s4 (contract testing) or s5 (subagent integration).
+**Active focus:** s4 (contract testing) — **scope reduced to Schemathesis-only**; Pact dropped (ADR-0008). Story spec updated and ready to Plan.
+**Last completed:** s3 closed + cleanup commit `842c123` (tempfile temp-dirs for gitleaks/semgrep/trivy, schema de-duplication). All three s3 milestones (t0–t11) done; 191 passed / 6 skipped.
+**Next:** write `s4-plan.md` (Schemathesis adapter) per the Plan verb, then execute tests-first.
 
-**Last completed:** s3 t0–t11 via subagent-driven development (implementer + spec + quality review per task).
-- **t0:** sarif_utils.py + ADR-0007 contract consolidation
-- **t1:** BanditAdapter (JSON shim → SARIF)
-- **t2:** VultureAdapter (Python API → SARIF) + dead.py fixture
-- **t3:** PydepsAdapter (module coupling metrics + SARIF)
-- **t4:** CohesionAdapter (LCOM4 metrics + SARIF) + cohesive.py fixture
-- **t5:** GitleaksAdapter (SARIF native, binary) — uses `tempfile.TemporaryDirectory`
-- **t6:** TrivyAdapter (offline SARIF, binary + pre-fetched DB guard) — uses `tempfile.TemporaryDirectory`
-- **t7:** Semgrep offline fix — local rules, `SEMGREP_LOG_FILE`/`SEMGREP_SETTINGS_FILE`, `tempfile.TemporaryDirectory`
-- **t8:** JS adapter infrastructure (`js_base.py`, `_probe_analyzer` extension, JS fixtures, 5 tests)
-- **t9:** EslintAdapter (vendored binary, SARIF formatter, integration skipif guard)
-- **t10:** JscpdAdapter, KnipAdapter, DependencyCruiserAdapter (JSON→SARIF, integration skipif guards)
-- **t11:** REGISTRY (12 adapters), `lang_select.py` + `--language` CLI flag, `disabled_analyzers` (Config + CLI), capabilities.json updated, `test_sandbox_compatibility.py`, `test_lang_select.py`
-
-**Green bar:** 191 passed, 6 skipped (gitleaks + trivy + 4 JS integration tests; binaries/node_modules not installed), 0 failures.
+## s4 shape (Schemathesis-only)
+- One adapter: Schemathesis (schema-driven, runs against a live API → JUnit XML → SARIF), `full` scope, story-level only, 600s timeout.
+- Proposed tasks: t0 infra (scope-restriction gate, timeout budgets, `[contract_testing]` config, severity→critical default + override wiring, FastAPI test-dep pin) · t1 adapter + FastAPI fixture + skipif tests · t2 SKILL.md sandbox docs + capabilities scope assignment + cross-cutting tests.
 
 ## Open questions / known debt
-- `code-review.toml` location — operator config still read from the skill dir (`_SKILL_DIR` kept in cli.py for this); ADR-0007 defers the decision of whether it should be CWD-relative instead.
-- `Config.severity_overrides` parsed from TOML but not wired into `map_severity()` — reserved for s4+.
-- `--capabilities` output lacks a schema; `analyzers` key shape differs from review-response — deferred from s0/s1.
-- `--x-ignore-semgrepignore-files` in semgrep.py is experimental (undocumented, may be removed). Alternative: `--no-git-ignore`. Worth revisiting if semgrep is upgraded.
-- JS adapters error message says "not found. Run scripts/setup.sh first." even when node itself is absent from PATH — would benefit from `probe_js_adapter` for a richer message (tracked, low priority).
-- `package.json` / `package-lock.json` not yet created; JS integration tests always skip until `npm ci` is run via `scripts/setup.sh`.
+- `severity_overrides` parsed in `config.py` but not wired into `map_severity()`/aggregator — **now needed by s4** (contract findings default `critical` unless overridden); wire in s4-t0.
+- `fastapi` not yet pinned — add as a **test-fixture-only** pin in s4-t0 (+ stack-pins).
+- `--capabilities` output still has no schema; `analyzers` key shape differs from review-response (deferred from s0/s1).
+- `code-review.toml` read from skill dir (`_SKILL_DIR` in cli.py); ADR-0007 defers CWD-relative decision.
 - Ruff is part of per-task green-bar; verifier/reviewer sub-agents still don't run it — run locally every task.
+- Architecture doc retains Pact prose as historical context (light supersede per ADR-0008); full purge deferred to epic close if wanted.

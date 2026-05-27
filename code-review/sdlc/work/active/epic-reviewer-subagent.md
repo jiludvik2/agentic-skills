@@ -11,19 +11,19 @@ children:
   - s4-contract-testing-adapters
   - s5-subagent-integration-and-design-review
 created: 2026-05-26
-updated: 2026-05-26  # scope model: lite/standard/full replaces basic/full-reviewer split
+updated: 2026-05-27  # Pact dropped from s4 / epic scope (ADR-0008)
 tags: [reviewer, sarif, sdlc, ai-native, subagent]
 ---
 
 # Epic: Reviewer Sub-agent with Deterministic Analyzer Layer
 
-Extend the SDLC's existing `reviewer` sub-agent with a deterministic analyzer layer (Semgrep, Bandit, Radon, dependency-cruiser, gitleaks, jscpd, vulture, knip, Trivy, pydeps, cohesion, ESLint+sonarjs, Schemathesis, Pact), exposed as a Claude Code skill called `code-review`. A single `reviewer` sub-agent handles all projects; the operator picks a **review scope** (`lite`, `standard`, or `full`) at project setup time that controls which analyzers fire. No separate sub-agent files, no HTTP service, no separate process, no programmatic-pool billing.
+Extend the SDLC's existing `reviewer` sub-agent with a deterministic analyzer layer (Semgrep, Bandit, Radon, dependency-cruiser, gitleaks, jscpd, vulture, knip, Trivy, pydeps, cohesion, ESLint+sonarjs, Schemathesis), exposed as a Claude Code skill called `code-review`. A single `reviewer` sub-agent handles all projects; the operator picks a **review scope** (`lite`, `standard`, or `full`) at project setup time that controls which analyzers fire. No separate sub-agent files, no HTTP service, no separate process, no programmatic-pool billing.
 
 The three scopes match three real project profiles:
 
 - **`lite`** — quick PoCs and throwaway experiments. LLM-only review, no deterministic tools. Fast; minimal noise.
 - **`standard`** — simple production projects. Security scanning (Semgrep, Bandit, gitleaks, Trivy) + code quality (Radon, vulture, jscpd, knip, ESLint+sonarjs) + LLM design review grounded by those findings. The default.
-- **`full`** — complex brownfield projects. Everything in `standard` plus coupling/cohesion analysis (pydeps, dependency-cruiser, cohesion LCOM4) + contract testing (Schemathesis, Pact) at story boundaries. Accepts longer review time for deeper coverage.
+- **`full`** — complex brownfield projects. Everything in `standard` plus coupling/cohesion analysis (pydeps, dependency-cruiser, cohesion LCOM4) + contract testing (Schemathesis) at story boundaries. Accepts longer review time for deeper coverage.
 
 The operator sets one config value (`review_scope`) in the SDLC skill's project-level config. They don't pick individual tools.
 
@@ -60,6 +60,7 @@ These are deliberate non-goals, recorded here so they don't drift back in mid-ep
 - **No service-style capability discovery endpoints.** Capability declaration becomes static metadata in `capabilities.json` referenced from `SKILL.md` — useful for self-description and audit, not a runtime API.
 - **No multi-tenant or multi-repo support.** Single operator, single repo per session.
 - **No reliance on unsandboxed execution.** The skill must work under the operator's strict-sandbox configuration; analyzers that would require widening the sandbox beyond the documented `allowedDomains` for contract-test targets (at `full` scope) are out of scope and a future operator-approved ADR.
+- **No Pact / consumer-driven contract testing.** Originally planned for s4, dropped per ADR-0008 — the target workflow doesn't need it, and it would have introduced the project's only Docker / native-binding dependency. Returns as its own story only if a concrete consumer-driven need appears.
 - **No SDLC-version check at runtime.** The architecture depends on the SDLC contract surface enumerated in the architecture's §17, treated as stable by convention. There is no parser, no compatibility range, no refusal-to-load on unknown SDLC versions.
 
 ## Tiny Acts of Discovery Experiments
@@ -71,7 +72,7 @@ These are deliberate non-goals, recorded here so they don't drift back in mid-ep
 - Running the consolidated analyzer set at `standard` scope against 10 recent task diffs from this repo and recording per-axis findings. Compare against `lite` scope (LLM-only, same as the current reviewer's output) on the same diffs.
 - Manually running a per-task review at `standard` scope on a fixture diff containing a planted design issue (e.g., function named `process_data` that handles authentication) that no deterministic rule will catch. Confirms the LLM design step still surfaces issues that rules can't, with the deterministic context successfully suppressing duplicate findings.
 - Running one full per-task close end-to-end at `standard` scope (deterministic + LLM design + fix-task spawning per rule #25) on a real task in this repo. Confirms the SDLC auto-remediation loop still closes correctly.
-- Running one story-level review at `full` scope on a fixture with planned inter-service spec drift. Confirms Schemathesis / Pact contract testing fires at story boundaries but not at per-task timing.
+- Running one story-level review at `full` scope on a fixture with planned inter-service spec drift. Confirms Schemathesis contract testing fires at story boundaries but not at per-task timing.
 
 ## Validation Measures
 
@@ -106,7 +107,7 @@ Sequenced for build order. Each story is independently mergeable. Epic does not 
 
 3. **s3-remaining-deterministic-adapters** — Bandit, gitleaks, Trivy, jscpd, vulture, knip, dependency-cruiser, ESLint+sonarjs, pydeps, cohesion. SARIF normalisation shims for tools whose native output isn't SARIF. Each new adapter appears in the skill's `capabilities.json` analyzer registry and is assigned to one or more review scopes.
 
-4. **s4-contract-testing-adapters** — Schemathesis (schema-driven, runs against a live API) and Pact (consumer-driven, broker-published). Story-level scope only, longer timeout budgets. Assigned to `full` review scope. Scope restrictions declared in `capabilities.json`.
+4. **s4-contract-testing-adapters** — Schemathesis (schema-driven, runs against a live API). Story-level scope only, longer timeout budgets. Assigned to `full` review scope. Scope restrictions declared in `capabilities.json`. *(Pact, originally planned here, was dropped — see ADR-0008.)*
 
 5. **s5-subagent-integration-and-design-review** — Update `.claude/agents/reviewer.md` to read the SDLC skill's `review_scope` config, invoke the `code-review` skill's CLI with the appropriate scope, then perform LLM design review as part of its own turn using the deterministic SARIF as grounding context. At `lite` scope, the sub-agent skips the CLI and does LLM-only review (matching the current behaviour). Includes the prompt structure for design review, the "do not duplicate deterministic findings" instruction, and the fix-task spawning per rule #25. This is where the hypothesis is actually tested end-to-end.
 

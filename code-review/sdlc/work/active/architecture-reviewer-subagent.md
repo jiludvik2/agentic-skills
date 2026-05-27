@@ -5,7 +5,7 @@ project: code-review
 status: active
 parent: epic-reviewer-subagent
 created: 2026-05-26
-updated: 2026-05-26  # scope model: lite/standard/full review scopes; single reviewer sub-agent; §17 SDLC contract surface
+updated: 2026-05-27  # Pact dropped (ADR-0008): at-a-glance structures trimmed, supersede banner added; Schemathesis cache → tempfile
 tags: [reviewer, architecture, sarif, subagent, python, uv, sandbox]
 ---
 
@@ -14,6 +14,8 @@ tags: [reviewer, architecture, sarif, subagent, python, uv, sandbox]
 This document is the single architectural reference for the work decomposed in `epic-reviewer-subagent` (stories s0–s5). It covers module layout, data flow, the Analyzer Protocol, output shape, dedup and severity logic, sub-agent integration mechanics, security and license posture, the uv-based build and dev workflow, the constraints the Claude Code sandbox imposes on every part of the design, and the contract surface this architecture depends on from the upstream SDLC skill. The two governance-risk mitigations agreed during tool-stack review (pin versions, keep pip fallback working) are baked into the build setup. Sandbox compatibility is a first-class constraint — see §16. SDLC-skill compatibility is treated as stable by convention, with the contract surface enumerated in §17.
 
 This is a steady-state architecture document. Implementation tasks are not pre-decomposed — task breakdown happens at Plan time per the SDLC's Plan verb. Where this document and a story disagree, the story is canonical; please update this document when a story changes.
+
+> **Superseded in part — Pact dropped (ADR-0008, 2026-05-27).** Contract testing in this epic is now **Schemathesis only**. References to **Pact** below (a `pact.py` adapter, the `pact-broker-fixture/` docker-compose, broker auth, `requires_docker` markers, broker hosts in `allowedDomains`) are **retained as historical design context** and are **not** to be built. The at-a-glance structures (module tree, scope/severity/sandbox tables) have been trimmed to match; the surrounding prose has not. See `s4-contract-testing-adapters.md` and ADR-0008 for the authoritative scope.
 
 ## 1. Goals and Non-goals
 
@@ -85,7 +87,7 @@ This is a steady-state architecture document. Implementation tasks are not pre-d
 │   │           ├─→ ESLint adapter    ──┤  bounded by asyncio.wait_for
 │   │           ├─→ dep-cruiser ad.   ──┤                          │   │
 │   │           ├─→ jscpd / vulture / knip / pydeps / cohesion     │   │
-│   │           └─→ Schemathesis / Pact (story-level only)         │   │
+│   │           └─→ Schemathesis (story-level only)                │   │
 │   │       └─→ aggregator (dedup, severity map, hotspots)         │   │
 │   │       └─→ JSON output written atomically to --output         │   │
 │   └──────────────────────────────────────────────────────────────┘   │
@@ -146,8 +148,7 @@ Four things to note about this picture:
 │   │   ├── eslint.py
 │   │   ├── dep_cruiser.py
 │   │   ├── knip.py
-│   │   ├── schemathesis.py       # story-level only
-│   │   └── pact.py               # story-level only
+│   │   └── schemathesis.py       # story-level only
 │   ├── aggregator.py             # dedup, hotspot scoring
 │   ├── severity.py               # SDLC severity mapper, table-driven
 │   ├── sarif.py                  # SARIF dict construction helpers
@@ -164,7 +165,6 @@ tests/
 │   ├── python-with-known-issues/        # known Semgrep, Bandit, Radon findings
 │   ├── nextjs-with-known-issues/        # known ESLint, dep-cruiser, jscpd findings
 │   ├── secrets-fixture/                 # known gitleaks finding
-│   ├── pact-broker-fixture/             # docker-compose for Pact tests
 │   └── schemathesis-target/             # fixture FastAPI with planned spec drift
 ├── test_contracts.py
 ├── test_cli.py
@@ -385,7 +385,7 @@ Table-driven, in `code_review/severity.py`. Defaults:
 | `level=warning` ∧ `properties.severity in {high, important}` | `important` |
 | `level=warning` (no severity property) | `minor` |
 | `level=note` ∨ `properties.severity in {low, info, nit}` | `nit` |
-| Contract violations (any source from Schemathesis/Pact) | `critical` (overrides above) |
+| Contract violations (from Schemathesis) | `critical` (overrides above) |
 
 Operator can override individual entries in `code-review.toml`:
 
@@ -488,9 +488,9 @@ The CLI resolves `--review-scope` to an analyzer set using a static mapping in `
 |---|---|
 | `lite` | *(CLI not invoked; LLM-only)* |
 | `standard` | Semgrep, Bandit, gitleaks, Trivy, Radon, vulture, jscpd, knip, ESLint+sonarjs |
-| `full` | Everything in `standard` + pydeps, dependency-cruiser, cohesion, Schemathesis, Pact |
+| `full` | Everything in `standard` + pydeps, dependency-cruiser, cohesion, Schemathesis |
 
-Contract-testing adapters (Schemathesis, Pact) only fire at story-level timing regardless of scope — the CLI enforces this via the existing scope-restriction mechanism from §4.
+The Schemathesis contract-testing adapter only fires at story-level timing regardless of scope — the CLI enforces this via the existing scope-restriction mechanism from §4.
 
 The operator can override the mapping per-project via `code-review.toml`'s `[scope_overrides]` section, but the three-scope interface is the primary design and the overrides are documented as an advanced escape hatch, not promoted in the SKILL.md quick-start.
 
@@ -817,8 +817,7 @@ Each analyzer has been audited for write locations and network needs. The table 
 | ESLint | `./.eslintcache` if enabled (inside CWD) | None for local rules; yes for plugin auto-install | Pin all plugins in `package.json`; never use auto-install |
 | dependency-cruiser | None | Some configs check npm registry | Use offline-only config; the JSON output adapter doesn't need network |
 | knip | None | None | None needed |
-| Schemathesis | `./.hypothesis/` cache (inside CWD) | **Yes — hits the target API** | Operator must add the target API host to `sandbox.allowedDomains`. Story-level only. |
-| Pact | Verification logs (configurable; we set inside CWD) | **Yes — hits the broker URL** | Operator must add the broker host to `sandbox.allowedDomains`. Story-level only. |
+| Schemathesis | Hypothesis cache redirected to `$TMPDIR` via `HYPOTHESIS_STORAGE_DIRECTORY` (per s4 / s3 tempfile pattern) | **Yes — hits the target API** | Operator must add the target API host to `sandbox.allowedDomains`. Story-level only. |
 
 All adapters that touch the filesystem are tested under sandbox in `test_sandbox_compatibility.py` to confirm they respect these overrides.
 
