@@ -1,6 +1,7 @@
 from typing import Any
 
 from code_review.adapters.bandit import BanditAdapter
+from code_review.adapters.cohesion_ import CohesionAdapter
 from code_review.adapters.pydeps import PydepsAdapter
 from code_review.adapters.radon import RadonAdapter
 from code_review.adapters.semgrep import SemgrepAdapter
@@ -12,6 +13,7 @@ from code_review.adapters.vulture import VultureAdapter
 # per-adapter `isinstance(..., Analyzer)` tests, not at the registry type.
 REGISTRY: dict[str, type[Any]] = {
     "bandit": BanditAdapter,
+    "cohesion": CohesionAdapter,
     "pydeps": PydepsAdapter,
     "semgrep": SemgrepAdapter,
     "radon": RadonAdapter,
