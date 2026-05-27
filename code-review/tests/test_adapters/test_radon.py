@@ -4,7 +4,7 @@ from pathlib import Path
 import jsonschema
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
-SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "sarif-2.1.0.json"
+SCHEMA_PATH = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 HIGH_CC_FILE = str(FIXTURE_PATH / "complex.py")
 
 

@@ -22,7 +22,7 @@ python -m code_review.cli --analyzer semgrep --analyzer radon --target <path> [-
 - `--output` paths must resolve inside the current working directory; paths outside CWD are rejected for sandbox compatibility.
 - `python -m code_review.cli --capabilities` prints the static capability declaration merged with runtime per-analyzer availability checks.
 
-The request and response contracts are described by `schemas/review-request.json` and `schemas/review-response.json`. The full static capability declaration lives in `capabilities.json` and validates against `schemas/capabilities.json`.
+The request/response contracts and capability declaration are bundled inside the `code_review` package (`code_review/schemas/*.json`, `code_review/capabilities.json`) and travel with it on install — they are not separate files in the skill directory. To see the live capability declaration merged with runtime availability, run `python -m code_review.cli --capabilities`.
 
 ## Review scopes
 

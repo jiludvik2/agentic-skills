@@ -5,29 +5,9 @@ from typing import Any, ClassVar
 
 from radon.complexity import cc_visit  # type: ignore[import-untyped]
 
+from code_review.adapters.sarif_utils import collect_python_files as _collect_python_files
+from code_review.adapters.sarif_utils import empty_sarif
 from code_review.contracts import AnalyzerOutput, MetricSet, ReviewRequest
-
-_SARIF_EMPTY_RUNS: dict[str, Any] = {
-    "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
-    "version": "2.1.0",
-    "runs": [
-        {
-            "tool": {"driver": {"name": "radon", "version": "6.0.1", "rules": []}},
-            "results": [],
-        }
-    ],
-}
-
-
-def _collect_python_files(paths: tuple[str, ...]) -> list[Path]:
-    files: list[Path] = []
-    for raw in paths:
-        p = Path(raw)
-        if p.is_dir():
-            files.extend(p.rglob("*.py"))
-        elif p.suffix == ".py" and p.is_file():
-            files.append(p)
-    return files
 
 
 def _analyse_file(path: Path) -> dict[str, Any] | None:
@@ -73,4 +53,4 @@ class RadonAdapter:
                 per_file[str(f)] = entry
 
         metrics = MetricSet(per_file=per_file, per_class={}, coupling={})
-        return AnalyzerOutput(sarif=dict(_SARIF_EMPTY_RUNS), metrics=metrics)
+        return AnalyzerOutput(sarif=empty_sarif("radon", "6.0.1"), metrics=metrics)

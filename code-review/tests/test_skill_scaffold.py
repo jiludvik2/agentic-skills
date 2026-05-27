@@ -9,10 +9,10 @@ import pytest
 
 REPO_ROOT = Path(__file__).parent.parent
 SKILL_MD = REPO_ROOT / ".claude" / "skills" / "code-review" / "SKILL.md"
-SCHEMAS = REPO_ROOT / "schemas"
+SCHEMAS = REPO_ROOT / "code_review" / "schemas"
 CAPABILITIES_SCHEMA = SCHEMAS / "capabilities.json"
 REQUEST_SCHEMA = SCHEMAS / "review-request.json"
-RESPONSE_SCHEMA = SCHEMAS / "review-response.json"
+RESPONSE_SCHEMA = REPO_ROOT / "code_review" / "schemas" / "review-response.json"
 
 
 def _frontmatter(text: str) -> dict[str, str]:
@@ -78,7 +78,7 @@ def test_skill_md_has_status_section() -> None:
 
 def test_skill_md_references_schemas() -> None:
     text = _skill_text()
-    for ref in ("capabilities.json", "schemas/review-request.json", "schemas/review-response.json"):
+    for ref in ("code_review/capabilities.json", "--capabilities"):
         assert ref in text, f"SKILL.md does not reference {ref}"
 
 
@@ -92,6 +92,9 @@ def test_contract_schemas_are_valid_jsonschema(schema_path: Path) -> None:
 def test_review_response_schema_matches_s0_output() -> None:
     schema = json.loads(RESPONSE_SCHEMA.read_text(encoding="utf-8"))
     sample = {
+        "sarif": {"version": "2.1.0", "runs": []},
+        "metrics": {"per_file": {}, "per_class": {}, "coupling": {}},
+        "ranked_hotspots": [],
         "analyzers": {
             "semgrep": {
                 "sarif": {"version": "2.1.0", "runs": []},
@@ -107,6 +110,6 @@ def test_review_response_schema_matches_s0_output() -> None:
                 "status": "ok",
                 "error": None,
             },
-        }
+        },
     }
     jsonschema.validate(sample, schema)

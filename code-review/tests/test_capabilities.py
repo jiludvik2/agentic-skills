@@ -6,8 +6,8 @@ from pathlib import Path
 import jsonschema
 
 REPO_ROOT = Path(__file__).parent.parent
-CAPS = REPO_ROOT / ".claude" / "skills" / "code-review" / "capabilities.json"
-SCHEMA = REPO_ROOT / "schemas" / "capabilities.json"
+CAPS = REPO_ROOT / "code_review" / "capabilities.json"
+SCHEMA = REPO_ROOT / "code_review" / "schemas" / "capabilities.json"
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 
 

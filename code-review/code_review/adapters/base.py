@@ -15,7 +15,10 @@ class SubprocessResult:
 
 
 async def run_subprocess(
-    *cmd: str, timeout_s: float = 60.0, cwd: str | None = None
+    *cmd: str,
+    timeout_s: float = 60.0,
+    cwd: str | None = None,
+    env: dict[str, str] | None = None,
 ) -> SubprocessResult:
     proc: asyncio.subprocess.Process
     try:
@@ -24,6 +27,7 @@ async def run_subprocess(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
+            env=env,
         )
     except Exception as exc:
         return SubprocessResult(stdout=b"", stderr=b"", returncode=-1, error=str(exc))

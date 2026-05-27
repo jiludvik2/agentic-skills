@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-_SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"
-
 _DEFAULT_DEDUP_TOLERANCE = 3
 _DEFAULT_HOTSPOT_WEIGHTS = {
     "severity_weighted_findings": 1.0,
@@ -21,7 +19,7 @@ class ConfigError(Exception):
 
 
 def _load_caps_weights() -> dict[str, float]:
-    caps_path = _SKILL_DIR / "capabilities.json"
+    caps_path = Path(__file__).resolve().parent / "capabilities.json"
     if not caps_path.exists():
         return dict(_DEFAULT_HOTSPOT_WEIGHTS)
     caps = json.loads(caps_path.read_text(encoding="utf-8"))

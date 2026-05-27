@@ -11,7 +11,7 @@ from code_review.cli import app
 from tests.conftest import FakeAnalyzer
 
 REPO_ROOT = Path(__file__).parent.parent
-CAPS = REPO_ROOT / ".claude" / "skills" / "code-review" / "capabilities.json"
+CAPS = REPO_ROOT / "code_review" / "capabilities.json"
 
 
 def test_capabilities_static_section_matches_file() -> None:

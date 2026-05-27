@@ -21,7 +21,7 @@ from code_review.hotspots import compute_hotspots
 app = typer.Typer(add_completion=False)
 
 _SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"
-_CAPABILITIES_PATH = _SKILL_DIR / "capabilities.json"
+_CAPABILITIES_PATH = Path(__file__).resolve().parent / "capabilities.json"
 _SCHEMA_PATH = Path(__file__).resolve().parent / "schemas" / "review-response.json"
 
 

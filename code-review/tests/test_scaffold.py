@@ -22,7 +22,7 @@ def test_pyproject_valid():
 
 
 def test_sarif_schema_present_and_valid():
-    schema_path = REPO_ROOT / "schemas" / "sarif-2.1.0.json"
+    schema_path = REPO_ROOT / "code_review" / "schemas" / "sarif-2.1.0.json"
     assert schema_path.exists(), f"SARIF schema not found at {schema_path}"
     schema = json.loads(schema_path.read_text())
     assert "$schema" in schema or "title" in schema

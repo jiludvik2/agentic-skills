@@ -8,7 +8,7 @@ import jsonschema
 import pytest
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
-SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "sarif-2.1.0.json"
+SCHEMA_PATH = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 
 
 def test_semgrep_protocol_conformance():

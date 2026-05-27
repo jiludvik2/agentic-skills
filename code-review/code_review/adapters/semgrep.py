@@ -8,9 +8,10 @@ from typing import Any, ClassVar
 import jsonschema
 
 from code_review.adapters.base import run_subprocess
+from code_review.adapters.sarif_utils import normalise_sarif as _normalise
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 
-_SCHEMA_PATH = Path(__file__).parent.parent.parent / "schemas" / "sarif-2.1.0.json"
+_SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "sarif-2.1.0.json"
 _sarif_schema: dict[str, Any] | None = None
 
 
@@ -19,17 +20,6 @@ def _schema() -> dict[str, Any]:
     if _sarif_schema is None:
         _sarif_schema = json.loads(_SCHEMA_PATH.read_text())
     return _sarif_schema
-
-
-def _normalise(sarif: dict[str, Any]) -> dict[str, Any]:
-    if "version" not in sarif:
-        sarif = {"version": "2.1.0", **sarif}
-    if "$schema" not in sarif:
-        sarif = {
-            "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
-            **sarif,
-        }
-    return sarif
 
 
 class SemgrepAdapter:

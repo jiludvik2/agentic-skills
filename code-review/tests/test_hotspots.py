@@ -13,7 +13,7 @@ from code_review.hotspots import compute_hotspots
 # Helpers
 # ---------------------------------------------------------------------------
 
-_SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"
+_CAPS_PATH = Path(__file__).resolve().parent.parent / "code_review" / "capabilities.json"
 
 
 def _sarif_with_results(findings: list[dict[str, Any]]) -> dict[str, Any]:
@@ -198,7 +198,7 @@ def test_zero_score_files_omitted() -> None:
 
 def test_default_weights_from_capabilities_json() -> None:
     """capabilities.json must have a hotspots.weights section."""
-    caps = json.loads((_SKILL_DIR / "capabilities.json").read_text())
+    caps = json.loads(_CAPS_PATH.read_text())
     weights = caps.get("hotspots", {}).get("weights", {})
     assert "severity_weighted_findings" in weights, (
         f"capabilities.json missing hotspots.weights.severity_weighted_findings: {weights}"

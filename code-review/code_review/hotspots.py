@@ -6,8 +6,6 @@ from typing import Any
 
 from code_review.contracts import MetricSet
 
-_SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"
-
 _DEFAULT_WEIGHTS = {
     "severity_weighted_findings": 1.0,
     "cyclomatic_complexity": 0.5,
@@ -22,7 +20,7 @@ _DEFAULT_SEVERITY_SCORES: dict[str, float] = {
 
 
 def _load_defaults() -> tuple[dict[str, float], dict[str, float]]:
-    caps_path = _SKILL_DIR / "capabilities.json"
+    caps_path = Path(__file__).resolve().parent / "capabilities.json"
     if not caps_path.exists():
         return _DEFAULT_WEIGHTS, _DEFAULT_SEVERITY_SCORES
     caps = json.loads(caps_path.read_text(encoding="utf-8"))
