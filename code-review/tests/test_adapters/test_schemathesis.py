@@ -209,22 +209,39 @@ async def test_unreachable_target_returns_error() -> None:
 
 @pytest.mark.asyncio
 async def test_timeout_status_with_partial_findings() -> None:
+    """
+    Exercises the timeout path: first operation returns a finding (and sleeps briefly
+    to ensure elapsed > timeout_s), second operation is never reached because the
+    timeout check fires at the top of the loop.  Asserts status="timeout" and that
+    the partial finding is preserved in SARIF.
+    """
+    import asyncio as _asyncio
+
     from code_review.adapters.schemathesis_ import SchemathesisAdapter
 
-    call_count = 0
+    # Two mock operations — op1 produces a finding, op2 should never execute.
+    mock_op1 = MagicMock()
+    mock_op1.ok.return_value = mock_op1
+    mock_op2 = MagicMock()
+    mock_op2.ok.return_value = mock_op2
 
-    async def slow_run_operation(*args: Any, **kwargs: Any) -> list[Any]:
-        nonlocal call_count
-        call_count += 1
-        import asyncio
-        if call_count == 1:
+    mock_schema = MagicMock()
+    mock_schema.get_all_operations.return_value = [mock_op1, mock_op2]
+
+    first_call_done = False
+
+    async def first_returns_finding_second_unreachable(op: Any, session: Any) -> list[Any]:
+        nonlocal first_call_done
+        if not first_call_done:
+            first_call_done = True
+            # Sleep long enough to ensure elapsed > timeout_s=0.001 s after this call.
+            await _asyncio.sleep(0.05)
             mock_failure = MagicMock()
             mock_failure.title = "server_error"
             mock_failure.message = "500"
             mock_failure.operation = "GET /items"
             return [mock_failure]
-        # Second call takes too long → triggers timeout
-        await asyncio.sleep(10)
+        # Should never be reached — the timeout check fires before op2.
         return []
 
     request = _make_request({
@@ -232,20 +249,26 @@ async def test_timeout_status_with_partial_findings() -> None:
             "spec_url": "http://localhost:9/openapi.json",
             "base_url": "http://localhost:9",
             "auth": {"token_env": "NONE"},
-            "timeout_s": 0,  # already expired
+            "timeout_s": 0.001,  # expires after the first _run_operation sleep
         }
     })
 
-    with patch(
-        "code_review.adapters.schemathesis_._run_operation",
-        side_effect=slow_run_operation,
+    with (
+        patch("schemathesis.openapi.from_url", return_value=mock_schema),
+        patch(
+            "code_review.adapters.schemathesis_._run_operation",
+            side_effect=first_returns_finding_second_unreachable,
+        ),
     ):
         output = await SchemathesisAdapter().run(request)
 
-    # Adapter never reaches the operation loop because elapsed > timeout from the start
-    # so status should be "ok" with no findings (timeout=0 means check fires immediately)
-    # or status="timeout" with whatever was collected. Accept either.
-    assert output.status in ("ok", "timeout", "error")
+    assert output.status == "timeout", (
+        f"expected status='timeout', got {output.status!r}"
+    )
+    results = output.sarif.get("runs", [{}])[0].get("results", [])
+    assert len(results) >= 1, (
+        f"expected at least 1 partial finding in SARIF, got {results!r}"
+    )
 
 
 # ---------------------------------------------------------------------------
