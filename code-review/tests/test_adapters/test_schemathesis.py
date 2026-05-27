@@ -169,6 +169,8 @@ async def test_auth_token_read_from_env_not_in_sarif() -> None:
 
     sarif_text = json.dumps(output.sarif)
     assert "super-secret-token" not in sarif_text
+    # Minor #7: the token must also never leak into the error channel the sub-agent reads.
+    assert "super-secret-token" not in (output.error or "")
     auth_header = session_headers_captured.get("Authorization", "")
     assert auth_header == "Bearer super-secret-token"
 
@@ -341,5 +343,13 @@ async def test_integration_real_schemathesis_run() -> None:
 
     runs = output.sarif.get("runs", [])
     results = [r for run in runs for r in run.get("results", [])]
-    if results:
-        assert any(r["ruleId"].startswith("schemathesis.") for r in results)
+    # AC #1: the planted 2xx schema drift (handler returns `username`, OpenAPI declares
+    # `user_name`) must surface as response_schema_violation naming the divergent field.
+    violations = [r for r in results if r["ruleId"] == "schemathesis.response_schema_violation"]
+    assert violations, (
+        "expected a schemathesis.response_schema_violation finding for the planted drift; got "
+        f"{[r['ruleId'] for r in results]!r}"
+    )
+    assert any("user_name" in v["message"]["text"] for v in violations), (
+        "expected the violation message to name the divergent field 'user_name'"
+    )
