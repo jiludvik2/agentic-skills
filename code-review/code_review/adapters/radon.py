@@ -38,11 +38,7 @@ class RadonAdapter:
     async def run(self, request: ReviewRequest) -> AnalyzerOutput:
         if not request.target_paths:
             return AnalyzerOutput(
-                sarif={
-                    "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
-                    "version": "2.1.0",
-                    "runs": [],
-                },
+                sarif=empty_sarif("radon", "6.0.1"),
                 metrics=MetricSet(per_file={}, per_class={}, coupling={}),
             )
         files = _collect_python_files(request.target_paths)

@@ -20,7 +20,7 @@ code-review = "code_review.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["code_review"]
-artifacts = ["code_review/capabilities.json", "code_review/schemas/*.json"]
+include = ["code_review/capabilities.json", "code_review/schemas/*.json"]
 
 [build-system]
 requires = ["hatchling"]
