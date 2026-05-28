@@ -1,8 +1,8 @@
 # State — last updated 2026-05-28
 
-**Active focus:** `epic-deployment-readiness` — plan filed, execution pending. Side-thread: project SDLC bumped to v6.6 (Wrap verb, context-pressure halt, auto-Wrap on halts).
-**Last completed:** Project-local SDLC update — `code-review/sdlc/SDLC.md` v6.5 → v6.6. Added context-window-usage halt trigger at 75% (signal from per-session JSONL); auto-Wrap fires at every non-operator halt; context-pressure halt branches on mid-task vs between-tasks (mid-task → halt-and-ask; between → auto-Wrap + `/clear` suggest). Canonical-SDLC sync still pending (memory todo updated).
-**Next:** operator reviews / edits the deployment-readiness plan; on approval, execute `s0-t0-importlib-resources` (first task).
+**Active focus:** `epic-deployment-readiness` — plan filed, execution pending. SDLC v6.6 landed (Wrap verb, context-pressure halt, auto-Wrap on halts) and installed at project `.claude/skills/sdlc/`.
+**Last completed:** Installed SDLC skill bundle at `code-review/.claude/skills/sdlc/` — SKILL.md, references/SDLC.md (v6.6), references/verifier.md, references/reviewer.md. Project-scoped skill takes precedence over the canonical user-level skill (still at v6.4); the repo now carries its own v6.6 SDLC bundle.
+**Next:** operator reviews / edits the deployment-readiness plan; on approval, execute `s0-t0-importlib-resources` (first task of `s0-deployment-layout-fixup`).
 
 ## Active artefacts
 
