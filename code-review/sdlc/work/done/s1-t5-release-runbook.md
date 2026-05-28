@@ -2,10 +2,13 @@
 id: s1-t5-release-runbook
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-package-publication
 created: 2026-05-28
 updated: 2026-05-28
+closed: 2026-05-28
+verify: PASS (commit 5286804; all 17 spec'd Contents items covered; 303 passed/6 skipped; ruff clean; pre-existing mypy conftest dup carried)
+review: round-1 commit 5286804 → 1 Important + 1 Minor + 1 Nit; remediated in s1-t5-fix1 commit 383349b; round-2 CLEAN (all three resolved, zero new defects)
 ---
 
 # s1-t5 — Release runbook
