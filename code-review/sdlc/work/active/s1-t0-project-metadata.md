@@ -17,7 +17,7 @@ Fill in `pyproject.toml` with the metadata PyPI needs for a polished package pag
 ## Acceptance criteria
 
 - `pyproject.toml`'s `[project]` section gains (or already-has-and-keeps):
-  - `authors = [{ name = "Jiri Ludvik", email = "<email>" }]` (operator provides the address; placeholder OK at task start, operator approves before commit per "What stays human").
+  - `authors = [{ name = "Jiri Ludvik" }]` (no email — omitted intentionally to avoid publishing a private address on PyPI).
   - `readme = "README.md"` (file itself drafted in `s1-t1`).
   - `urls = { Homepage = "https://github.com/jiludvik2/agentic-skills/tree/main/code-review", Source = "https://github.com/jiludvik2/agentic-skills", Issues = "https://github.com/jiludvik2/agentic-skills/issues" }`.
   - `classifiers = [ ... ]` with at minimum:
@@ -45,6 +45,7 @@ Fill in `pyproject.toml` with the metadata PyPI needs for a polished package pag
 
 - The `authors` email is operator-supplied. If left as placeholder, the task does not close until the operator approves.
 - "Author" vs "maintainer" — PyPI treats them differently. For a solo project, `authors` is sufficient; no `maintainers` field needed.
+- Email omitted by design — PyPI doesn't require it, and publishing a private address in package metadata is unnecessary for a solo open-source project.
 - `description` is short (one sentence); `readme` carries the long description. Don't duplicate.
 - `dependencies` is unchanged — already correctly populated.
 - Hatchling reads metadata directly from `[project]` — no separate `[tool.hatch.metadata]` block needed.
