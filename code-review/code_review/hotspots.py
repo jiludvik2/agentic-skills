@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import importlib.resources
 import json
-from pathlib import Path
 from typing import Any
 
 from code_review.contracts import MetricSet
@@ -20,8 +20,8 @@ _DEFAULT_SEVERITY_SCORES: dict[str, float] = {
 
 
 def _load_defaults() -> tuple[dict[str, float], dict[str, float]]:
-    caps_path = Path(__file__).resolve().parent / "capabilities.json"
-    if not caps_path.exists():
+    caps_path = importlib.resources.files("code_review").joinpath("capabilities.json")
+    if not caps_path.is_file():
         return _DEFAULT_WEIGHTS, _DEFAULT_SEVERITY_SCORES
     caps = json.loads(caps_path.read_text(encoding="utf-8"))
     hotspots_cfg = caps.get("hotspots", {})

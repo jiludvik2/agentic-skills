@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.resources
 import json
 import tomllib
 from dataclasses import dataclass, field
@@ -19,8 +20,8 @@ class ConfigError(Exception):
 
 
 def _load_caps_weights() -> dict[str, float]:
-    caps_path = Path(__file__).resolve().parent / "capabilities.json"
-    if not caps_path.exists():
+    caps_path = importlib.resources.files("code_review").joinpath("capabilities.json")
+    if not caps_path.is_file():
         return dict(_DEFAULT_HOTSPOT_WEIGHTS)
     caps = json.loads(caps_path.read_text(encoding="utf-8"))
     raw = caps.get("hotspots", {}).get("weights", _DEFAULT_HOTSPOT_WEIGHTS)

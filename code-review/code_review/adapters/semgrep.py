@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.resources
 import json
 import os
 import tempfile
@@ -13,7 +14,7 @@ from code_review.adapters.base import run_subprocess
 from code_review.adapters.sarif_utils import normalise_sarif as _normalise
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 
-_SCHEMA_PATH = Path(__file__).parent.parent / "schemas" / "sarif-2.1.0.json"
+_SCHEMA_PATH = importlib.resources.files("code_review").joinpath("schemas", "sarif-2.1.0.json")
 _sarif_schema: dict[str, Any] | None = None
 
 _DEFAULT_RULES = (

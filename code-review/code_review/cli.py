@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import importlib.resources
 import json
 import os
 import shutil
@@ -22,8 +23,8 @@ from code_review.selector import resolve_review_selection
 app = typer.Typer(add_completion=False)
 
 _SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"
-_CAPABILITIES_PATH = Path(__file__).resolve().parent / "capabilities.json"
-_SCHEMA_PATH = Path(__file__).resolve().parent / "schemas" / "review-response.json"
+_CAPABILITIES_PATH = importlib.resources.files("code_review").joinpath("capabilities.json")
+_SCHEMA_PATH = importlib.resources.files("code_review").joinpath("schemas", "review-response.json")
 
 _VALID_DEPTHS = {"quick", "full"}
 
@@ -341,7 +342,7 @@ def main(
     analyzers_dict: dict[str, Any] = result["analyzers"]
     has_error = any(v["status"] == "error" for v in analyzers_dict.values())
 
-    if _SCHEMA_PATH.exists():
+    if _SCHEMA_PATH.is_file():
         try:
             schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
             jsonschema.validate(instance=result, schema=schema)
