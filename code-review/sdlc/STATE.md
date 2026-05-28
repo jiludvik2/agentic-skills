@@ -1,8 +1,8 @@
 # State — last updated 2026-05-28
 
-**Active focus:** `epic-deployment-readiness` — plan filed and fully refined, execution pending. SDLC v6.6 landed (Wrap verb, context-pressure halt, auto-Wrap on halts) and installed at project `.claude/skills/sdlc/`.
-**Last completed:** Plan refinement during epic review — resolved (1) PyPI distribution name (`claude-code-review`; bare `code-review` is taken), (2) console-script binary name (`claude-code-review` — renamed from `code-review` to avoid `$PATH` collisions), (3) workflow tag pattern (`code-review-v*` prefix so the monorepo-root workflow only fires for this subproject), (4) release auth (**PyPI Trusted Publishers / OIDC** — no long-lived secrets; one-time pending-publisher setup on PyPI and TestPyPI). Edits applied across `s1-package-publication.md`, `s1-t0`, `s1-t1`, `s1-t2`, `s1-t3`, `s1-t4`, `s1-t5`. SDLC skill bundle still installed at `code-review/.claude/skills/sdlc/`.
-**Next:** operator approves the refined plan; on approval, execute `s0-t0-importlib-resources` (first task of `s0-deployment-layout-fixup`).
+**Active focus:** `epic-deployment-readiness` — plan filed, refined, and pushed; execution pending.
+**Last completed:** Commit `ab2f33a` (pushed to `origin/main`) — refined s1 plan across 7 artefacts + STATE.md: PyPI distribution name `claude-code-review`, console-script binary `claude-code-review`, release tag prefix `code-review-v*`, release auth via PyPI Trusted Publishers (OIDC). No code changes; planning-only.
+**Next:** operator re-affirms approval at next session start (prior-session approval does not carry forward per SDLC §Glossary); on approval, execute `s0-t0-importlib-resources` (first task of `s0-deployment-layout-fixup`).
 
 ## Active artefacts
 
