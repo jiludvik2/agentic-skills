@@ -2,12 +2,15 @@
 id: s1-package-publication
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-deployment-readiness
-sources: [adr-0001-publication.md]
+sources: [adr-0001-publication.md, adr-0012-pypi-publication.md]
 created: 2026-05-28
 updated: 2026-05-28
+closed: 2026-05-28
 tags: [publication, pypi, github-actions, release, semver]
+verify: all 6 tasks PASS (s1-t0 91142af, s1-t1 89bd120, s1-t2 c2a8c68, s1-t3 342eb7c, s1-t4 1f6a439, s1-t5 5286804+383349b)
+review: 5 of 6 tasks CLEAN round-1 (s1-t0..t3, s1-t4 MINOR-ONLY); s1-t5 round-1 IMPORTANT remediated via s1-t5-fix1, round-2 CLEAN. Story-level review MINOR-ONLY (3 Minor + 1 Nit) — all three Minors resolved in this close commit; the Nit dropped.
 ---
 
 # s1 — Package Publication
@@ -111,3 +114,23 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 - **PyPI name (resolved).** `code-review` is taken on PyPI; this story publishes under `claude-code-review`. Console-script binary also renamed to `claude-code-review`; Python import name unchanged (`code_review`).
 - **Release auth (resolved).** PyPI Trusted Publishers (OIDC) — no long-lived secrets. The publish workflow exchanges GitHub Actions' OIDC identity for a short-lived PyPI upload token at runtime; the trust relationship is configured per-registry (PyPI + TestPyPI) on the operator's first release.
 - **README content.** Operator-approved per "What stays human". A draft is in scope for s1-t1; the operator's edits gate the commit.
+
+## Close notes (2026-05-28)
+
+Story-level Review (`reviewer` against `e9aaed2..HEAD`, 15 commits) returned MINOR-ONLY: 3 Minor + 1 Nit. All three Minors were resolved as part of this close commit rather than carried as backlog:
+
+1. **Runbook path mismatch** — parent story referenced `sdlc/docs/runbooks/release.md`, runbook landed at `sdlc/work/active/release-runbook.md`. Resolved by the close-ceremony move/rename: runbook is now at `sdlc/docs/runbooks/release.md`.
+2. **Missing runbook scaffold test** — added `test_release_runbook_exists()` to `tests/test_scaffold.py`, mirroring the dual-path pattern of `test_adr_0012_pypi_publication_exists()`.
+3. **Redundant parenthetical in runbook step 2** — over-cooked in `s1-t5-fix1`. Tightened to "Edit `pyproject.toml` (at the `code-review/` package root): change `version = "..."`."
+
+The Nit (one-line comment in `release.yml` justifying the Python 3.12 publish-version choice) was dropped — current state is correct as the reviewer themselves noted.
+
+The s1-t4 round-1 review surfaced 2 Minor + 2 Nit that were left as future-visibility (recorded in the closed s1-t4 task's frontmatter) rather than actioned. They remain available as opportunistic cleanup.
+
+Artefacts produced this story and their final homes:
+- `pyproject.toml` — refreshed metadata (in-place).
+- `README.md` — new (project root).
+- `adr-0012-pypi-publication.md` → `sdlc/docs/decisions/`.
+- `release.md` → `sdlc/docs/runbooks/` (renamed from `release-runbook.md`).
+- `.github/workflows/release.yml` → monorepo root (sandbox-blocked path; placed by operator).
+- `tests/test_pyproject_metadata.py` (new); `tests/test_console_script_install.py` (new); `tests/test_scaffold.py` (extended with README + ADR-0012 + runbook existence assertions).

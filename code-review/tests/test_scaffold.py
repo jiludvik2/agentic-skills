@@ -46,6 +46,18 @@ def test_adr_0012_pypi_publication_exists():
     )
 
 
+def test_release_runbook_exists():
+    """Release runbook lives under sdlc/work/active/release-runbook.md until
+    story close, then moves+renames to sdlc/docs/runbooks/release.md."""
+    candidates = [
+        REPO_ROOT / "sdlc" / "work" / "active" / "release-runbook.md",
+        REPO_ROOT / "sdlc" / "docs" / "runbooks" / "release.md",
+    ]
+    assert any(p.exists() for p in candidates), (
+        f"release runbook not found in either expected location: {[str(p) for p in candidates]}"
+    )
+
+
 def test_gitignore_covers_transient_dirs():
     gitignore = (REPO_ROOT / ".gitignore").read_text()
     for entry in ("runs/", "cache/", "node_modules/", ".venv/"):

@@ -27,7 +27,7 @@ Follow these steps in order. The first release also requires the one-time setup 
 ### 2. Version bump
 
 - Decide the new version per semver. Stay on `0.x.y` while pre-1.0 (no API stability guarantee).
-- Edit `pyproject.toml` (at the `code-review/` package root — from the monorepo root that path is `code-review/pyproject.toml`): change `version = "..."`.
+- Edit `pyproject.toml` (at the `code-review/` package root): change `version = "..."`.
 - Update `CHANGELOG.md` (operator-maintained at the `code-review/` package root) with the new version's notes — created at the first release if it doesn't exist yet.
 - Commit: `git commit -am "release: vX.Y.Z[-rc1]"`.
 

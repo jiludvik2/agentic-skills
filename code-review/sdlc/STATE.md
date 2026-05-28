@@ -1,36 +1,29 @@
 # State — last updated 2026-05-28
 
-**Active focus:** `epic-deployment-readiness` — s0 closed; s1 in progress (s1-t0 implementation committed, pending Verify+Review).
-**Last completed:** Story `s0-deployment-layout-fixup` closed clean (all 6 planned tasks + 1 story-level Review fix `s0-fix3`). 299 tests pass; ruff + mypy clean. Skill now works across dev sibling, production nested, and wheel-installed layouts; ADR-0007 closed with addendum; `_SKILL_DIR` fully removed from `code_review/`.
-**In flight:** `s1-t0-project-metadata` — code is committed (commit `<head-1>`: pyproject.toml rename to `claude-code-review`, console script renamed, authors/readme/urls/classifiers/keywords added; README.md stub; 10-test metadata suite). **Verify and Review are NOT yet run; task file still `status: active`**. Next-session-start must run Verify+Review on the s1-t0 commit before moving the task to `done/`.
-**Next:** at session start — run Verify+Review on s1-t0; if PASS+CLEAN/MINOR-ONLY, close it and auto-progress to `s1-t1-readme-draft` (which needs operator-supplied content per "What stays human").
+**Active focus:** `epic-deployment-readiness` — s0 + s1 both closed clean. Next operator decision: which story to plan next under the epic, or whether to close the epic.
+**Last completed:** Story `s1-package-publication` closed (all 6 tasks done; story-level Review MINOR-ONLY, all three Minors resolved in the close commit). `claude-code-review` is now PyPI-ready: rename + metadata + console-script entry, README/ADR-0012/release.yml/runbook all in place. First real release is the only remaining publishing-gate work, blocked on operator-side Trusted Publisher setup on PyPI + TestPyPI (one-time, off-repo).
+**In flight:** Nothing — the session ended at story close.
+**Next:** at session start — operator decision: (a) plan and execute the very first release (per `sdlc/docs/runbooks/release.md`), (b) tackle `s0-t6-cache-path-unification` (sibling carryover; pre-existing producer/consumer cache-path divergence; needs an architectural decision before execution), (c) plan the next s2 story under the deployment-readiness epic, or (d) close the epic if `s0-t6` is reclassified.
 
 ## Active artefacts
 
-- `epic-deployment-readiness.md` — epic shell
-- `s1-package-publication.md` — story; s1-t0 mid-task; s1-t1..s1-t5 pending
-- `s1-t0-project-metadata.md` — IMPLEMENTATION COMMITTED, awaiting Verify+Review
-- `s1-t1..s1-t5` — five s1 tasks not yet started; s1-t1 needs operator-supplied README content
-- `s0-t6-cache-path-unification.md` — sibling debt under s0; pre-existing producer/consumer cache-path divergence; needs architectural decision before execution
-- `s3-plan.md`, `s4-plan.md` — lingering plans from prior epic (not blocking)
+- `epic-deployment-readiness.md` — epic shell, still open.
+- `s0-t6-cache-path-unification.md` — sibling debt under s0; needs architectural decision before execution.
+- `s3-plan.md`, `s4-plan.md` — lingering plans from prior epic (not blocking).
+
+## Done this session (2026-05-28 evening)
+
+- `s1-t0..s1-t5` — all six s1 tasks closed clean (each Verify PASS + Review CLEAN/MINOR-ONLY; s1-t5 round-2 CLEAN after `s1-t5-fix1`).
+- Mid-story: `s1` parent story refreshed (commit `d23bbb4`) to drop the API-token drift the s1-t2 reviewer surfaced; tag-prefix and console-script-name drifts swept at the same time.
+- Story-level Review: MINOR-ONLY; all three Minors resolved in the close commit (runbook moved+renamed to final home; runbook scaffold test added; `release.md:30` parenthetical tightened).
 
 ## Open questions
 
-- **Operator-supplied content** for `s1-t1` (README draft) — gates task close per "What stays human". A non-opinionated stub README.md was created during s1-t0 so the build doesn't fail; s1-t1 replaces it with the real content.
-- **PyPI Trusted Publishers** setup (one-time, off-repo) — needed before `s1-t3` (release workflow) can publish; recorded in s1-t5 runbook.
-- **Workflow file location** for `.github/workflows/release.yml` — at monorepo root (`agentic-skills/.github/workflows/`), sandbox-write-blocked; `s1-t3` notes operator may need to apply directly.
-- **Cache-path unification (`s0-t6`)** — architectural decision pending across the three deployment layouts.
-- **Supply-chain gate (rule #26)** — N/A for now; relevant when shipping to PyPI.
-- **Lingering plans (`s3-plan.md`, `s4-plan.md`)** still in `active/` from the prior epic.
+- **First-release timing.** The runbook is ready, the workflow is committed, but the first release blocks on operator-side configuration: pending publishers on `pypi.org` and `test.pypi.org` (per `sdlc/docs/runbooks/release.md` Trusted Publishers section).
+- **`s0-t6-cache-path-unification`** — still needs an architectural decision before execution. Carry-over from s0 close.
+- **Lingering plans (`s3-plan.md`, `s4-plan.md`)** — still in `active/` from the prior epic; should be triaged at some point (close, archive, or replan).
+- **Pre-existing mypy `conftest.py: Source file found twice`** — reproduces on all parent commits; carried through s1 unchanged. Worth a small cleanup task (likely `tests/__init__.py` or `explicit_package_bases`), but does not block any task.
 
-## Resolved this session (2026-05-28 afternoon → evening)
-
-- **Auto-progress posture clarified mid-session.** Per SDLC §Execute line 140 and rule #22: tasks under an operator-approved story auto-execute (no per-task approval ask); Verify + Review run per task before move-to-done. I had been asking for per-task approval AND skipping Verify+Review — exactly inverted. Corrected and re-ran Verify+Review retroactively on s0-t0..s0-t5; all closed clean.
-- **Story-level Review on s0** caught one Important (`semgrep.py:20-28` still used `Path(__file__)` sibling-layout arithmetic); remediated via `s0-fix3` (round-2 Reviewer CLEAN).
-- **s0-t2 scope expansion** (operator-approved): `_SKILL_DIR` removal extended to trivy/js_base cache helpers using CWD-relative idiom.
-- **s0 story boundary** (operator-approved option B): close with `s0-t6-cache-path-unification` as sibling carryover; auto-cross into s1.
-- **s1-t0**: PyPI distribution name `claude-code-review`, console script renamed, author email omitted by design, full metadata for a polished PyPI page. README.md stub holding for s1-t1's full content.
-
-## Auto-progress posture (2026-05-28)
+## Auto-progress posture (2026-05-28, unchanged)
 
 Per SDLC §Execute line 140 and rule #22: tasks under an operator-approved story auto-execute; Verify + Review run per task; halts only on Verify failure, Review's 2-round bound, gate escalation, hard-stop, three failed attempts, ≥75% context, or operator interruption. Story-level Review at story boundary; auto-cross into the next operator-approved story without pause.
