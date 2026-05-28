@@ -96,7 +96,9 @@ Run the setup script once, outside the sandbox (it needs network access):
 ./scripts/setup.sh
 ```
 
-It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`, and then reports the state of the host project's `.claude/agents/reviewer.md` (read-only — never written). The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
+It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`, reports the state of the host project's `.claude/agents/reviewer.md` (read-only — never written), and prints the path of the bundled starter config template. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
+
+After install, copy `code-review.toml.example` (next to this `SKILL.md` in the skill bundle) to your project root and uncomment the keys you want to override. See the file's own comments for each tunable.
 
 ### Deployment layouts
 

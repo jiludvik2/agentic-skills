@@ -75,4 +75,22 @@ else
   note "(developer layout) rather than installed under <host>/.claude/skills/code-review."
 fi
 
+# 5. Starter config template. Print the absolute path of the bundled example
+#    and a one-line copy hint pointing at the host project root (or a generic
+#    hint if no .claude/ ancestor resolves).
+step "Starter config template"
+EXAMPLE_PATH="${SKILL_ROOT}/code-review.toml.example"
+if [[ -f "${EXAMPLE_PATH}" ]]; then
+  note "available: ${EXAMPLE_PATH}"
+  if HOST_ROOT="$(find_host_root "${SKILL_ROOT}")"; then
+    note "to override defaults: cp ${EXAMPLE_PATH} ${HOST_ROOT}/code-review.toml"
+  else
+    note "to override defaults: copy to your project root (the CWD you'll invoke"
+    note "the CLI from) as code-review.toml, then edit."
+  fi
+else
+  note "missing: ${EXAMPLE_PATH}"
+  note "the starter template is bundled with the skill; if missing, re-fetch the bundle."
+fi
+
 step "Done. The code-review skill is installed and ready."

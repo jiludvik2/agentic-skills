@@ -2,7 +2,7 @@
 id: s0-t5-toml-starter-template
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-deployment-layout-fixup
 created: 2026-05-28
 updated: 2026-05-28
