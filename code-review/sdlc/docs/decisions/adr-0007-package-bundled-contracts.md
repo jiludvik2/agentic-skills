@@ -54,11 +54,11 @@ This establishes a standing rule: **package code reads its own resources via `Pa
 
 The deferred follow-up resolved as part of s0. Implementation details now nailed down:
 
-- **Package-data loading mechanism**: `importlib.resources.files("code_review")` for every reader of `capabilities.json` and `schemas/*.json` — replaces the `Path(__file__).parent[...]` formulation in the original Decision section. Layout-agnostic; survives wheel install (verified by `tests/test_wheel_packaging.py` and `tests/test_production_layout.py`). The original `Path(__file__)` wording in §Decision item 1 is superseded by this addendum.
+- **Package-data loading mechanism**: `importlib.resources.files("code_review")` for every reader of `capabilities.json` and `schemas/*.json`. Layout-agnostic; survives wheel install (verified by `tests/test_wheel_packaging.py` and `tests/test_production_layout.py`). The original `Path(__file__)` wording in §Decision item 1 is superseded by this addendum.
 - **Operator config lookup (`code-review.toml`)**: `Path.cwd() / "code-review.toml"` by default; `--config <path>` CLI flag overrides; missing explicit path → non-zero exit with the path named. No skill-directory walk, matching the ruff / black / pytest idiom.
 - **`_SKILL_DIR` is gone** from `code_review/`. The `_SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"` line in `cli.py:24` was deleted, and the operator-runtime cache paths in `adapters/trivy.py` and `adapters/js_base.py` migrated to the same CWD-relative idiom (`Path.cwd() / ".claude" / "skills" / "code-review" / <cache subpath>`). `grep -rn '_SKILL_DIR' code_review/` now returns empty.
 - **Supported deployment layouts** (now documented in `.claude/skills/code-review/SKILL.md` under Install → Deployment layouts): dev sibling, production nested, wheel-installed.
 - **Vestigial `.claude/skills/code-review/schemas/` and `agents/` directories** removed (they pre-dated this ADR and held no runtime-read files after the consolidation).
-- **Follow-up tracked separately**: producer/consumer cache-path alignment for trivy/js_base (the `Path.cwd() / .claude/skills/code-review/cache/...` consumer paths must agree with where `scripts/setup.sh` + `prefetch_caches.py` actually write). Filed as `s0-t6-cache-path-unification` rather than retro-amending this ADR; this addendum closes the originally-deferred config-path question only.
+- **Follow-up tracked separately**: producer/consumer cache-path alignment for `trivy`/`js_base` is filed as `s0-t6-cache-path-unification`; this addendum closes only the originally-deferred config-path question.
 
 Status remains `accepted` — the addendum makes the original decision concrete rather than reopening it.

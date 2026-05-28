@@ -41,3 +41,14 @@ Remove the empty placeholder directories from `.claude/skills/code-review/`, mar
 - Cleanup is git rm; both directories must be empty before removal. Verify with `ls -la` before invoking `git rm -r`.
 - The ADR-0007 update is in `/sdlc/docs/decisions/` (it was moved there at Phase 4 of the prior epic). Confirm the path before editing.
 - If the SKILL.md scaffold test gains a new required section, the test must be updated in the same commit — the green bar applies.
+
+## Notes (post-review)
+
+### Minor fixes applied inline at close
+
+- **SKILL.md** "Deployment layouts" wheel-install bullet: added "(not yet shipped — see story `s1-package-publication`)" so readers don't try `pip install claude-code-review` before s1 lands.
+- **ADR-0007 addendum**: reduced the cache-path follow-up bullet to a pointer (ID-only) rather than re-summarising the problem — implementation context belongs in `s0-t6-cache-path-unification.md`.
+
+### Nit applied inline at close
+
+- **ADR-0007 addendum**: removed a redundant clause that twice asserted the `Path(__file__)` formulation was superseded; kept the §Decision-item-1 cross-reference (the clearer of the two).
