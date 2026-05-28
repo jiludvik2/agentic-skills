@@ -61,3 +61,19 @@ def test_production_layout(tmp_path: Path) -> None:
 - "Copy or install" trade-off: copying source files into the nested layout is faster and isolates from the actual `code_review/` package state; installing via `pip install -e <tmp>` is closer to a real install but slower and tangles with pytest's import cache. **Recommendation: copy + `PYTHONPATH`** — clearer, no install needed.
 - The test does *not* need a real Semgrep/Bandit run; mocking the adapters via the existing `FakeAnalyzer` harness is acceptable if the analyzer fan-out is slow. The point is to verify the CLI / config / package-data plumbing, not analyzer correctness.
 - Existing `test_sandbox_compatibility.py` covers some adjacent ground (no writes outside CWD, no network) — keep those assertions separate; this test is about layout, not sandbox.
+
+## Notes (post-review)
+
+### Spec departures (operator-approved at task close)
+
+- **`--analyzer bandit`** in place of spec's `--review security --target .`. Reason: `--review security` fans out to semgrep+bandit+gitleaks+trivy; CLI exits non-zero if any analyzer errors and the latter two binaries are commonly missing. Spec §Notes line 62 explicitly authorises adapter substitution ("not testing analyzer correctness, testing CLI/config/package-data plumbing").
+- **TOML observability via `disabled_analyzers`** in place of `dedup_line_tolerance = 5`. The disabled-analyzer guard surfaces in CLI stderr with a stable message; `dedup_line_tolerance` only manifests in multi-analyzer dedup, which is hard to assert in a single-analyzer subprocess test.
+
+### Minor fixes applied inline at close
+
+- Dropped the dead `dedup_line_tolerance = 5` write from `test_production_layout_review_runs_against_fixture` (it had no assertion against it; the third test already proves TOML loading via `disabled_analyzers`).
+- Renamed `REPO_ROOT` → `SUBPROJECT_ROOT` in the test helper (the variable points at the `code-review/` subproject root, not the agentic-skills git root).
+
+### Minor finding deferred (potential future enhancement)
+
+- Reviewer recommended a positive value-bearing override assertion (e.g., set `dedup_line_tolerance` to a non-default and confirm via SARIF that two near-duplicate findings collapse). Useful coverage but optional; could be picked up alongside `s0-t6-cache-path-unification` or an aggregator-focused test.

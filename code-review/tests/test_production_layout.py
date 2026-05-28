@@ -17,9 +17,9 @@ from pathlib import Path
 
 import pytest
 
-REPO_ROOT = Path(__file__).parent.parent
-SRC_PKG = REPO_ROOT / "code_review"
-SKILL_MD = REPO_ROOT / ".claude" / "skills" / "code-review" / "SKILL.md"
+SUBPROJECT_ROOT = Path(__file__).parent.parent
+SRC_PKG = SUBPROJECT_ROOT / "code_review"
+SKILL_MD = SUBPROJECT_ROOT / ".claude" / "skills" / "code-review" / "SKILL.md"
 
 
 def _stage_production_layout(tmp_path: Path) -> Path:
@@ -62,7 +62,6 @@ def test_production_layout_capabilities_works(tmp_path: Path) -> None:
 @pytest.mark.slow
 def test_production_layout_review_runs_against_fixture(tmp_path: Path) -> None:
     skill_root = _stage_production_layout(tmp_path)
-    (tmp_path / "code-review.toml").write_text("dedup_line_tolerance = 5\n")
     fixture = tmp_path / "sample.py"
     fixture.write_text("import subprocess\nsubprocess.call('ls', shell=True)\n")
 
