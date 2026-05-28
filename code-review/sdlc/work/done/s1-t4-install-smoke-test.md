@@ -2,10 +2,13 @@
 id: s1-t4-install-smoke-test
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-package-publication
 created: 2026-05-28
 updated: 2026-05-28
+closed: 2026-05-28
+verify: PASS (commit 1f6a439; all 11 ACs covered; 303 passed/6 skipped; ruff clean; pre-existing mypy conftest dup carried)
+review: MINOR-ONLY (2 Minor + 2 Nit, no Critical/Important — does not block close). Minor #1: widen assertion diagnostic at line 55-57 to include stdout as well as stderr. Minor #2: a renamed `[project.scripts]` target that happens to print compatible `--capabilities` JSON could slip the parity check (low-probability; reviewer "probably not worth the complexity"). Nits: docstring style; potential conftest fixture if a third install-smoke test appears.
 ---
 
 # s1-t4 — Console-script install smoke test
