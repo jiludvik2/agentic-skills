@@ -62,17 +62,22 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "kind", "languages", "rule_classes", "taxonomies_tagged", "default_timeout_s"],
+        "required": [
+          "id", "kind", "domain", "subcategory", "tier",
+          "languages", "rule_classes", "taxonomies_tagged", "default_timeout_s"
+        ],
         "additionalProperties": false,
         "properties": {
           "id": {"type": "string"},
           "kind": {"enum": ["deterministic", "llm", "deterministic-runtime", "contract"]},
+          "domain": {"enum": ["security", "maintainability", "contracts"]},
+          "subcategory": {"type": "string", "minLength": 1},
+          "tier": {"enum": ["quick", "full"]},
           "languages": {"type": "array", "items": {"type": "string"}},
           "rule_classes": {"type": "array", "items": {"type": "string"}},
           "taxonomies_tagged": {"type": "array", "items": {"type": "string"}},
           "default_timeout_s": {"type": "number", "minimum": 0},
-          "scope_restriction": {"type": ["string", "null"]},
-          "review_scope": {"type": "string"}
+          "scope_restriction": {"type": ["string", "null"]}
         }
       }
     },

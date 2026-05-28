@@ -1,8 +1,8 @@
 # State — last updated 2026-05-28
 
-**Active focus:** s5 — **replanned**. Phase 1 (design capture) ✅; Phase 2 (implementation, tests-first) is next.
-**Last completed:** Phase 1 of the s5 replan — wrote ADR-0010 (two-skill split), ADR-0011 (review-selection model), the new `s5-review-selection-scheme` story (extended with Combinations + Validation subsections — 22 ACs), and the `intent-review-requirements` handoff doc. Old s5 (`s5-subagent-integration-and-design-review`) retired in place and moved to `done/` with a retirement marker.
-**Next:** Phase 2 — implement review-selection tests-first: per-analyzer `domain`/`subcategory`/`tier` tags in `capabilities.json` (+ schema), replace orphaned `--review-scope` with `--review`/`--depth` in `cli.py` per the precedence in `s5-review-selection-scheme.md` (incl. case-insensitive normalization, redundancy warnings to stderr, contradictory-`--depth` resolves to simpler), tests for all 22 ACs, SKILL.md taxonomy docs, green bar.
+**Active focus:** s5 — Phase 2 (implementation) ✅; Phase 3 (consumer split clean-cut) is next.
+**Last completed:** Phase 2 of s5 — implemented the review-selection scheme tests-first. Added `domain`/`subcategory`/`tier` tags to all 13 analyzer entries in `capabilities.json`; updated schema with enum constraints; removed `review_scope` and `security` from eslint. Created `code_review/selector.py` (pure resolution logic with warnings and error results). Replaced `--review-scope` with `--review`/`--depth` in `cli.py` (case-insensitive, dedup, contradictory-depth, legacy `--language` path kept). Updated SKILL.md with full taxonomy table. Three new test modules (57 tests covering all 22 ACs). Green bar: 262 passed, 6 skipped, ruff clean, mypy clean.
+**Next:** Phase 3 — consumer split clean-cut: remove bundled consumer from `code-review` (`agents/reviewer.md`, `setup.sh`'s reviewer-install step, the reviewer-content/setup-install tests, integration prose in SKILL.md).
 
 ## s5 replan — what shipped in Phase 1
 

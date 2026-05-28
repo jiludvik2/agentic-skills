@@ -69,5 +69,5 @@ def test_analyzer_registry_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0, result.output
 
 
-# --review-scope value acceptance/rejection is covered by
-# tests/test_scope_dispatch.py::test_cli_accepts_review_scope_values (the task that owns scope).
+# --review / --depth value acceptance/rejection is covered by
+# tests/test_review_selection_validation.py (the task that owns review selection).

@@ -3,13 +3,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-import pytest
-from typer.testing import CliRunner
-
-import code_review.adapters as adapters_mod
-from code_review.cli import app
-from tests.conftest import FakeAnalyzer
-
 REPO_ROOT = Path(__file__).parent.parent
 REVIEWER_MD = REPO_ROOT / ".claude" / "skills" / "code-review" / "agents" / "reviewer.md"
 SETUP = REPO_ROOT / "scripts" / "setup.sh"
@@ -53,17 +46,6 @@ def test_default_scope_is_lite() -> None:
     text = _reviewer_text().lower()
     assert "default" in text and "lite" in text, "reviewer.md must state the default scope is lite"
 
-
-def test_cli_accepts_review_scope_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
-    runner = CliRunner()
-    for scope in ("lite", "standard", "full"):
-        result = runner.invoke(
-            app, ["--analyzer", "fake", "--target", ".", "--review-scope", scope]
-        )
-        assert result.exit_code == 0, f"{scope}: {result.output}"
-    bad = runner.invoke(app, ["--analyzer", "fake", "--target", ".", "--review-scope", "bogus"])
-    assert bad.exit_code != 0
 
 
 def _write_neutralised_setup(skill: Path) -> Path:

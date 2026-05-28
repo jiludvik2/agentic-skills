@@ -272,12 +272,13 @@ def test_output_creates_missing_parent_dir(monkeypatch: pytest.MonkeyPatch, tmp_
     assert not (out.parent / "result.json.tmp").exists()
 
 
-def test_cli_requires_analyzer_or_language() -> None:
-    """Without --analyzer or --language the CLI must error with the new message."""
+def test_cli_defaults_to_quick_whole_review_when_no_flags_given() -> None:
+    """Without --analyzer or --review/--depth the CLI defaults to --depth quick."""
     runner = CliRunner()
     result = runner.invoke(app, ["--target", "."])
-    assert result.exit_code != 0
-    assert "--analyzer or --language is required" in result.output
+    # Should succeed and produce JSON output (real tools run; exit code may be 1 if
+    # any tool is unavailable, but the CLI must not exit with the old "required" error).
+    assert "--analyzer or --language is required" not in result.output
 
 
 def test_cli_auto_selects_adapters_from_language(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -17,6 +17,7 @@ from code_review.config import ConfigError, load_config
 from code_review.contracts import AnalyzerOutput, MetricSet, ReviewRequest
 from code_review.diff import resolve_diff_paths
 from code_review.hotspots import compute_hotspots
+from code_review.selector import resolve_review_selection
 
 app = typer.Typer(add_completion=False)
 
@@ -24,11 +25,7 @@ _SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "co
 _CAPABILITIES_PATH = Path(__file__).resolve().parent / "capabilities.json"
 _SCHEMA_PATH = Path(__file__).resolve().parent / "schemas" / "review-response.json"
 
-
-class ReviewScope(StrEnum):
-    lite = "lite"
-    standard = "standard"
-    full = "full"
+_VALID_DEPTHS = {"quick", "full"}
 
 
 class TimingScope(StrEnum):
@@ -171,21 +168,60 @@ async def _run_analyzers(
     }
 
 
+def _resolve_depth(
+    raw_depth_values: list[str],
+) -> tuple[str, bool, list[str]]:
+    """Validate and resolve a list of raw --depth values.
+
+    Returns (resolved_depth, depth_was_explicit, warnings).
+    Emits a warning when contradictory values are supplied.
+    Exits non-zero immediately if any value is invalid.
+    """
+    warnings: list[str] = []
+    if not raw_depth_values:
+        return "quick", False, warnings
+
+    invalid = [v for v in raw_depth_values if v.lower() not in _VALID_DEPTHS]
+    if invalid:
+        typer.echo(
+            f"Error: invalid --depth value(s): {', '.join(repr(v) for v in invalid)}. "
+            f"Valid values: quick, full.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    normalised = [v.lower() for v in raw_depth_values]
+    unique = set(normalised)
+    if len(unique) == 1:
+        return normalised[0], True, warnings
+
+    # Contradictory: pick simpler
+    resolved = "quick"
+    warnings.append(
+        f"--depth supplied multiple times with conflicting values; "
+        f"using 'quick' (simpler of {', '.join(repr(v) for v in sorted(unique))})."
+    )
+    return resolved, True, warnings
+
+
 @app.command()
 def main(
     analyzer: list[str] = typer.Option(
-        [], "--analyzer", help="Analyzer to run (repeat for multiple)"
+        [], "--analyzer", help="Analyzer to run (repeat for multiple; overrides --review/--depth)"
+    ),
+    review: list[str] = typer.Option(
+        [], "--review", help="Review domain or subcategory to select (repeat for multiple)"
+    ),
+    depth: list[str] = typer.Option(
+        [], "--depth", help="Depth tier: quick or full (default: quick)"
     ),
     language: list[str] = typer.Option(
-        [], "--language", help="Language to analyse (repeat for multiple; enables auto-selection)"
+        [], "--language", help="Language to analyse (repeat for multiple; legacy selection mode)"
     ),
     target: str | None = typer.Option(None, "--target", help="Target path to analyse"),
     diff: str | None = typer.Option(None, "--diff", help="Git diff range to scope analysis"),
     output: str | None = typer.Option(
         None, "--output", help="Output file path (must be within CWD)"
-    ),
-    review_scope: ReviewScope | None = typer.Option(
-        None, "--review-scope", help="Review depth: lite, standard, or full"
     ),
     scope: TimingScope = typer.Option(
         TimingScope.per_task, "--scope", help="Timing scope: per-task or story-level"
@@ -203,15 +239,62 @@ def main(
 
     from code_review.adapters import REGISTRY
 
-    # Auto-select adapters from language(s) when --analyzer is omitted
-    if not analyzer:
-        if not language:
-            typer.echo("Error: --analyzer or --language is required", err=True)
-            raise typer.Exit(1)
-        from code_review.lang_select import select_adapters
-        analyzer = select_adapters(frozenset(language))
+    resolved_depth, depth_explicit, depth_warnings = _resolve_depth(depth)
+    for w in depth_warnings:
+        typer.echo(w, err=True)
 
-    unknown = [n for n in analyzer if n not in REGISTRY]
+    if analyzer:
+        # Override mode: run exactly these analyzers, skip review/depth resolution
+        names = list(analyzer)
+    elif review or depth or not language:
+        # New review/depth selection (also the default when no --language)
+        caps_data = json.loads(_CAPABILITIES_PATH.read_text(encoding="utf-8"))
+        analyzer_entries = caps_data["analyzers"]
+
+        # Normalise and deduplicate --review values
+        normalised_review: list[str] = []
+        seen_review: set[str] = set()
+        for raw in review:
+            v = raw.lower()
+            if v in seen_review:
+                typer.echo(
+                    f"--review {raw} supplied multiple times; duplicates ignored.",
+                    err=True,
+                )
+            else:
+                seen_review.add(v)
+                normalised_review.append(v)
+
+        # Language filter: use --language as explicit filter when combined with review/depth
+        diff_langs: frozenset[str] | None = frozenset(language) if language else None
+
+        sel = resolve_review_selection(
+            analyzer_entries,
+            review=normalised_review,
+            depth=resolved_depth,
+            scope=scope.value,
+            diff_languages=diff_langs,
+            depth_explicit=depth_explicit,
+        )
+
+        for w in sel.warnings:
+            typer.echo(w, err=True)
+
+        if sel.error:
+            typer.echo(f"Error: {sel.error}", err=True)
+            raise typer.Exit(1)
+
+        if not sel.analyzers:
+            typer.echo("Error: no analyzers selected after filtering", err=True)
+            raise typer.Exit(1)
+
+        names = sel.analyzers
+    else:
+        # Legacy --language selection (backward compat when no --review/--depth)
+        from code_review.lang_select import select_adapters
+        names = select_adapters(frozenset(language))
+
+    unknown = [n for n in names if n not in REGISTRY]
     if unknown:
         typer.echo(f"Error: unknown analyzer(s): {', '.join(unknown)}", err=True)
         raise typer.Exit(1)
@@ -223,7 +306,7 @@ def main(
         raise typer.Exit(1) from exc
 
     disabled = set(config.disabled_analyzers)
-    explicitly_disabled = [n for n in analyzer if n in disabled]
+    explicitly_disabled = [n for n in names if n in disabled]
     if explicitly_disabled:
         typer.echo(
             f"Error: analyzer(s) disabled in code-review.toml: {', '.join(explicitly_disabled)}",
@@ -232,7 +315,7 @@ def main(
         raise typer.Exit(1)
 
     timing_scope = scope.value
-    for name in analyzer:
+    for name in names:
         adapter_cls = REGISTRY[name]
         restrictions: frozenset[str] = getattr(adapter_cls, "scope_restrictions", frozenset())
         if restrictions and timing_scope not in restrictions:
@@ -245,7 +328,7 @@ def main(
 
     result = asyncio.run(
         _run_analyzers(
-            analyzer,
+            names,
             target,
             diff,
             timing_scope,

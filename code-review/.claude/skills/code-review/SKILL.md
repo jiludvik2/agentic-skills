@@ -1,36 +1,92 @@
 ---
 name: code-review
-description: Deterministic analyzer layer for the Reviewer sub-agent — runs Semgrep, Radon, and (later) more scanners against a diff and emits consolidated SARIF/metrics JSON. Invoked via the code_review CLI; configured by review scope (lite/standard/full).
+description: Deterministic analyzer layer — runs Semgrep, Radon, and more scanners against a diff and emits consolidated SARIF/metrics JSON. Invoked via the code_review CLI; analyzer set selected by --review domain/subcategory and --depth quick|full.
 ---
 
 # code-review
 
-A deterministic code-analysis layer the Reviewer sub-agent shells out to. It runs one or more analyzers (s0: Semgrep + Radon; later stories add the rest) against a target or a diff range and returns a single consolidated JSON document — SARIF findings plus complexity/coupling metrics — that the LLM design-review step then reasons over.
-
-## Status
-
-This skill is being delivered across story s1; this document describes its full intended surface. As of s0 the following is **live**: the `code_review` CLI with `--analyzer`, `--target`, `--diff`, and `--output`, plus `--capabilities` (currently emitting only the registered analyzer-name list). **Landing in s1**: scope selection via `--review-scope` and the SDLC `review_scope` config (s1-t2/t4), the rich `--capabilities` merge of static declaration with runtime availability checks (s1-t2), the `capabilities.json` instance (s1-t1), and `scripts/setup.sh` (s1-t3). Features below that are not yet live are noted here rather than in each section.
+A deterministic code-analysis layer that runs one or more analyzers against a target or a diff range and returns a single consolidated JSON document — SARIF findings plus complexity/coupling metrics.
 
 ## Invocation
 
 ```
-python -m code_review.cli --analyzer semgrep --analyzer radon --target <path> [--diff HEAD~1..HEAD] [--output <path inside CWD>] [--review-scope standard]
+python -m code_review.cli [--review <domain|subcategory>] [--depth quick|full]
+    [--analyzer <name>] [--target <path>] [--diff HEAD~1..HEAD]
+    [--output <path inside CWD>] [--scope per-task|story-level]
 ```
 
+- **`--review`** accepts a domain name or a subcategory name (repeat for multiple). See taxonomy table below.
+- **`--depth quick|full`** selects the depth tier when `--review` names a domain. Ignored when `--review` names a subcategory. Default: `quick`.
+- **`--analyzer`** overrides `--review`/`--depth` and runs exactly those analyzers.
 - Without `--output`, the consolidated JSON is printed to stdout.
-- With `--output`, the JSON is written atomically (`.tmp`-then-rename, sibling in the same directory) and stdout carries only a one-line summary: `analyzers: N | findings: M | duration: T s`.
-- `--output` paths must resolve inside the current working directory; paths outside CWD are rejected for sandbox compatibility.
-- `python -m code_review.cli --capabilities` prints the static capability declaration merged with runtime per-analyzer availability checks.
+- With `--output`, the JSON is written atomically and stdout carries only a one-line summary: `analyzers: N | findings: M | duration: T s`.
+- `--output` paths must resolve inside the current working directory (sandbox compatibility).
+- `--capabilities` prints the static capability declaration merged with runtime per-analyzer availability checks.
 
-The request/response contracts and capability declaration are bundled inside the `code_review` package (`code_review/schemas/*.json`, `code_review/capabilities.json`) and travel with it on install — they are not separate files in the skill directory. To see the live capability declaration merged with runtime availability, run `python -m code_review.cli --capabilities`.
+The request/response contracts and capability declaration are bundled inside the `code_review` package (`code_review/schemas/*.json`, `code_review/capabilities.json`).
 
-## Review scopes
+## Review taxonomy
 
-The skill operates at one of three scopes, selected by the operator via the SDLC project config (`review_scope`). The default when unset is `lite`.
+### Domains and subcategories
 
-- **lite** — LLM design review only; the deterministic analyzer CLI is not invoked. Suits proof-of-concept and throwaway work where scan latency isn't worth it. This is the pre-installation behaviour of the Reviewer sub-agent.
-- **standard** — runs the deterministic analyzer layer (Semgrep + Radon and any other registered analyzers) over the review diff, then feeds the consolidated findings into the LLM design review. Suits most production code.
-- **full** — everything in `standard` plus contract-testing analyzers (Schemathesis/Pact, s4) that exercise live endpoints; needs additional `allowedDomains` for target hosts. Suits complex brownfield services with API contracts to defend.
+The taxonomy is data-driven (`capabilities.json`) and enforced at parse time. Use `--capabilities` to see the live table.
+
+| Domain | Subcategory | Tier | Languages | Timing |
+|---|---|---|---|---|
+| `security` | `vulnerabilities` | quick | py, js, ts | any |
+| `security` | `secrets` | quick | py, js, ts | any |
+| `security` | `dependencies` | full | py, js, ts | any |
+| `maintainability` | `complexity` | quick | py | any |
+| `maintainability` | `dead-code` | quick | py, js, ts | any |
+| `maintainability` | `duplication` | quick | js, ts | any |
+| `maintainability` | `quality` | quick | js, ts | any |
+| `maintainability` | `coupling` | full | py, js, ts | any |
+| `maintainability` | `cohesion` | full | py | any |
+| `contracts` | `conformance` | full | API | story-level |
+
+### Depth tier
+
+`--depth quick` (default) runs every subcategory whose tier is `quick`. `--depth full` additionally runs `full`-tier subcategories. Subcategory selection (naming a subcategory directly with `--review`) is always depth-independent.
+
+### Resolution precedence
+
+1. `--analyzer X` (repeatable) — override; runs exactly those analyzers.
+2. `--review <domain>` + `--depth` — union of that domain's subcategories at tier ≤ depth.
+3. `--review <subcategory>` — exactly that subcategory's analyzers; `--depth` ignored.
+4. `--depth quick|full` alone (no `--review`) — every analyzer at that tier, all domains.
+5. No selection flags — defaults to `--depth quick`.
+6. Multiple `--review` values — unioned. Redundant values emit a stderr warning; exit 0.
+
+### Common examples
+
+```bash
+# Quick security review (semgrep, bandit, gitleaks)
+python -m code_review.cli --review security --diff HEAD~1..HEAD
+
+# Full security review (adds trivy)
+python -m code_review.cli --review security --depth full --diff HEAD~1..HEAD
+
+# Specific subcategory (coupling only; ignores --depth)
+python -m code_review.cli --review coupling --scope story-level --target .
+
+# Whole quick review (default)
+python -m code_review.cli --target .
+
+# Contract testing at story-level
+python -m code_review.cli --review conformance --scope story-level --target .
+```
+
+### Warnings and errors
+
+All warnings go to **stderr** only (never stdout, never the `--output` JSON). Exit code 0 for warnings; non-zero only for hard errors.
+
+- **Redundant `--review`** — subcategory already covered by a domain at the active depth: warning + exit 0.
+- **Duplicate `--review`** — same value twice: deduped + warning + exit 0.
+- **Subcategory + explicit `--depth`** — depth is ignored: warning + exit 0.
+- **Contradictory `--depth`** values — simpler (`quick`) wins: warning + exit 0.
+- **Unknown `--review` value** — error listing valid domains and subcategories: exit 1.
+- **`contracts --depth quick`** — domain has no quick-tier analyzers: exit 1 with message.
+- **`conformance --scope per-task`** — story-level-only analyzer excluded: exit 1 with message.
 
 ## Install
 
@@ -40,17 +96,7 @@ Run the setup script once, outside the sandbox (it needs network access):
 ./scripts/setup.sh
 ```
 
-It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, **skipped until the JS toolchain lands in s3** — guarded on `package.json`/`package-lock.json` being present), prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`, and copies the Reviewer sub-agent into the host project's `.claude/agents/reviewer.md`. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
-
-## Configure
-
-Set the review scope in the SDLC skill's project-level config:
-
-```
-review_scope = "standard"
-```
-
-Valid values: `"lite"`, `"standard"`, `"full"`. The change takes effect on the next Review dispatch; no other action is required. Setting it back to `"lite"` restores LLM-only review.
+It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`, and copies the Reviewer sub-agent into the host project's `.claude/agents/reviewer.md`. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
 
 ## Sandbox configuration
 
@@ -73,11 +119,7 @@ The skill is designed to run entirely inside Claude Code's OS sandbox after `set
 }
 ```
 
-At `lite` and `standard` scope the analyzers need no network at runtime, so `allowedDomains` stays empty. At `full` scope, add the contract-testing target hosts (the base URLs Schemathesis/Pact exercise) to `allowedDomains` — and nothing else. Credential paths stay in `denyRead` so no analyzer subprocess can read them.
-
-### Contract testing (story-level, full scope)
-
-Story-level reviews at `full` scope invoke Schemathesis. It needs network access to the targets you configure in `code-review.toml`'s `[contract_testing]` section. Add only those specific hosts (e.g., `localhost`, your internal service hostname) to `sandbox.allowedDomains` — never widen to wildcards or public-internet hosts.
+At `quick` or `full` scope the deterministic analyzers need no network at runtime, so `allowedDomains` stays empty. For contract testing (`--review conformance --scope story-level`), add the Schemathesis target hosts to `allowedDomains` — and nothing else.
 
 ```json
 {
