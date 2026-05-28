@@ -1,9 +1,31 @@
 [project]
-name = "code-review"
+name = "claude-code-review"
 version = "0.1.0"
 requires-python = ">=3.11"
 description = "AI-native code review skill — deterministic analyzer layer"
 license = { text = "MIT" }
+readme = "README.md"
+authors = [{ name = "Jiri Ludvik" }]
+keywords = [
+    "code-review",
+    "sarif",
+    "static-analysis",
+    "semgrep",
+    "bandit",
+    "sdlc",
+    "deterministic-analyzer",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
 dependencies = [
     "typer==0.18.0",
     "jsonschema==4.26.0",
@@ -15,8 +37,13 @@ dependencies = [
     "schemathesis==4.0.10",
 ]
 
+[project.urls]
+Homepage = "https://github.com/jiludvik2/agentic-skills/tree/main/code-review"
+Source = "https://github.com/jiludvik2/agentic-skills"
+Issues = "https://github.com/jiludvik2/agentic-skills/issues"
+
 [project.scripts]
-code-review = "code_review.cli:app"
+claude-code-review = "code_review.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["code_review"]
