@@ -1,14 +1,21 @@
 # State — last updated 2026-05-28
 
-**Active focus:** `epic-reviewer-subagent` closed. No active epic; operator decides what's next.
-**Last completed:** s5 Phase 4 — epic close + reconcile. Rewrote epic to deterministic-only framing (preserving original hypothesis as historical record); added supersede banners to architecture (§5, §8, §17.5/17.6 retired per ADR-0010 / ADR-0011; load-bearing sections — Analyzer Protocol, SARIF, sandbox, severity, dedup — unchanged); moved 11 ADRs → `/sdlc/docs/decisions/`, architecture → `/sdlc/docs/architecture/`, epic + s3 + s5 → `/sdlc/work/done/`.
-**Next:** operator decision — see Open questions.
+**Active focus:** `epic-deployment-readiness` — make the skill redistributable. Plan filed; execution pending operator approval.
+**Last completed:** Plan filed for `epic-deployment-readiness`: epic shell + 2 stories (`s0-deployment-layout-fixup`, `s1-package-publication`) + 12 task files. Total: 15 new artefacts in `/sdlc/work/active/`. Locked design choices: `importlib.resources` for package data; CWD-relative `code-review.toml` + `--config` flag; PyPI registry; GitHub Actions on tag push; semver with manual bumps.
+**Next:** operator reviews / edits the plan; on approval, execute `s0-t0-importlib-resources` (first task).
+
+## Active artefacts
+
+- `epic-deployment-readiness.md` — epic shell
+- `s0-deployment-layout-fixup.md` — story; 6 tasks `s0-t0` through `s0-t5`
+- `s1-package-publication.md` — story; 6 tasks `s1-t0` through `s1-t5`. Depends on s0.
+- `s3-plan.md`, `s4-plan.md` — lingering plans from prior epic (per project precedent; not archived)
 
 ## Open questions
 
-- **Rule #17 — `README.md` at repo root.** Epic closed without one (README content is operator-approved per "What stays human"). The bundled `.claude/skills/code-review/SKILL.md` covers the analyzer interface; a project-root README hasn't been drafted. Worth a follow-up.
-- **Rule #18 — publication state.** `git remote -v` is configured (per ADR-0001: `github.com/jiludvik2/agentic-skills`). Local commits are ahead of `origin/main`; needs `git push` to satisfy `git log @{u}..HEAD` empty. Operator-runs-push per repo policy.
-- **Lingering plans in `active/`.** `s3-plan.md` and `s4-plan.md` remain — project precedent is plans aren't archived, but they're orphans now. Sweep or leave.
-- **`intent-review` sibling project.** Requirements captured at `/sdlc/docs/strategy/intent-review-requirements.md`; bootstrap is a separate session.
-- **Supply-chain gate.** Rule #26 N/A. `pytest==8.3.4` / CVE-2025-71176 allow-listed until 2026-08-31 (blocked by `schemathesis==4.0.10`); a future ADR could formalise an audit gate + pytest/schemathesis bump.
-- **s4 deferred Minor #4** (adapter multi-target hard-return) still open from s4 review; not blocking.
+- **Operator-supplied content** for `s1-t0` (authors email) and `s1-t1` (README draft). Both gate task close per "What stays human".
+- **PyPI name availability** for `code-review`. If taken, rename procedure documented in `s1-package-publication.md` Open Questions; first action of `s1-t0` is to confirm availability.
+- **Workflow file location.** `.github/workflows/release.yml` lives at monorepo root (`agentic-skills/.github/workflows/`), outside the `code-review/` subdir — `s1-t3` flags this; may need operator file-system action if Claude's write path is blocked.
+- **Lingering plans (`s3-plan.md`, `s4-plan.md`)** still in `active/` from the prior epic. Not blocking; sweep or leave is an operator call.
+- **`intent-review` sibling project.** Bootstrap is a separate session; requirements at `/sdlc/docs/strategy/intent-review-requirements.md`.
+- **Supply-chain gate.** Rule #26 N/A; could be formalised in a future story under this or a separate epic.
