@@ -14,9 +14,10 @@ EXAMPLE_PATH = (
     SUBPROJECT_ROOT / ".claude" / "skills" / "code-review" / "code-review.toml.example"
 )
 
-# A line is an "uncomment-target" if it starts with `# ` followed by `[` (section)
-# or an identifier character (key). Pure narrative comments use `## ` and are kept.
-_UNCOMMENT_RE = re.compile(r"^# (?=[A-Za-z\[\"])")
+# A line is an "uncomment-target" if it starts with `# ` followed by `[` (section
+# header), a TOML bare-key character (A-Za-z 0-9 _ -), or a quoted-key delimiter
+# (" or '). Pure narrative comments use `## ` and are kept.
+_UNCOMMENT_RE = re.compile(r"^# (?=[A-Za-z0-9_\-\[\"'])")
 
 
 def _uncomment(source: str) -> str:

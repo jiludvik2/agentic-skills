@@ -3,7 +3,7 @@
 ## Starter template for the code-review skill's operator config.
 ## Copy this file to your project root (the CWD you'll invoke the CLI from)
 ## as `code-review.toml`, then uncomment the keys you want to override.
-## See SKILL.md (skill bundle) or `code-review --help` for details.
+## See SKILL.md (skill bundle) or `python -m code_review.cli --help` for details.
 
 ## ----------------------------------------------------------------------
 ## Disabled analyzers (root-level key; must come before any [section]).
@@ -13,6 +13,9 @@
 ## current environment and you want a clear failure instead of an
 ## attempted-and-errored result.
 
+## DO NOT MOVE BELOW ANY [table] HEADER — root-level keys inherit the
+## preceding table in TOML, which silently corrupts this value into the
+## wrong section. Add new root-level scalars here, above the first [...] line.
 # disabled_analyzers = ["trivy"]
 
 ## ----------------------------------------------------------------------

@@ -43,3 +43,20 @@ Ship a well-commented `code-review.toml.example` in the skill bundle. `setup.sh`
 - For wheel installs (`pip install code-review`), the example file isn't shipped (it's outside the package). The release runbook (s1-t5) and README (s1-t1) document where to find a copy: in the repo, in `.github/` artifacts, or paste from the SKILL.md.
 - The "uncomment and parse" test pattern depends on how the example is formatted. Prefer TOML's native commenting where every example key is a real TOML line prefixed with `# ` so that find-replace can produce a valid file. Avoid block-comment workarounds.
 - Idempotency: `setup.sh` prints the hint every run; it never writes the file itself (per Phase 3's "no writes outside the skill dir" posture, reaffirmed in the install-procedure revisit).
+
+## Notes (post-review)
+
+### Minor + Nit fixes applied inline at close
+
+- **setup.sh header comment** updated to list 5 steps including the new "starter config template hint" (was 4-step stale after step 5 was added).
+- **`code-review.toml.example`** gained a `## DO NOT MOVE BELOW ANY [table] HEADER` guard rail next to `disabled_analyzers` so a future contributor doesn't silently regress the root-level-before-tables ordering.
+- **`code-review.toml.example`** cross-reference now reads `python -m code_review.cli --help` (consistent with the project today; the `code-review` console script ships in s1).
+- **`_UNCOMMENT_RE`** in the test broadened to `[A-Za-z0-9_\-\[\"']` — defensive coverage of TOML's actual bare-key grammar and quoted-key delimiters; today's example doesn't trigger the narrower form but a future key with `_` / digit / single-quote would have silently dropped.
+
+### Minor deferred (potential future enhancement)
+
+- Reviewer recommended a parametrised partial-uncomment test (operator might uncomment only one section by hand). Useful but optional; the current 5 tests cover the full lifecycle. Could be added alongside `s0-t6` or as a small test-coverage task.
+
+### Nit dropped
+
+- `my-api` → `my_api` rename — `my-api` is a valid TOML key with the current example structure (the dotted-path concern only matters if an operator addresses it inline elsewhere, which is unusual). Left as-is for readability.
