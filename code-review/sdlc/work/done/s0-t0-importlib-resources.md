@@ -36,3 +36,8 @@ Replace every `Path(__file__).parent / "<json file>"` access in `code_review/` w
 - Do **not** delete `_SKILL_DIR` or change `code-review.toml` lookup in this task — that's `s0-t2`. Keep this task narrowly about package-bundled data.
 - Use `importlib.resources.files(...).joinpath(...).read_text(encoding="utf-8")` for the typical access pattern.
 - For the schema files referenced from `jsonschema.Draft202012Validator`, decide whether to read into memory once at module load (cleaner) or per-call (closer to current behaviour); either is acceptable, but document the choice.
+
+## Notes (post-review, MINOR-ONLY findings for opportunistic cleanup)
+
+- `tests/test_package_data_resources.py:39` — `test_bundled_json_loads` asserts only `isinstance(data, dict)`, which is trivially true for all 5 bundled files. For `capabilities.json` specifically, asserting `'analyzers' in data` would catch real regressions; for schema files the assertion is redundant with `test_schema_is_valid_json_schema`.
+- `code_review/adapters/semgrep.py:34` — `_schema()` reads the SARIF schema with `_SCHEMA_PATH.read_text()` (no `encoding="utf-8"`), inconsistent with every other call site touched in this commit. Trivial fix: `read_text(encoding="utf-8")`.

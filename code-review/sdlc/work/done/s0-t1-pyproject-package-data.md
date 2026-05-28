@@ -38,3 +38,9 @@ updated: 2026-05-28
 - Depends on `s0-t0` landing first so that the wheel-installed package can actually find the JSON files via `importlib.resources`.
 - The `[project.scripts]` entry (`code-review = "code_review.cli:app"`) is already declared and out of scope for this task — verified end-to-end in `s1-t4-install-smoke-test`.
 - Hatchling auto-discovers `code_review/` as the package. The JSON files need explicit inclusion because hatchling defaults to source files only.
+
+## Notes (post-review, MINOR-ONLY findings for opportunistic cleanup)
+
+- `tests/test_wheel_packaging.py` — both tests independently call `uv build`, paying the build cost twice (~15-30s). Could be hoisted into a module-scoped `@pytest.fixture` returning the wheel path.
+- `tests/test_wheel_packaging.py:29-34, 53-58, 63-66, 70-74` — `subprocess.run(..., check=True, capture_output=True)` swallows stdout/stderr on success and truncates on `CalledProcessError`. Drop `capture_output=True` on the three `check=True` calls (the fourth at line 76 correctly omits `check=True` to assert on `returncode`).
+- `tests/test_wheel_packaging.py:42-45` — `assert any(n == expected for n in names)` is more verbose than the idiomatic `assert expected in names` since `names: list[str]`.
