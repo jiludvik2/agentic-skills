@@ -14,7 +14,9 @@ tags: [publication, pypi, github-actions, release, semver]
 
 ## Summary
 
-Publish `code-review` to **PyPI** on tag-push via **GitHub Actions**, with **TestPyPI** for pre-release staging. Versioning: **semver, manual bumps** in `pyproject.toml` + git tag created in the same commit. After publication, `pip install code-review`, `pipx install code-review`, and `uv tool install code-review` all work from a clean environment.
+Publish `code-review` to **PyPI** on tag-push via **GitHub Actions**, with **TestPyPI** for pre-release staging. Versioning: **semver, manual bumps** in `pyproject.toml` + git tag created in the same commit. After publication, `pip install claude-code-review`, `pipx install claude-code-review`, and `uv tool install claude-code-review` all work from a clean environment.
+
+The PyPI **distribution name** is `claude-code-review` (the bare `code-review` is taken on PyPI). The **console-script binary** post-install is also `claude-code-review`. The Python **import name** stays `code_review` (e.g., `python -m code_review.cli …` still works from a source checkout). Tags use a `code-review-` prefix (e.g., `code-review-v0.1.0`) to isolate this subproject's releases from sibling subprojects sharing the monorepo's `.github/workflows/`.
 
 This story extends ADR-0001 (which currently only names `github.com/jiludvik2/agentic-skills` as the source target with no package-registry target) via a new ADR-0012 documenting PyPI as the package registry.
 
@@ -25,7 +27,7 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 ## Use case
 
 - **As a** host operator
-- **I want to** install `code-review` with one of `pip install code-review`, `pipx install code-review`, or `uv tool install code-review`
+- **I want to** install `code-review` with one of `pip install claude-code-review`, `pipx install claude-code-review`, or `uv tool install claude-code-review`
 - **so that** I don't need to clone the dev repo or paste verbose direct-URL installs to use the skill.
 
 ## Design choices (locked)
@@ -40,14 +42,14 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 
 - **Given** the `pyproject.toml` after this story
 - **When** the package metadata is inspected
-- **Then** it carries non-empty values for: `authors` (name + email), `readme = "README.md"`, `urls` (Homepage, Source, Issues), `classifiers` (including `License :: OSI Approved :: MIT License`, `Programming Language :: Python :: 3.11`, `Programming Language :: Python :: 3.12`, `Operating System :: OS Independent`, `Topic :: Software Development :: Quality Assurance`, `Development Status :: 3 - Alpha`), `keywords`, and `requires-python = ">=3.11"` (the last already present).
+- **Then** it carries non-empty values for: `name = "claude-code-review"` (chosen because the bare `code-review` is taken on PyPI), `authors` (name only — email omitted by design), `readme = "README.md"`, `urls` (Homepage, Source, Issues), `classifiers` (including `License :: OSI Approved :: MIT License`, `Programming Language :: Python :: 3.11`, `Programming Language :: Python :: 3.12`, `Operating System :: OS Independent`, `Topic :: Software Development :: Quality Assurance`, `Development Status :: 3 - Alpha`), `keywords`, and `requires-python = ">=3.11"` (the last already present).
 
 ### Scenario: console script works post-install
 
-- **Given** `pip install code-review` ran successfully in a clean venv
-- **When** the operator runs `code-review --capabilities` (no `python -m` prefix)
-- **Then** the command resolves via the `[project.scripts]` entry point (already declared as `code-review = "code_review.cli:app"`), runs, and prints valid JSON identical to `python -m code_review.cli --capabilities` from the source tree.
-- **And** the same holds after `pipx install code-review` and `uv tool install code-review`.
+- **Given** `pip install claude-code-review` ran successfully in a clean venv
+- **When** the operator runs `claude-code-review --capabilities` (no `python -m` prefix)
+- **Then** the command resolves via the `[project.scripts]` entry point (declared as `claude-code-review = "code_review.cli:app"`), runs, and prints valid JSON identical to `python -m code_review.cli --capabilities` from the source tree.
+- **And** the same holds after `pipx install claude-code-review` and `uv tool install claude-code-review`.
 
 ### Scenario: PyPI publication ADR exists
 
@@ -57,11 +59,12 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 
 ### Scenario: release workflow triggers on tag
 
-- **Given** a `git tag vX.Y.Z && git push --tags` operation
+- **Given** a `git tag code-review-vX.Y.Z && git push --tags` operation
 - **When** GitHub Actions evaluates the trigger
-- **Then** `.github/workflows/release.yml` matches `push: tags: ['v*']`, runs a job that (in order): checkout → set up Python 3.11+ → install uv → `uv sync --frozen` → `uv build` → `uv publish` (or equivalent) to PyPI using the `PYPI_API_TOKEN` secret.
-- **And** tags matching `v*-rc*` route to TestPyPI via the `TESTPYPI_API_TOKEN` secret with `--repository-url https://test.pypi.org/legacy/`.
+- **Then** `.github/workflows/release.yml` matches `push: tags: ['code-review-v*']`, declares `permissions: id-token: write` on the publish job, and runs a job that (in order): checkout → set up Python 3.11+ → install uv → `uv sync --frozen` → `uv build` → `uv publish` to PyPI using **PyPI Trusted Publishers (OIDC)** — no long-lived secrets.
+- **And** tags matching `code-review-v*-rc*` route to TestPyPI via the corresponding TestPyPI Trusted Publisher configuration (`--publish-url https://test.pypi.org/legacy/`).
 - **And** a `concurrency:` block prevents parallel releases of the same tag.
+- **And** the `code-review-` tag prefix isolates this subproject's releases from sibling subprojects sharing the monorepo's `.github/workflows/`.
 
 ### Scenario: pre-publish smoke test catches packaging mistakes
 
@@ -104,6 +107,7 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 
 ## Open questions / risks
 
-- **PyPI account / token availability.** Story execution needs an active `pypi.org` account for the operator and a generated API token scoped to the `code-review` project. Out-of-band setup; flagged in the release runbook.
-- **Name availability on PyPI.** `code-review` may already be taken or reserved. If so, the operator picks an alternative (`sdlc-code-review`, `code-review-sdlc`, etc.) and the story's first task updates `name` in `pyproject.toml` to match. The console-script name follows.
+- **PyPI account availability.** Story execution needs an active `pypi.org` account (and a separate `test.pypi.org` account) for the operator. Trusted Publishers requires no long-lived tokens — the operator instead configures a "pending publisher" trust relationship on each registry before the first release. Out-of-band setup; documented in the release runbook.
+- **PyPI name (resolved).** `code-review` is taken on PyPI; this story publishes under `claude-code-review`. Console-script binary also renamed to `claude-code-review`; Python import name unchanged (`code_review`).
+- **Release auth (resolved).** PyPI Trusted Publishers (OIDC) — no long-lived secrets. The publish workflow exchanges GitHub Actions' OIDC identity for a short-lived PyPI upload token at runtime; the trust relationship is configured per-registry (PyPI + TestPyPI) on the operator's first release.
 - **README content.** Operator-approved per "What stays human". A draft is in scope for s1-t1; the operator's edits gate the commit.

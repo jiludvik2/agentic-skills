@@ -19,11 +19,11 @@ Repo root has a `README.md` suitable for both GitHub's repo landing page and PyP
 - `code-review/README.md` (the project lives at `agentic-skills/code-review/`; README sits inside the project subdir) exists with sections:
   - **Title + one-line tagline** — what the skill is in 10 words.
   - **Status** — alpha, 0.x.y, no API stability guarantees pre-1.0.
-  - **Install** — three command examples:
-    - `pip install code-review`
-    - `pipx install code-review`
-    - `uv tool install code-review`
-  - **Quick start** — one 5-line example invocation showing `--review` + `--depth` + `--diff` and what comes back.
+  - **Install** — three command examples (PyPI distribution is `claude-code-review`; the bare `code-review` is taken):
+    - `pip install claude-code-review`
+    - `pipx install claude-code-review`
+    - `uv tool install claude-code-review`
+  - **Quick start** — one 5-line example invocation showing `claude-code-review --review … --depth … --diff …` and what comes back. The console-script binary is `claude-code-review`; the Python import name is `code_review` (so `python -m code_review.cli …` also works from a source checkout).
   - **What it does** — three short bullets: deterministic analyzer layer; SARIF + sdlc_severity output; runs under `/sandbox`.
   - **What it doesn't do** — LLM-based review (that's the sibling `intent-review` project), cross-skill aggregation, CI orchestration.
   - **Full reference** — link to `.claude/skills/code-review/SKILL.md` for the complete taxonomy, resolution rules, and configuration details.
@@ -42,6 +42,6 @@ Repo root has a `README.md` suitable for both GitHub's repo landing page and PyP
 
 - Path: `agentic-skills/code-review/README.md` (project root, not monorepo root). The monorepo may have its own top-level README; that's separate and out of scope.
 - Long-description rendering for PyPI: hatchling reads `readme = "README.md"` and includes the file content in the wheel's `METADATA`. PyPI renders it. Test with `twine check dist/*` or equivalent before tagging — covered in the release runbook (`s1-t5`).
-- The "Quick start" example should use a realistic invocation, not a toy one. `python -m code_review.cli --review security --diff HEAD~1..HEAD --output review.json` is the canonical shape.
+- The "Quick start" example should use a realistic invocation, not a toy one. `claude-code-review --review security --diff HEAD~1..HEAD --output review.json` (post-install) or `python -m code_review.cli --review security --diff HEAD~1..HEAD --output review.json` (from a source checkout) is the canonical shape.
 - Keep README short (under 200 lines). The deep reference lives in SKILL.md; README is the front door.
 - Drafting flow: Claude writes initial draft, posts in chat, operator reads + edits, Claude applies edits, task closes only after operator says "looks good" or pushes their own edit.

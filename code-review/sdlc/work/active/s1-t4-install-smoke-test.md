@@ -21,7 +21,7 @@ A new test builds the wheel, installs it into a clean tmpdir venv via `pip`, and
   2. Locates the produced wheel under `dist/`.
   3. Creates a fresh venv via `venv.create(tmp_path / "venv", with_pip=True)`.
   4. `pip install`s the wheel into that venv via `subprocess.run([venv_python, "-m", "pip", "install", wheel_path])`.
-  5. Runs `<venv>/bin/code-review --capabilities` (the bare console-script, not `python -m`) via `subprocess.run`.
+  5. Runs `<venv>/bin/claude-code-review --capabilities` (the bare console-script, not `python -m`) via `subprocess.run`.
   6. Asserts: exit code 0; stdout is valid JSON; the JSON structure matches the source-tree `python -m code_review.cli --capabilities` output (same `analyzers` list, same `review_kinds`, same `stack_coverage`).
 - The test is allowed to take 30–60 seconds; mark with a pytest marker if needed but don't skip-by-default.
 - Cleans up the tmpdir venv on test exit (pytest's `tmp_path` fixture handles this).
@@ -50,7 +50,7 @@ def test_console_script_install(tmp_path: Path) -> None:
         ["uv", "build", "--wheel"],
         cwd=REPO_ROOT, check=True, capture_output=True,
     )
-    wheels = list((REPO_ROOT / "dist").glob("code_review-*.whl"))
+    wheels = list((REPO_ROOT / "dist").glob("claude_code_review-*.whl"))
     assert wheels, "no wheel produced"
     wheel = wheels[-1]  # latest
 
@@ -66,8 +66,8 @@ def test_console_script_install(tmp_path: Path) -> None:
     )
 
     # 4. Run console-script
-    console_script = venv_dir / "bin" / "code-review"
-    assert console_script.exists(), "code-review entry point missing"
+    console_script = venv_dir / "bin" / "claude-code-review"
+    assert console_script.exists(), "claude-code-review entry point missing"
     r = subprocess.run(
         [str(console_script), "--capabilities"],
         capture_output=True, text=True,

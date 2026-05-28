@@ -12,7 +12,7 @@ updated: 2026-05-28
 
 ## Outcome
 
-Fill in `pyproject.toml` with the metadata PyPI needs for a polished package page: authors, readme reference, project URLs, classifiers, keywords. The wheel built after this task has a complete `METADATA` file.
+Fill in `pyproject.toml` with the metadata PyPI needs for a polished package page: distribution name, authors, readme reference, project URLs, classifiers, keywords, console-script entry point. The wheel built after this task has a complete `METADATA` file.
 
 ## Acceptance criteria
 
@@ -32,13 +32,14 @@ Fill in `pyproject.toml` with the metadata PyPI needs for a polished package pag
     - `"Development Status :: 3 - Alpha"`
   - `keywords = ["code-review", "sarif", "static-analysis", "semgrep", "bandit", "sdlc", "deterministic-analyzer"]`.
 - `requires-python = ">=3.11"` (already present — verify, don't remove).
-- `name = "code-review"` (already present — verify; if PyPI name conflict surfaces during `s1` execution, see Open Questions in the parent story for the rename procedure).
+- `name = "claude-code-review"` (renamed from `"code-review"` — that name is already taken on PyPI). The Python **import name** stays `code_review` (the package directory is unchanged); the **console-script binary** is renamed in `[project.scripts]` (see below).
+- `[project.scripts]` is updated to `claude-code-review = "code_review.cli:app"` (renamed from the previous `code-review = "code_review.cli:app"` entry point — same target, new binary name).
 - `version = "0.1.0"` (already present — keep; first release).
 - `description` is one short sentence matching the style of the SKILL.md frontmatter.
 
 ## Test specification
 
-- **New: `tests/test_pyproject_metadata.py`** — load `pyproject.toml` with `tomllib`; assert each required key is present and non-empty; assert the locked classifiers list is a strict subset of the actual classifiers; assert `requires-python` floor is `>=3.11`; assert `name` matches the published name.
+- **New: `tests/test_pyproject_metadata.py`** — load `pyproject.toml` with `tomllib`; assert each required key is present and non-empty; assert the locked classifiers list is a strict subset of the actual classifiers; assert `requires-python` floor is `>=3.11`; assert `name == "claude-code-review"`; assert `[project.scripts]` contains exactly `{"claude-code-review": "code_review.cli:app"}` (i.e., no stale `code-review` entry remains).
 - **Regression**: `tests/test_wheel_packaging.py` (from `s0-t1`) continues to pass — the wheel still builds.
 
 ## Notes

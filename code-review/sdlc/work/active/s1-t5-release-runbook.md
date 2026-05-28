@@ -32,28 +32,28 @@ A runbook at `sdlc/docs/runbooks/release.md` documents the full release flow end
      - Commit: `git commit -am "release: vX.Y.Z[-rc1]"`.
 
   3. **Tag the release candidate**
-     - `git tag vX.Y.Z-rc1`
+     - `git tag code-review-vX.Y.Z-rc1`
      - `git push --tags`
      - GitHub Actions runs `release.yml`; uploads to TestPyPI.
      - Watch the workflow logs (link in the procedure).
 
   4. **Verify on TestPyPI**
-     - In a clean venv: `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ code-review==X.Y.Zrc1`.
+     - In a clean venv: `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ claude-code-review==X.Y.Zrc1`.
      - The `--extra-index-url` is needed to resolve runtime deps (`typer`, `jsonschema`, etc.) from real PyPI.
-     - Run `code-review --capabilities`; sanity-check the JSON output.
+     - Run `claude-code-review --capabilities`; sanity-check the JSON output.
      - If broken: skip to **Rollback** below.
 
   5. **Tag the real release**
-     - `git tag vX.Y.Z`
+     - `git tag code-review-vX.Y.Z`
      - `git push --tags`
      - GitHub Actions uploads to PyPI.
 
   6. **Verify on PyPI**
-     - In a clean venv: `pip install code-review==X.Y.Z`.
-     - `code-review --capabilities`.
+     - In a clean venv: `pip install claude-code-review==X.Y.Z`.
+     - `claude-code-review --capabilities`.
 
   7. **Announce**
-     - GitHub Release: `gh release create vX.Y.Z --notes-file CHANGELOG.md` (or write notes inline).
+     - GitHub Release: `gh release create code-review-vX.Y.Z --notes-file CHANGELOG.md` (or write notes inline).
 
   ### Rollback
 
@@ -61,18 +61,26 @@ A runbook at `sdlc/docs/runbooks/release.md` documents the full release flow end
   - Mark the broken release "yanked" on PyPI: `Manage` → `Release` → `Yank` (operator clicks; UI-only).
   - Document the yanked release in the next CHANGELOG entry.
 
-  ### Token management
+  ### Trusted Publishers (no tokens to manage)
 
-  - `PYPI_API_TOKEN`: created at https://pypi.org/manage/account/token/, scoped to project `code-review`. Stored as a GitHub repository secret on `jiludvik2/agentic-skills`.
-  - `TESTPYPI_API_TOKEN`: created at https://test.pypi.org/manage/account/token/, same scoping. Stored same way.
-  - Tokens rotate at the operator's discretion. If a workflow fails with auth errors, regenerate the token, update the repo secret.
+  Authentication is via **PyPI Trusted Publishers (OIDC)**. There are no long-lived secrets stored in the GitHub repository. The trust relationship lives on each registry's side and binds: project name, GitHub repo, workflow filename, optional environment.
+
+  - **PyPI Trusted Publisher** (one-time): https://pypi.org/manage/account/publishing/ → **Add a new pending publisher** before the project exists, or **Add a new publisher** under an existing project. Fill in:
+    - PyPI Project Name: `claude-code-review`
+    - Owner: `jiludvik2`
+    - Repository name: `agentic-skills`
+    - Workflow filename: `release.yml`
+    - Environment name (optional but recommended): `pypi`
+  - **TestPyPI Trusted Publisher** (one-time): https://test.pypi.org/manage/account/publishing/ → same form, separate registry. Use the same project name; environment name (if you use one): `testpypi`.
+  - If a workflow fails with `Trusted publisher not configured` / `not authorized`, the trust relationship is missing or the binding (repo, workflow, environment) doesn't match the workflow's actual identity. Fix on the PyPI/TestPyPI side; **no repo secret changes needed.**
 
   ### First-release checklist
 
   - PyPI account `jiludvik2` exists.
   - TestPyPI account `jiludvik2` exists (separate signup from PyPI).
-  - Package name `code-review` reserved (publish a `0.0.1` placeholder if needed to claim the name before contested).
-  - Both tokens generated and stored.
+  - PyPI distribution name `claude-code-review` available — confirmed before this story; reserve by configuring a "pending publisher" (PyPI lets you do this before the project is published, then auto-creates the project on the first successful upload). The bare `code-review` is already taken on PyPI by an unrelated project and is **not** the target.
+  - Pending publishers configured on both PyPI and TestPyPI per the previous section.
+  - `permissions: id-token: write` declared on the publish job in `release.yml`.
 
 ## Test specification
 
