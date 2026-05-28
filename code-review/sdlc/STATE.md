@@ -13,7 +13,8 @@
 
 ## Open questions
 
-- **Operator-supplied content** for `s1-t0` (authors email) and `s1-t1` (README draft). Both gate task close per "What stays human".
+- **Operator-supplied content** for `s1-t1` (README draft) — gates task close per "What stays human". (`s1-t0` authors email resolved: omitted by design.)
+- **PyPI Trusted Publishers (OIDC) vs token-based** — offered during s1-t0 review; not yet decided. Default in `s1-t3` is token-based. Trusted Publishers removes long-lived secrets but adds a one-time PyPI-side trust-relationship setup. Revisit at s1-t3 execution.
 - **PyPI name availability** for `code-review`. If taken, rename procedure documented in `s1-package-publication.md` Open Questions; first action of `s1-t0` is to confirm availability.
 - **Workflow file location.** `.github/workflows/release.yml` lives at monorepo root (`agentic-skills/.github/workflows/`), outside the `code-review/` subdir — `s1-t3` flags this; may need operator file-system action if Claude's write path is blocked.
 - **Lingering plans (`s3-plan.md`, `s4-plan.md`)** still in `active/` from the prior epic. Not blocking; sweep or leave is an operator call.
