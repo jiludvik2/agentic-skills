@@ -2,10 +2,13 @@
 id: s1-t3-release-workflow
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-package-publication
 created: 2026-05-28
 updated: 2026-05-28
+closed: 2026-05-28
+verify: PASS (commit 342eb7c; 302 passed/6 skipped unchanged; ruff clean; no Python changed; pre-existing mypy conftest dup carried)
+review: CLEAN (zero findings; OIDC scoping correctly narrow; no secret-leakage paths; RC routing mutually exclusive)
 ---
 
 # s1-t3 — GitHub Actions release workflow
