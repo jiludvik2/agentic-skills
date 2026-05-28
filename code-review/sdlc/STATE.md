@@ -1,8 +1,8 @@
 # State — last updated 2026-05-28
 
-**Active focus:** s5 — Phase 2 (implementation) ✅; Phase 3 (consumer split clean-cut) is next.
-**Last completed:** Phase 2 of s5 — implemented the review-selection scheme tests-first. Added `domain`/`subcategory`/`tier` tags to all 13 analyzer entries in `capabilities.json`; updated schema with enum constraints; removed `review_scope` and `security` from eslint. Created `code_review/selector.py` (pure resolution logic with warnings and error results). Replaced `--review-scope` with `--review`/`--depth` in `cli.py` (case-insensitive, dedup, contradictory-depth, legacy `--language` path kept). Updated SKILL.md with full taxonomy table. Three new test modules (57 tests covering all 22 ACs). Green bar: 262 passed, 6 skipped, ruff clean, mypy clean.
-**Next:** Phase 3 — consumer split clean-cut: remove bundled consumer from `code-review` (`agents/reviewer.md`, `setup.sh`'s reviewer-install step, the reviewer-content/setup-install tests, integration prose in SKILL.md).
+**Active focus:** s5 — Phase 3 (consumer split clean-cut) ✅; Phase 4 (epic close + reconcile) is next.
+**Last completed:** Phase 3 of s5 — removed the bundled consumer sub-agent from `code-review`. Deleted `.claude/agents/reviewer.md` and `.claude/skills/code-review/agents/reviewer.md`; stripped step 4 (`find_host_root` + reviewer install) from `setup.sh`; deleted `tests/test_scope_dispatch.py` (reviewer-content + setup-install tests); updated `SKILL.md` install prose; updated stale scaffold tests in `test_skill_scaffold.py` ("Review scopes" section → "Review taxonomy", removed "Status" section test). Green bar: 255 passed, 6 skipped, ruff clean, mypy clean.
+**Next:** Phase 4 — epic close + reconcile: rewrite epic to deterministic-only + close; move ADRs → `docs/decisions/`, architecture → `docs/architecture/` (§8 superseded), stories → `done/`; refresh STATE.
 
 ## s5 replan — what shipped in Phase 1
 

@@ -96,7 +96,7 @@ Run the setup script once, outside the sandbox (it needs network access):
 ./scripts/setup.sh
 ```
 
-It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`, and copies the Reviewer sub-agent into the host project's `.claude/agents/reviewer.md`. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
+It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), and prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
 
 ## Sandbox configuration
 

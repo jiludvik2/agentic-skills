@@ -51,14 +51,14 @@ def _section_body(text: str, header: str) -> str:
 
 def test_skill_md_has_required_sections() -> None:
     text = _skill_text()
-    for header in ("Review scopes", "Install", "Configure", "Sandbox configuration"):
+    for header in ("Review taxonomy", "Install", "Sandbox configuration"):
         assert re.search(rf"^#+\s*{re.escape(header)}", text, re.MULTILINE), (
             f"missing section: {header}"
         )
-    # Review scopes section names all three values — anchored to the actual section body
-    scopes_section = _section_body(text, "Review scopes")
-    for scope in ("lite", "standard", "full"):
-        assert scope in scopes_section, f"Review scopes section does not mention '{scope}'"
+    # Taxonomy section lists all three domains
+    taxonomy_section = _section_body(text, "Review taxonomy")
+    for domain in ("security", "maintainability", "contracts"):
+        assert domain in taxonomy_section, f"Review taxonomy section does not mention '{domain}'"
 
 
 def test_skill_md_sandbox_snippet_is_valid_json() -> None:
@@ -69,11 +69,6 @@ def test_skill_md_sandbox_snippet_is_valid_json() -> None:
     parsed = json.loads(m.group(1))
     assert "sandbox" in parsed, "sandbox snippet missing top-level 'sandbox' key"
 
-
-def test_skill_md_has_status_section() -> None:
-    section = _section_body(_skill_text(), "Status")
-    assert "--capabilities" in section, "Status section must describe --capabilities state"
-    assert "setup.sh" in section, "Status section must note setup.sh as forthcoming"
 
 
 def test_skill_md_references_schemas() -> None:
