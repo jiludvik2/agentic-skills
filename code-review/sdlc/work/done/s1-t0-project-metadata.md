@@ -2,10 +2,13 @@
 id: s1-t0-project-metadata
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-package-publication
 created: 2026-05-28
 updated: 2026-05-28
+closed: 2026-05-28
+verify: PASS (commit 91142af; 299 passed/6 skipped; ruff clean; pre-existing mypy conftest dup noted, out of scope)
+review: CLEAN (zero findings at any severity)
 ---
 
 # s1-t0 — PyPI-ready project metadata in `pyproject.toml`
