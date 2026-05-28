@@ -33,8 +33,8 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 ## Design choices (locked)
 
 - **Registry**: PyPI (with TestPyPI staging for release candidates).
-- **Release mechanism**: GitHub Actions on tag push (`v*` → PyPI; `v*-rc*` → TestPyPI).
-- **Versioning**: semver, manual bumps. `pyproject.toml` version + `git tag vX.Y.Z` in the same commit. Pre-1.0 (`0.x.y`) carries no API stability guarantee.
+- **Release mechanism**: GitHub Actions on tag push (`code-review-v*` → PyPI; `code-review-v*-rc*` → TestPyPI), authenticated via **PyPI Trusted Publishers (OIDC)** — no long-lived secrets. See ADR-0012.
+- **Versioning**: semver, manual bumps. `pyproject.toml` version + `git tag code-review-vX.Y.Z` in the same commit. Pre-1.0 (`0.x.y`) carries no API stability guarantee.
 
 ## Acceptance criteria
 
@@ -55,7 +55,7 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 
 - **Given** the repo after this story
 - **When** `sdlc/work/active/adr-0012-pypi-publication.md` (or moved to `sdlc/docs/decisions/` at story close) is read
-- **Then** it records: PyPI as the registry (extending ADR-0001's source target); semver with manual bumps; GitHub Actions release workflow on tag push; TestPyPI used pre-release; secret-management notes (`PYPI_API_TOKEN`, `TESTPYPI_API_TOKEN`).
+- **Then** it records: PyPI as the registry (extending ADR-0001's source target); distribution name `claude-code-review` and console-script binary `claude-code-review` (bare `code-review` taken); semver with manual bumps; GitHub Actions release workflow on tag push (`code-review-v*` → PyPI; `code-review-v*-rc*` → TestPyPI); authentication via **PyPI Trusted Publishers (OIDC)** with no long-lived secrets.
 
 ### Scenario: release workflow triggers on tag
 
@@ -70,15 +70,15 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 
 - **Given** the test suite after this story
 - **When** `tests/test_console_script_install.py` runs
-- **Then** it: builds the wheel with `uv build`; creates a fresh tmpdir venv; `pip install`s the built wheel into that venv; runs `<venv>/bin/code-review --capabilities`; asserts the output is valid JSON and matches the source-tree invocation.
+- **Then** it: builds the wheel with `uv build`; creates a fresh tmpdir venv; `pip install`s the built wheel into that venv; runs `<venv>/bin/claude-code-review --capabilities`; asserts the output is valid JSON and matches the source-tree invocation.
 - **And** `tests/test_pyproject_metadata.py` parses `pyproject.toml` and asserts every PyPI-required field is non-empty and well-formed.
 
 ### Scenario: release runbook documents the full flow
 
 - **Given** `sdlc/docs/runbooks/release.md` after this story
 - **When** an operator follows it for a release
-- **Then** they can: bump version in `pyproject.toml`; cut a release-candidate tag (`vX.Y.Z-rc1`) and verify install from TestPyPI; promote to the real tag (`vX.Y.Z`); verify install from PyPI; roll back a bad release.
-- **And** the runbook documents how to create `PYPI_API_TOKEN` and `TESTPYPI_API_TOKEN` and where they live in GitHub repository secrets.
+- **Then** they can: bump version in `pyproject.toml`; cut a release-candidate tag (`code-review-vX.Y.Z-rc1`) and verify install from TestPyPI; promote to the real tag (`code-review-vX.Y.Z`); verify install from PyPI; roll back a bad release.
+- **And** the runbook documents the one-time **PyPI Trusted Publishers** setup on both `pypi.org` and `test.pypi.org` (pending publisher binding the repo, the workflow filename, and an optional environment), per ADR-0012. No GitHub repository secrets are involved — the workflow exchanges its OIDC identity for a short-lived upload token at runtime.
 
 ### Scenario: README.md exists at repo root
 
@@ -91,7 +91,7 @@ This story extends ADR-0001 (which currently only names `github.com/jiludvik2/ag
 ## Test specification
 
 - **`tests/test_pyproject_metadata.py`** (new) — parses `pyproject.toml`; asserts every PyPI-required field is present and non-empty; asserts the locked set of classifiers is included; asserts `requires-python` matches the supported floor.
-- **`tests/test_console_script_install.py`** (new) — exercises the full build + install + invoke loop: `uv build`, fresh venv via `venv.create`, `pip install` the wheel, run `<venv>/bin/code-review --capabilities`, assert JSON validity + structural match against source-tree output.
+- **`tests/test_console_script_install.py`** (new) — exercises the full build + install + invoke loop: `uv build`, fresh venv via `venv.create`, `pip install` the wheel, run `<venv>/bin/claude-code-review --capabilities`, assert JSON validity + structural match against source-tree output.
 - **No CI/workflow self-test.** The release workflow itself is exercised by the first real release; the runbook covers verification.
 - **Existing tests** continue to pass — s0's `test_wheel_packaging.py` already proves the wheel builds and installs; this story only adds the metadata + console-script + workflow layer.
 
