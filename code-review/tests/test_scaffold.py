@@ -28,6 +28,12 @@ def test_sarif_schema_present_and_valid():
     assert "$schema" in schema or "title" in schema
 
 
+def test_readme_exists():
+    readme = REPO_ROOT / "README.md"
+    assert readme.exists(), f"README.md not found at {readme}"
+    assert readme.read_text(encoding="utf-8").strip(), "README.md must be non-empty"
+
+
 def test_gitignore_covers_transient_dirs():
     gitignore = (REPO_ROOT / ".gitignore").read_text()
     for entry in ("runs/", "cache/", "node_modules/", ".venv/"):

@@ -41,6 +41,12 @@ def test_readme_points_at_readme_md() -> None:
     assert _project()["readme"] == "README.md"
 
 
+def test_readme_file_exists_and_non_empty() -> None:
+    readme = PYPROJECT.parent / _project()["readme"]
+    assert readme.exists(), f"readme file not found at {readme}"
+    assert readme.read_text(encoding="utf-8").strip(), "readme file must be non-empty"
+
+
 def test_project_urls_present() -> None:
     urls = _project()["urls"]
     for key in ("Homepage", "Source", "Issues"):
