@@ -2,11 +2,12 @@
 id: s5-review-selection-scheme
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-reviewer-subagent
 sources: [adr-0010-split-deterministic-and-probabilistic-skills.md, adr-0011-review-selection-model.md]
 created: 2026-05-28
 updated: 2026-05-28
+closed: 2026-05-28
 ---
 
 # s5 — Review-selection scheme

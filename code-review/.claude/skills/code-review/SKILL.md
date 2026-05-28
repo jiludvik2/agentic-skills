@@ -96,7 +96,17 @@ Run the setup script once, outside the sandbox (it needs network access):
 ./scripts/setup.sh
 ```
 
-It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), and prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
+It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`, and then reports the state of the host project's `.claude/agents/reviewer.md` (read-only — never written). The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
+
+### Reviewer sub-agent (host's responsibility)
+
+`code-review` is a pure deterministic analyzer — it does not install or modify any sub-agent. The SDLC's Review verb dispatches `<host>/.claude/agents/reviewer.md`, whose lifecycle is owned by the SDLC skill (bootstrap step) or the operator. `setup.sh`'s final step reports the state it found:
+
+- **Found** — left untouched. The host already has a reviewer sub-agent; `code-review` doesn't manage it.
+- **Missing** — flagged with a hint to install via the SDLC skill (re-run its bootstrap) or copy your own. Without a reviewer.md the SDLC Review verb cannot dispatch.
+- **No `.claude/` ancestor** — the skill appears to be the repo itself (developer layout) rather than installed under `<host>/.claude/skills/code-review/`; the check is skipped.
+
+How a consumer (CI script, the `intent-review` sibling skill, a human at the terminal, or a custom reviewer.md) actually drives `code-review` is up to the consumer — invoke `python -m code_review.cli` with the `--review` / `--depth` flags documented above.
 
 ## Sandbox configuration
 

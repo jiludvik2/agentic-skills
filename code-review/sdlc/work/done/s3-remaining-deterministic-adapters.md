@@ -2,10 +2,11 @@
 id: s3-remaining-deterministic-adapters
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-reviewer-subagent
 created: 2026-05-26
-updated: 2026-05-26  # sandbox compatibility: per-adapter cache flags + vendored Node binaries
+updated: 2026-05-28
+closed: 2026-05-28
 ---
 
 # s3 — Remaining deterministic adapters (Python + JS/TS coverage)

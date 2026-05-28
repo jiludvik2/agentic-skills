@@ -2,11 +2,11 @@
 id: architecture-reviewer-subagent
 kind: architecture
 project: code-review
-status: active
 parent: epic-reviewer-subagent
 created: 2026-05-26
-updated: 2026-05-27  # Pact dropped (ADR-0008): at-a-glance structures trimmed, supersede banner added; Schemathesis cache → tempfile
-tags: [reviewer, architecture, sarif, subagent, python, uv, sandbox]
+updated: 2026-05-28  # ADR-0010 / ADR-0011: sub-agent integration retired; review-selection (domain/subcategory/depth) replaces lite/standard/full. §5 + §8 + §17.5/17.6 carry supersede notes; load-bearing sections (Analyzer Protocol, SARIF, sandbox, severity, dedup) unchanged.
+verified-on: 2026-05-28
+tags: [reviewer, architecture, sarif, deterministic-analyzer, python, uv, sandbox]
 ---
 
 # Architecture: Reviewer Sub-agent with Deterministic Analyzer Layer
@@ -14,6 +14,14 @@ tags: [reviewer, architecture, sarif, subagent, python, uv, sandbox]
 This document is the single architectural reference for the work decomposed in `epic-reviewer-subagent` (stories s0–s5). It covers module layout, data flow, the Analyzer Protocol, output shape, dedup and severity logic, sub-agent integration mechanics, security and license posture, the uv-based build and dev workflow, the constraints the Claude Code sandbox imposes on every part of the design, and the contract surface this architecture depends on from the upstream SDLC skill. The two governance-risk mitigations agreed during tool-stack review (pin versions, keep pip fallback working) are baked into the build setup. Sandbox compatibility is a first-class constraint — see §16. SDLC-skill compatibility is treated as stable by convention, with the contract surface enumerated in §17.
 
 This is a steady-state architecture document. Implementation tasks are not pre-decomposed — task breakdown happens at Plan time per the SDLC's Plan verb. Where this document and a story disagree, the story is canonical; please update this document when a story changes.
+
+> **Superseded in part — split into deterministic + probabilistic skills (ADR-0010, 2026-05-28) and review-selection scheme replaces three scopes (ADR-0011, 2026-05-28).** The `code-review` skill is now a **pure deterministic analyzer**: no LLM call inside, no `reviewer` sub-agent installed by `setup.sh`, no `review_scope` config key. The LLM design-review work moves to a sibling `intent-review` project. Section-level impact:
+> - **§5 (Data flow)** — the `--review-scope` flag is gone; the CLI takes `--review <domain|subcategory>` (repeatable) + `--depth <quick|full>` per ADR-0011. The CLI is still invoked by a consumer (CI, a human, or `intent-review`), but not by a sub-agent that this skill installs.
+> - **§8 (Sub-agent integration)** — *entirely superseded*. The retired flow was: sub-agent reads `review_scope`, branches on `lite`/`standard`/`full`, invokes the CLI, runs LLM design review in the same turn, files fix tasks. None of this lives in `code-review` any more. Consumer responsibilities (reading SARIF, design review, fix-task routing) move to `intent-review` and to a future consumer LLM that may dedup across the two skills' outputs by judgment — see `sdlc/docs/strategy/intent-review-requirements.md`.
+> - **§17.5 / §17.6 (`review_scope` config key + location)** — superseded. The skill has no project-level SDLC config key; the consumer drives selection via CLI flags.
+> - **Load-bearing sections that survive unchanged:** §3 module layout, §4 Analyzer Protocol, §6 SARIF + dedup + severity, §9 concurrency/timeouts, §10 build, §11 security, §12 testing, §16 sandbox.
+>
+> The original framing is preserved below — both the prose and the at-a-glance tables — because the bets that proved out (the Analyzer Protocol, SARIF + `sdlc_severity`, the sandbox-first design) carried directly into the deterministic-only shape. The supersede notes on §5 / §8 / §17.5–17.6 point readers at the current contracts (ADR-0011 for selection, ADR-0010 for the split).
 
 > **Superseded in part — Pact dropped (ADR-0008, 2026-05-27).** Contract testing in this epic is now **Schemathesis only**. References to **Pact** below (a `pact.py` adapter, the `pact-broker-fixture/` docker-compose, broker auth, `requires_docker` markers, broker hosts in `allowedDomains`) are **retained as historical design context** and are **not** to be built. The at-a-glance structures (module tree, scope/severity/sandbox tables) have been trimmed to match; the surrounding prose has not. See `s4-contract-testing-adapters.md` and ADR-0008 for the authoritative scope.
 
@@ -43,6 +51,8 @@ This is a steady-state architecture document. Implementation tasks are not pre-d
 - **No SDLC-version check at runtime.** The architecture depends on the SDLC contract surface enumerated in §17, treated as stable by convention. There is no parser, no compatibility range, no refusal-to-load on unknown SDLC versions.
 
 ## 2. High-level shape
+
+> **Superseded by ADR-0010 (2026-05-28).** The diagram below shows the retired sub-agent-inside-skill arrangement (`reviewer` sub-agent reads `review_scope`, invokes the CLI, performs LLM design review in the same turn). The current shape is: a consumer (CI, a human, `intent-review`) invokes `python -m code_review.cli` directly with `--review`/`--depth` flags per ADR-0011; the skill installs no sub-agent. The CLI half of the diagram (lower box: `code-review` skill) is unchanged and remains accurate.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -233,6 +243,8 @@ Key shape decisions:
 - **No exception propagation through the Protocol.** Adapters catch their own errors and report them via `status` + `error`. A crashing adapter does not kill the CLI; it produces an output with `status="error"` and the rest of the run completes.
 
 ## 5. Data flow
+
+> **Superseded in part by ADR-0011 (2026-05-28).** The flow below shows `--review-scope <lite|standard|full>` invocations from a `reviewer` sub-agent. The current CLI takes `--review <domain|subcategory>` (repeatable) and `--depth <quick|full>`, and is invoked by any consumer — there is no sub-agent installed by this skill. The aggregator, dedup, severity-mapping, and output-shape steps (5.x's downstream) are unchanged.
 
 ### 5.1 Per-task review (the common case)
 
@@ -441,6 +453,8 @@ All schemas use JSON Schema draft 2020-12, validated by `jsonschema`.
 **Offline validation guarantee.** The `jsonschema` library can fetch external metaschemas by URL (e.g. `https://json-schema.org/draft/2020-12/schema`); under the Claude Code sandbox, those fetches would fail. The CLI explicitly pre-loads every metaschema into a `referencing.Registry` (via `jsonschema_specifications.REGISTRY`) and constructs validators with that registry, so no network call is ever attempted. A test in `test_sandbox_compatibility.py` asserts this by patching the network stack to fail any attempted connection during a validation pass.
 
 ## 8. Sub-agent integration
+
+> **Entirely superseded by ADR-0010 (2026-05-28).** The whole section described a `reviewer` sub-agent that this skill would install via `setup.sh` and that would (a) read a `review_scope` config, (b) invoke the CLI, (c) perform LLM design review in the same turn, (d) file fix tasks. None of this lives in `code-review` any more. The bundled `agents/reviewer.md` and `setup.sh`'s reviewer-install step were removed in s5 Phase 3. The design-review responsibilities move to the `intent-review` sibling project; cross-skill dedup is a future consumer LLM's job by judgment, not a built-in. The text below is retained as historical record.
 
 ### 8.1 The reviewer sub-agent's invocation pattern
 
@@ -980,13 +994,19 @@ The contract: the SDLC skill provides a callable mechanism (currently a document
 
 If the SDLC skill changes the escalation interface, the sub-agent prompt needs updating. The analyzer code is unaffected.
 
-### 17.5 `review_scope` config key
+### 17.5 `review_scope` config key — *superseded by ADR-0011 (2026-05-28)*
+
+The `code-review` skill no longer reads any SDLC project-level config key. Selection is driven by the CLI's `--review` / `--depth` flags directly. The text below is retained for historical context.
+
 
 The SDLC skill is assumed to expose a project-level config key named `review_scope` whose value controls the depth of review. Three valid values: `lite` (default; LLM-only), `standard`, `full`. The `reviewer` sub-agent reads this value on every dispatch and branches accordingly.
 
 This is the *one* mechanism-level assumption the `code-review` skill makes about the SDLC skill's internal configuration. If the SDLC skill uses a different config key, or stores config in a different location, the `code-review` skill's SKILL.md and the sub-agent prompt need adjustment.
 
-### 17.6 Project-level config location
+### 17.6 Project-level config location — *superseded by ADR-0011 (2026-05-28)*
+
+Not applicable — the skill no longer reads SDLC config. Per-skill operator-tunable settings live in `code-review.toml` (read from the skill directory; CWD-resolution deferred per ADR-0007). The text below is retained for historical context.
+
 
 The `code-review` skill's documentation tells operators which file holds the `review_scope` setting (e.g., the SDLC skill's project-level config — exact path is whatever the SDLC skill mandates). The `code-review` skill's CLI does not read this file itself; the sub-agent reads it and passes the value to the CLI via `--review-scope`.
 
