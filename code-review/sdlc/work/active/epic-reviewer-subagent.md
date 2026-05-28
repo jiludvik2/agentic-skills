@@ -9,9 +9,9 @@ children:
   - s2-aggregator-and-severity-mapping
   - s3-remaining-deterministic-adapters
   - s4-contract-testing-adapters
-  - s5-subagent-integration-and-design-review
+  - s5-review-selection-scheme  # replaces s5-subagent-integration-and-design-review (retired 2026-05-28 per ADR-0010); old s5 in done/
 created: 2026-05-26
-updated: 2026-05-27  # Pact dropped from s4 / epic scope (ADR-0008)
+updated: 2026-05-28  # ADR-0010: two-skill split; reviewer-integration premise retired, s5 slot reused for code-review's review-selection scheme (ADR-0011). Pact dropped earlier per ADR-0008.
 tags: [reviewer, sarif, sdlc, ai-native, subagent]
 ---
 

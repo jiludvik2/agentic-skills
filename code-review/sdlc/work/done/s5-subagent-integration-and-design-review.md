@@ -2,13 +2,15 @@
 id: s5-subagent-integration-and-design-review
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-reviewer-subagent
 created: 2026-05-26
-updated: 2026-05-26  # scope model: single reviewer sub-agent with lite/standard/full review scopes
+updated: 2026-05-28  # RETIRED — superseded by ADR-0010 (two-skill split) and replaced in epic position 5 by s5-review-selection-scheme. Integration/consumer ACs moved to intent-review-requirements (handoff for a future consumer project).
 ---
 
-# s5 — Sub-agent integration with LLM design review inside the turn
+> **RETIRED 2026-05-28** — This story is preserved for traceability. The unified-reviewer integration premise it described was split into two independent same-format skills per **ADR-0010** (`code-review` deterministic + `intent-review` probabilistic, with the consumer/integration explicitly out of scope). The slot at epic position 5 is now occupied by **`s5-review-selection-scheme`** (`code-review`'s `--review`/`--depth` selection model; see ADR-0011). The integration/consumer ACs originally in this story are captured in **`sdlc/docs/strategy/intent-review-requirements.md`** for a future consumer project.
+
+# s5 — Sub-agent integration with LLM design review inside the turn (RETIRED)
 
 ## Summary
 
