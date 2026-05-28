@@ -1,0 +1,45 @@
+name: Release claude-code-review
+
+on:
+  push:
+    tags:
+      - 'code-review-v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    defaults:
+      run:
+        working-directory: code-review
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      - name: Build wheel and sdist
+        run: uv build
+
+      - name: Publish to TestPyPI (release candidates)
+        if: contains(github.ref, '-rc')
+        run: uv publish --publish-url https://test.pypi.org/legacy/
+
+      - name: Publish to PyPI (final releases)
+        if: ${{ !contains(github.ref, '-rc') }}
+        run: uv publish
