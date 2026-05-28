@@ -2,10 +2,13 @@
 id: s1-t2-publication-adr
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-package-publication
 created: 2026-05-28
 updated: 2026-05-28
+closed: 2026-05-28
+verify: PASS (commit c2a8c68; 302 passed/6 skipped; ruff clean; pre-existing mypy conftest dup carried over)
+review: CLEAN (zero findings; informational note: parent story s1-t5 ACs still mention API tokens, contradicts ADR-0012 — must refresh before s1-t5 build)
 ---
 
 # s1-t2 — ADR-0012 documenting PyPI publication
