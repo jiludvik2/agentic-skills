@@ -2,10 +2,13 @@
 id: s1-t1-readme-draft
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-package-publication
 created: 2026-05-28
 updated: 2026-05-28
+closed: 2026-05-28
+verify: PASS (commit 89bd120; 301 passed/6 skipped; ruff clean; pre-existing mypy conftest dup carried over)
+review: CLEAN (zero findings at any severity)
 ---
 
 # s1-t1 — Draft `README.md` at repo root
