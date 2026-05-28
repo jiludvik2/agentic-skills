@@ -1,8 +1,8 @@
 # State — last updated 2026-05-28
 
-**Active focus:** `epic-deployment-readiness` — make the skill redistributable. Plan filed; execution pending operator approval.
-**Last completed:** Plan filed for `epic-deployment-readiness`: epic shell + 2 stories (`s0-deployment-layout-fixup`, `s1-package-publication`) + 12 task files. Total: 15 new artefacts in `/sdlc/work/active/`. Locked design choices: `importlib.resources` for package data; CWD-relative `code-review.toml` + `--config` flag; PyPI registry; GitHub Actions on tag push; semver with manual bumps.
-**Next:** operator reviews / edits the plan; on approval, execute `s0-t0-importlib-resources` (first task).
+**Active focus:** `epic-deployment-readiness` — plan filed, execution pending. Side-thread: project SDLC bumped to v6.6 (Wrap verb, context-pressure halt, auto-Wrap on halts).
+**Last completed:** Project-local SDLC update — `code-review/sdlc/SDLC.md` v6.5 → v6.6. Added context-window-usage halt trigger at 75% (signal from per-session JSONL); auto-Wrap fires at every non-operator halt; context-pressure halt branches on mid-task vs between-tasks (mid-task → halt-and-ask; between → auto-Wrap + `/clear` suggest). Canonical-SDLC sync still pending (memory todo updated).
+**Next:** operator reviews / edits the deployment-readiness plan; on approval, execute `s0-t0-importlib-resources` (first task).
 
 ## Active artefacts
 

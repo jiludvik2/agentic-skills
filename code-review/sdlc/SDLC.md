@@ -1,8 +1,8 @@
 ---
 title: Reimagined Software Delivery Lifecycle
 purpose: How Claude Code should approach all development work in this repo
-version: 6.4
-updated: 2026-05-25
+version: 6.6
+updated: 2026-05-28
 ---
 
 # SDLC
@@ -139,7 +139,9 @@ When the task is complete: update `status: done`, commit with a message referenc
 
 **Auto-progress within a story.** Once a task closes cleanly — verifier signed off, reviewer signed off (CLEAN, MINOR-ONLY, or HAS-CRITICAL-OR-IMPORTANT with all such findings spawned as fix tasks), no unresolved gate escalations, commit landed — immediately begin the next `active` task under the same parent story without waiting for further operator approval. The operator approved the plan; executing the plan is what that approval covers. Review-spawned fix tasks slot into the front of the remaining task queue under their parent and are auto-progressed the same way, subject to rule #25's 2-round remediation bound. At the **story boundary** — when the last task of the story closes cleanly — run the story-level Review (Verify is implicit per-task and not re-run on the cumulative diff), remediate any Critical/Important findings via the same auto-progress chain, then **auto-progress into the next `active` story under the same epic without waiting for operator approval, provided that next story already has an operator-approved plan** (operator-approved story-boundary auto-cross). If the next story is unplanned, propose its plan and pause — plan approval stays human (see "What stays human"). Stop the loop at the **epic boundary**: when the last story of the epic closes cleanly, pause and report; the operator decides whether to start the next epic.
 
-The loop also halts immediately on any of: verifier failure, reviewer's 2-round bound exceeded, an Autonomy-gate escalation, a hard-stop trigger, three failed attempts on the same sub-problem, or any operator directive ("pause", "stop", "hold on", or any instruction to do something else). Operator interruption always wins over auto-progression — there is no "let me finish this task first."
+The loop also halts immediately on any of: verifier failure, reviewer's 2-round bound exceeded, an Autonomy-gate escalation, a hard-stop trigger, three failed attempts on the same sub-problem, **context-window usage at or above 75%** (read from the per-session transcript JSONL at `~/.claude/projects/<slug>/<session-uuid>.jsonl`: sum `input_tokens + cache_read_input_tokens + cache_creation_input_tokens` on the most recent assistant turn, divide by the active model's context window — default 200K; threshold configurable per project), or any operator directive ("pause", "stop", "hold on", or any instruction to do something else). Operator interruption always wins over auto-progression — there is no "let me finish this task first."
+
+**Wrap on halt.** At every halt except operator interruption, the Wrap verb runs automatically before control returns to the operator. The context-pressure halt is the one trigger that branches on mid-task state: if it fires between tasks (no task is in mid-execution; working tree clean from the last task close), Wrap runs and the operator gets a `/clear`-and-resume suggestion; if it fires mid-task (a task is in mid-execution, with uncommitted work or an in-progress test loop), the loop halts and reports without wrapping — the operator drives Wrap explicitly so the in-flight handoff (Wrap step 3) can be authored with judgement about WIP-commit vs stash.
 
 Within a task, consult the Autonomy gate before any action that isn't on the gate's free-pass list. Verify and Review still run at task close.
 
@@ -232,9 +234,24 @@ Outputs:
 
 The operator approves README content (it encodes opinions). Drafting is Claude's; the operator must read and approve before commit. See "What stays human" below.
 
-### Refresh state
+### Wrap
 
-The final action of every working session: regenerate `/sdlc/STATE.md`. See the STATE.md section below.
+The final action of every working session, before `/clear` or session exit. A three-step routine — step 1 always; steps 2 and 3 fire only when applicable, and most sessions skip them.
+
+**1. STATE refresh** (always). Update `/sdlc/STATE.md` so its three header lines (`Active focus`, `Last completed`, `Next`) reflect reality at session end, and any open question raised this session lands in the **Open questions** field. This subsumes the earlier **Refresh state** verb.
+
+**2. Memory sweep** (only when applicable). If anything non-obvious surfaced during the session that isn't already in an artefact or commit — a gotcha, a workaround, a stack quirk, a tooling pitfall — file one memory entry per item per the project's memory rules. Skip when nothing surprising came up; most sessions skip this step.
+
+**3. In-flight handoff** (only when applicable). If `git status` shows uncommitted edits or a task is mid-implementation, append a short handoff to `/sdlc/STATE.md` above **Open questions**:
+
+    ## In-flight: <task-id>
+    Next step: <one-sentence action>.  WIP in: <stash id | branch | wip-commit hash>.
+
+If the working tree is too messy to leave, `git stash push -u -m "<task-id> wip"` first; reference the stash id in **WIP in**. If the in-flight state is committable as an intermediate checkpoint, a `wip: <task-id> — see STATE handoff` commit is acceptable — but the verifier will reject the WIP commit at task close, so the work must still be replaced by a real commit before closure.
+
+**Automatic firing.** Wrap also runs automatically at every auto-progress halt where the operator did not initiate the halt themselves — verifier failure, reviewer's 2-round-bound exceeded, gate escalation, hard-stop, three failed attempts, and the context-pressure halt when it fires between tasks (per the Execute verb's halt list). At those halts, Wrap runs before control returns to the operator, so `STATE.md` is current the moment they look at it. Two exceptions where Wrap does **not** auto-fire: (a) operator interruption — the operator already has control and may redirect immediately, so Wrap doesn't pre-empt; (b) the context-pressure halt when a task is mid-execution — the in-flight handoff stays operator-driven, since the WIP-commit-vs-stash decision needs human judgement.
+
+Wrap does **not** include `/clear` — the operator chooses when (and whether) to clear. Wrap prepares; it doesn't clear. At the context-pressure halt between tasks, Wrap closes with a one-line `/clear`-and-resume suggestion that the operator can act on or ignore.
 
 ## Autonomy gate
 
@@ -317,7 +334,7 @@ Do not take any further action — including "preparatory" work on the chosen op
 
 `/sdlc/STATE.md` exists because Claude in the chat app cannot read the repo directly. The operator pastes `STATE.md` at the start of any conversation in the chat app that involves this repo. This is the only sanctioned bridge between repo state and architectural conversations elsewhere; do not introduce others without an ADR.
 
-`/sdlc/STATE.md` is regenerated at the end of every Claude Code session and must contain exactly:
+`/sdlc/STATE.md` is regenerated by the **Wrap** verb at the end of every Claude Code session and must contain at minimum:
 
     # State — last updated [ISO date]
 
@@ -376,7 +393,7 @@ When in doubt, prefer the SDLC artefact over the memory entry. Memory is a conve
 5. **Never edit an artefact's `id` field.** IDs are stable.
 6. **Never introduce an external tracker.** If the operator suggests it, require an ADR documenting the decision.
 7. **Never skip filing for architectural changes.** The next session depends on it.
-8. **Never end a working session without regenerating `/sdlc/STATE.md`.**
+8. **Never end a working session without running the Wrap verb** — which regenerates `/sdlc/STATE.md` and, when applicable, files a memory sweep and/or an in-flight handoff for uncommitted work.
 9. **Never let `/sdlc/raw/` accumulate beyond 20 items without prompting the operator to compile.**
 10. **Never delete from `/sdlc/raw/` without first producing a compiled artefact that references it as a source.** Compilation absorbs raw material; it doesn't discard it silently.
 11. **Trust the document.** If a question can be answered by reading `/sdlc/SDLC.md`, `CLAUDE.md`, or any artefact already in the repo, read it and proceed. Do not ask the operator. Asking questions the repo answers is a failure mode, not a courtesy. **Stack/tooling sub-rule:** before any AskUserQuestion about a language, runtime, package manager, library version, lint/test/build tool — read `stack-pins.md` (if present) and grep `/sdlc/docs/` for pin/stack/toolchain sections in full. State the search in the question preamble. If pins are silent, do not improvise: capture the question into `/sdlc/raw/` and propose an ADR + `stack-pins.md` update. Stack decisions go through capture→compile, not in-the-moment Q&A.
