@@ -26,45 +26,40 @@ Industry research across SonarQube, CodeQL/GHAS, Semgrep, Coverity, Fortify, Sny
 
 ## Decision
 
-Adopt a **two-level taxonomy** with an **orthogonal binary depth tier**.
+Adopt a **two-level taxonomy** (domains containing subcategories) with an **orthogonal binary depth tier**, and a per-subcategory analyzer assignment.
 
-### Structure
+The taxonomy values themselves — the specific domain names, subcategory names, tier assignments, language coverage, timing constraints — are the **user-facing contract** specified as requirements in **`s5-review-selection-scheme.md`**. This ADR records the **design decisions** that implement that contract, including the subcategory → analyzer mapping (which is implementation, not requirement).
 
-- **Three domains** — `security`, `maintainability`, `contracts` — each containing one or more **subcategories** (the granular review types). Each subcategory maps to one or more analyzers.
-- Each analyzer is tagged in `capabilities.json` with exactly one **domain**, one **subcategory**, and one **tier** (`quick` | `full`).
-- The CLI exposes `--review` (repeatable; accepts either a *domain* name or a *subcategory* name) and `--depth {quick,full}` (default `quick`).
-- The `--scope per-task|story-level` timing axis stays as-is (orthogonal; gates story-level-only analyzers like schemathesis).
+### Design decisions
 
-### Locked taxonomy
+- **Taxonomy structure: two levels + orthogonal depth.** Domains group related subcategories; subcategories are the granular review types; tier is a per-subcategory tag, orthogonal to domain. This shape balances coarse "give me a security review" shortcuts with fine "just check coupling" precision. Three alternative shapes were considered (see § Alternatives).
+- **Mapping data lives in `capabilities.json`.** Each analyzer entry is tagged with `domain`, `subcategory`, and `tier`. The CLI reads these tags at startup and resolves `--review`/`--depth` against them. The mapping is data, not prompt prose — testable with pytest, mutable without code changes.
+- **Resolution runs in the CLI** (Python, deterministic). Not in a prompt artefact: per ADR-0010, `code-review` has no LLM inside it, so a prompt-based mapping would break standalone `--depth quick` / `--depth full` invocations and lose pytest-testability. The full resolution precedence is specified as ACs in `s5-review-selection-scheme.md`; this ADR deliberately does not duplicate them.
+- **Subcategory selection ignores `--depth`.** If a caller asks for a specific subcategory (e.g. `--review coupling`), they receive that subcategory's analyzers regardless of its tier. Depth gates only domain-level and standalone selections. Rationale: a caller naming a subcategory has been explicit; a depth filter overriding that would surprise.
+- **The `--scope` timing axis stays orthogonal.** Story-level-only analyzers (currently `schemathesis`) are gated by `--scope story-level` regardless of `--review`/`--depth`. This keeps the three industry depth mechanisms cleanly separated: breadth (`--depth`), incremental-vs-cumulative scope (`--scope`), engine precision (not exposed; mostly N/A for off-the-shelf tools).
 
-| Domain | Subcategory | Tools | Tier | Languages | Timing |
-|---|---|---|---|---|---|
-| `security` | vulnerabilities | semgrep, bandit | quick | py, js, ts | any |
-| `security` | secrets | gitleaks | quick | py, js, ts | any |
-| `security` | dependencies | trivy | full | py, js, ts | any |
-| `maintainability` | complexity | radon | quick | py | any |
-| `maintainability` | dead-code | vulture, knip | quick | py, js, ts | any |
-| `maintainability` | duplication | jscpd | quick | js, ts | any |
-| `maintainability` | quality | eslint | quick | js, ts | any |
-| `maintainability` | coupling | pydeps, dependency-cruiser | full | py, js, ts | any |
-| `maintainability` | cohesion | cohesion | full | py | any |
-| `contracts` | conformance | schemathesis | full | API | story-level |
+### Subcategory → tool mapping (implementation)
 
-### Resolution precedence (deterministic, implemented in `cli.py`)
+This table is the implementation detail the s5 user contract abstracts over. A subcategory's tool set may change — add, swap, or remove — without touching the user contract in s5; only `capabilities.json` and this table change. A subcategory's tier and language coverage in s5 follow from the union of its tools' attributes.
 
-1. **`--analyzer X`** (repeatable) overrides everything else — runs exactly those analyzers.
-2. **`--review <domain>`** + `--depth tier` — runs all subcategories of the domain whose tier ≤ requested tier (`quick` ⊆ `full`). `--depth` defaults to `quick`.
-3. **`--review <subcategory>`** — runs exactly that subcategory's analyzer(s); `--depth` is **ignored** for subcategory selection.
-4. **`--depth quick|full`** alone (no `--review`) — runs every analyzer at that tier across all domains (the standalone quick/full review).
-5. **No selection** — defaults to `--depth quick`.
-6. **Multiple `--review` values** are unioned.
-7. The resolved set is then filtered by **diff languages** (per the existing `lang_select` machinery), the **`--scope` timing gate** (story-level-only analyzers excluded at per-task), and **`disabled_analyzers`** from `code-review.toml`.
+| Subcategory | Tool(s) |
+|---|---|
+| `vulnerabilities` | semgrep, bandit |
+| `secrets` | gitleaks |
+| `dependencies` | trivy |
+| `complexity` | radon |
+| `dead-code` | vulture, knip |
+| `duplication` | jscpd |
+| `quality` | eslint |
+| `coupling` | pydeps, dependency-cruiser |
+| `cohesion` | cohesion |
+| `conformance` | schemathesis |
 
 ### Cleanups
 
 - The orphaned `--review-scope` flag and `ReviewScope` enum are **removed** from `cli.py`.
 - The `review_scope` property is **removed** from `capabilities.json` (currently only on the schemathesis entry) and from `schemas/capabilities.json`.
-- `eslint`'s `rule_classes` drops `security` and retains only `quality`. JS/TS vulnerability coverage is via semgrep.
+- `eslint`'s `rule_classes` drops `security` and retains only `quality`. JS/TS vulnerability coverage is via semgrep — this is the one tool-mapping consequence of the design that the s5 ACs depend on, so it's noted here as a coordinated change.
 - ADR-0004 ("three review scopes: lite/standard/full") is **superseded** by this ADR for `code-review`'s selection surface. (Lite/standard/full as operator-facing scopes survive only in any future consumer that maps them to `--review`/`--depth` invocations of `code-review`.)
 
 ## Consequences

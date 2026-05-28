@@ -23,20 +23,24 @@ Encode a hierarchical review taxonomy (3 domains → subcategories → tools) an
 - **I want to** invoke "a quick security review," "a full review of coupling," or "a whole quick review" with one flag combination
 - **so that** I get the right analyzer set for the situation without enumerating tool names, and any caller (deterministic CI or judgment-based LLM) shares the same simple surface.
 
-## Locked taxonomy
+## Locked taxonomy (requirements)
 
-| Domain | Subcategory | Tools | Tier | Languages | Timing |
-|---|---|---|---|---|---|
-| `security` | `vulnerabilities` | semgrep, bandit | quick | py, js, ts | any |
-| `security` | `secrets` | gitleaks | quick | py, js, ts | any |
-| `security` | `dependencies` | trivy | full | py, js, ts | any |
-| `maintainability` | `complexity` | radon | quick | py | any |
-| `maintainability` | `dead-code` | vulture, knip | quick | py, js, ts | any |
-| `maintainability` | `duplication` | jscpd | quick | js, ts | any |
-| `maintainability` | `quality` | eslint | quick | js, ts | any |
-| `maintainability` | `coupling` | pydeps, dependency-cruiser | full | py, js, ts | any |
-| `maintainability` | `cohesion` | cohesion | full | py | any |
-| `contracts` | `conformance` | schemathesis | full | API | story-level |
+The review-selection surface defines three **domains**, each composed of one or more **subcategories**, an orthogonal binary **depth tier** (`quick` | `full`), per-subcategory **language coverage**, and per-subcategory **timing constraints**:
+
+| Domain | Subcategory | Tier | Languages | Timing |
+|---|---|---|---|---|
+| `security` | `vulnerabilities` | quick | py, js, ts | any |
+| `security` | `secrets` | quick | py, js, ts | any |
+| `security` | `dependencies` | full | py, js, ts | any |
+| `maintainability` | `complexity` | quick | py | any |
+| `maintainability` | `dead-code` | quick | py, js, ts | any |
+| `maintainability` | `duplication` | quick | js, ts | any |
+| `maintainability` | `quality` | quick | js, ts | any |
+| `maintainability` | `coupling` | full | py, js, ts | any |
+| `maintainability` | `cohesion` | full | py | any |
+| `contracts` | `conformance` | full | API | story-level |
+
+> **Tool mapping is an implementation concern**, not part of this user contract. The current subcategory → analyzer mapping is recorded in **ADR-0011 § Subcategory → tool mapping**. A tool may be added, swapped, or removed within a subcategory without changing this story's requirements; only `capabilities.json` and ADR-0011's mapping table change.
 
 ## Resolution precedence (the contract)
 
