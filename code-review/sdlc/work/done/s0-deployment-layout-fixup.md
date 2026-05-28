@@ -2,7 +2,7 @@
 id: s0-deployment-layout-fixup
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-deployment-readiness
 sources: [adr-0007-package-bundled-contracts.md]
 created: 2026-05-28
@@ -115,3 +115,34 @@ The change centres on two seams: package-bundled *data* (`capabilities.json`, `s
 - Changing the *contents* of `capabilities.json`, `code-review.toml`, or the schemas — only changing how they're *found* and *bundled*.
 - A skill-dir walk for `code-review.toml` — explicitly rejected; CWD-relative + `--config` is the only mechanism.
 - Migration tooling for existing installs that have a stale `code-review.toml` somewhere — not needed because no such installs exist (skill is pre-release).
+
+## Close notes (2026-05-28)
+
+### Outcome
+- All 6 originally-planned tasks closed: s0-t0..s0-t5.
+- One story-level Review fix landed: `s0-fix3-semgrep-rules-cwd-relative` (the round-2 review came back CLEAN).
+- One deferred follow-up filed: `s0-t6-cache-path-unification` (operator-approved deferral at s0-t2 close; pre-existing producer/consumer cache-path divergence between `scripts/setup.sh` and the adapters).
+
+### Rule #26 (supply-chain gate)
+N/A for this project — no `make audit` / `pip-audit` / `npm audit` target defined yet. Recorded in STATE.md open questions; can be formalised in a later epic (e.g., alongside `s1-package-publication` once we ship to PyPI).
+
+### Story-level Review — Minor findings (deferred / opportunistic)
+- **Cache-path literal duplicated across three adapters** (`semgrep.py`, `trivy.py`, `js_base.py`): each builds `Path.cwd() / .claude / skills / code-review / cache / ...` piecemeal. Consolidation owned by `s0-t6-cache-path-unification` per its spec.
+- **`_load_caps_weights` (config.py) and `_load_defaults` (hotspots.py) duplicate the capabilities-defaults shape**: both open `capabilities.json` via `importlib.resources` and fall back to the same local `{severity_weighted_findings: 1.0, cyclomatic_complexity: 0.5, coupling: 0.3}` constant. Drift risk: a schema-default change touches only one site. Recommend hoisting a single `code_review.capabilities.load_hotspot_defaults()`.
+- **Schema-validation telemetry divergence**: `cli.py:378-379` emits `typer.echo("schema validation warning: ...", err=True)` on jsonschema.ValidationError; `semgrep.py:_schema()` reads with `contextlib.suppress(...)` style elsewhere. Pick one policy (stderr warning preferred) and centralise.
+
+### Story-level Review — Nits (one applied, others dropped)
+- **Applied**: SKILL.md wheel-installed parenthetical now reads "(verified by `tests/test_wheel_packaging.py`; not yet published to PyPI ...)" so readers know the layout is tested even though no PyPI release exists yet.
+- **Dropped**: minor docstring wording in `load_config` — current docstring is accurate enough.
+
+### Test posture at story close
+- 289 tests pass, 6 skipped.
+- `uv run ruff check .` → clean.
+- `uv run mypy code_review/` → clean (28 files).
+- Slow markers (wheel-build, production-layout) run by default; no skips behind flags.
+
+### Coverage of the three deployment layouts at close
+- **Dev sibling**: implicit (the suite runs from `<repo>/code-review/`).
+- **Production nested**: end-to-end via `tests/test_production_layout.py` (--capabilities, --analyzer bandit, CWD-relative TOML).
+- **Wheel-installed**: end-to-end via `tests/test_wheel_packaging.py` (wheel build + fresh venv install + --capabilities round-trip).
+- Story-level Reviewer noted no single test parametrises all three layouts; this could fold into `s0-t6` if the cache-path resolver is built with multi-layout testing in mind.
