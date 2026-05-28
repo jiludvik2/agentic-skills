@@ -51,7 +51,7 @@ def _section_body(text: str, header: str) -> str:
 
 def test_skill_md_has_required_sections() -> None:
     text = _skill_text()
-    for header in ("Review taxonomy", "Install", "Sandbox configuration"):
+    for header in ("Review taxonomy", "Install", "Deployment layouts", "Sandbox configuration"):
         assert re.search(rf"^#+\s*{re.escape(header)}", text, re.MULTILINE), (
             f"missing section: {header}"
         )

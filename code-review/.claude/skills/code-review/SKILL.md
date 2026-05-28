@@ -98,6 +98,16 @@ Run the setup script once, outside the sandbox (it needs network access):
 
 It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`, and then reports the state of the host project's `.claude/agents/reviewer.md` (read-only — never written). The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
 
+### Deployment layouts
+
+The skill supports three on-disk shapes. The `code_review` Python package resolves its own bundled JSON contracts via `importlib.resources`, so all three work identically without code changes:
+
+1. **Dev sibling layout** (repo-as-skill, what this repo is): `<repo>/code_review/` (the package) lives next to `<repo>/.claude/skills/code-review/` (the skill bundle). Used when developing the skill itself.
+2. **Production nested layout**: `<host>/.claude/skills/code-review/code_review/` — the package is nested inside the skill directory. Used when copying the skill bundle into a host project as-is.
+3. **Wheel-installed layout**: `code_review/` lives under `site-packages/` (installed via `pip install claude-code-review`); the host's `<host>/.claude/skills/code-review/` carries only this `SKILL.md` and (optionally) a `code-review.toml`. Used in production deployments where the skill is installed from PyPI.
+
+`code-review.toml` is always looked up CWD-relative — `<cwd>/code-review.toml` by default, or whatever `--config <path>` names. Run the CLI from the host project root.
+
 ### Reviewer sub-agent (host's responsibility)
 
 `code-review` is a pure deterministic analyzer — it does not install or modify any sub-agent. The SDLC's Review verb dispatches `<host>/.claude/agents/reviewer.md`, whose lifecycle is owned by the SDLC skill (bootstrap step) or the operator. `setup.sh`'s final step reports the state it found:
