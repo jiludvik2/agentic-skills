@@ -1,28 +1,32 @@
 # State — last updated 2026-05-28
 
-**Active focus:** `epic-deployment-readiness` — plan filed, refined, and pushed; execution pending.
-**Last completed:** Commit `ab2f33a` (pushed to `origin/main`) — refined s1 plan across 7 artefacts + STATE.md: PyPI distribution name `claude-code-review`, console-script binary `claude-code-review`, release tag prefix `code-review-v*`, release auth via PyPI Trusted Publishers (OIDC). No code changes; planning-only.
-**Next:** operator re-affirms approval at next session start (prior-session approval does not carry forward per SDLC §Glossary); on approval, execute `s0-t0-importlib-resources` (first task of `s0-deployment-layout-fixup`).
+**Active focus:** `epic-deployment-readiness` — story `s0-deployment-layout-fixup` mid-execution; tasks s0-t0..s0-t2 closed clean.
+**Last completed:** `s0-t2-cwd-relative-toml` — CWD-relative `code-review.toml` lookup + `--config` flag; `_SKILL_DIR` fully removed from `code_review/` (scope-expanded to trivy + js_base cache helpers per operator OK 2026-05-28). 281 tests pass; ruff + mypy clean. Verify PASS; Review HAS-CRITICAL-OR-IMPORTANT (1 Important re cache-path producer/consumer alignment) — Important deferred per operator decision to new task `s0-t6-cache-path-unification` (pre-existing latent divergence, not a regression).
+**Next:** auto-progress into `s0-t3-production-layout-smoke` per rule #22.
 
 ## Active artefacts
 
 - `epic-deployment-readiness.md` — epic shell
-- `s0-deployment-layout-fixup.md` — story; 6 tasks `s0-t0` through `s0-t5`
-- `s1-package-publication.md` — story; 6 tasks `s1-t0` through `s1-t5`. Depends on s0. Refined 2026-05-28: PyPI name `claude-code-review`, console-script `claude-code-review`, tag prefix `code-review-v*`.
-- `s3-plan.md`, `s4-plan.md` — lingering plans from prior epic (per project precedent; not archived)
+- `s0-deployment-layout-fixup.md` — story; s0-t0..s0-t2 closed; s0-t3..s0-t5 remaining; s0-t6 newly filed (architectural follow-up).
+- `s0-t3-production-layout-smoke.md`, `s0-t4-cleanup-and-docs.md`, `s0-t5-toml-starter-template.md` — remaining planned tasks.
+- `s0-t6-cache-path-unification.md` — new, filed 2026-05-28 in lieu of a fix task against s0-t2.
+- `s1-package-publication.md` — story plan; depends on s0.
+- `s1-t0..s1-t5` — s1 tasks (not yet started).
+- `s3-plan.md`, `s4-plan.md` — lingering plans from prior epic (not blocking).
 
 ## Open questions
 
-- **Operator-supplied content** for `s1-t1` (README draft) — gates task close per "What stays human". (`s1-t0` authors email resolved: omitted by design.)
-- **Workflow file location.** `.github/workflows/release.yml` lives at monorepo root (`agentic-skills/.github/workflows/`), outside the `code-review/` subdir — sandbox-write-blocked path for Claude; `s1-t3` notes the operator may need to apply the file directly.
-- **Lingering plans (`s3-plan.md`, `s4-plan.md`)** still in `active/` from the prior epic. Not blocking; sweep or leave is an operator call.
-- **`intent-review` sibling project.** Bootstrap is a separate session; requirements at `/sdlc/docs/strategy/intent-review-requirements.md`. When it lands, the monorepo-root workflow will need a parallel `intent-review-v*` tag pattern (separate workflow file with its own Trusted Publisher binding, or a matrixed branch).
-- **Supply-chain gate.** Rule #26 N/A; could be formalised in a future story under this or a separate epic.
+- **Operator-supplied content** for `s1-t1` (README draft) — still pending.
+- **Workflow file location** for `.github/workflows/release.yml` — monorepo root, sandbox-write-blocked; `s1-t3` notes operator may need to apply directly.
+- **Lingering plans (`s3-plan.md`, `s4-plan.md`)** still in `active/` from the prior epic.
+- **Cache-path unification (`s0-t6`)** — needs architectural decision on cache contract across the three supported layouts (dev sibling, production nested, wheel-installed-no-producer). Possibly an ADR.
+- **Supply-chain gate.** Rule #26 N/A; could be formalised in a future story.
 
-## Resolved during epic review (2026-05-28)
+## Resolved during epic execution
 
-- **PyPI distribution name** = `claude-code-review` (bare `code-review` is taken on PyPI; checked by operator).
-- **Console-script binary name** = `claude-code-review` (renamed from `code-review` to avoid `$PATH` collisions with the existing PyPI `code-review` package).
-- **Python import name** = `code_review` (unchanged; `python -m code_review.cli …` still works from source checkouts).
-- **Release tag prefix** = `code-review-v*` (e.g., `code-review-v0.1.0`, `code-review-v0.1.0-rc1`) — disambiguates this subproject from any future sibling subproject sharing the monorepo's `.github/workflows/`.
-- **Release auth** = **PyPI Trusted Publishers (OIDC)**. No long-lived secrets in the GitHub repo. One-time PyPI-side setup: pending publishers on PyPI and TestPyPI bind to repo `jiludvik2/agentic-skills`, workflow filename `release.yml`. Workflow grants `permissions: id-token: write` on the publish job; `uv publish` discovers the OIDC token automatically.
+- **PyPI distribution name** = `claude-code-review`; **Console-script** = `claude-code-review`; **Python import** = `code_review`; **Release tag prefix** = `code-review-v*`; **Release auth** = PyPI Trusted Publishers (OIDC).
+- **s0-t2 scope expansion** (2026-05-28): `_SKILL_DIR` removal extended to `adapters/trivy.py` and `adapters/js_base.py`; cache helpers now use CWD-relative `Path.cwd() / ".claude" / "skills" / "code-review" / ...` idiom matching `code-review.toml`. Producer/consumer alignment deferred to `s0-t6`.
+
+## Auto-progress posture (2026-05-28)
+
+Confirmed mid-session: per SDLC §Execute line 140 and rule #22, tasks under an operator-approved story auto-execute (no per-task approval ask); halts only on Verify failure, Review's 2-round bound, gate escalation, hard-stop, three failed attempts, ≥75% context, or operator interruption. Verify + Review run **per task** before move-to-done.

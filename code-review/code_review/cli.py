@@ -245,7 +245,7 @@ def main(
     capabilities: bool = typer.Option(
         False, "--capabilities", help="Print static + runtime capabilities as JSON and exit"
     ),
-    config: Path | None = typer.Option(
+    config_path: Path | None = typer.Option(
         None,
         "--config",
         help=(
@@ -324,18 +324,18 @@ def main(
         raise typer.Exit(1)
 
     try:
-        resolved_config_path = _resolve_config_path(config)
+        resolved_config_path = _resolve_config_path(config_path)
     except FileNotFoundError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from exc
 
     try:
-        loaded_config = load_config(resolved_config_path)
+        config = load_config(resolved_config_path)
     except ConfigError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from exc
 
-    disabled = set(loaded_config.disabled_analyzers)
+    disabled = set(config.disabled_analyzers)
     explicitly_disabled = [n for n in names if n in disabled]
     if explicitly_disabled:
         typer.echo(
@@ -362,10 +362,10 @@ def main(
             target,
             diff,
             timing_scope,
-            line_tolerance=loaded_config.dedup_line_tolerance,
-            hotspot_weights=loaded_config.hotspot_weights,
-            severity_overrides=loaded_config.severity_overrides,
-            contract_testing=loaded_config.contract_testing,
+            line_tolerance=config.dedup_line_tolerance,
+            hotspot_weights=config.hotspot_weights,
+            severity_overrides=config.severity_overrides,
+            contract_testing=config.contract_testing,
         )
     )
     analyzers_dict: dict[str, Any] = result["analyzers"]

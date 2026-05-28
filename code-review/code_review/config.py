@@ -41,20 +41,18 @@ class Config:
 
 
 def load_config(config_path: Path | None) -> Config:
-    """Parse the given code-review.toml file; return defaults if path is None
-    or the file doesn't exist. Existence/precedence checking is the caller's
-    responsibility (see cli._resolve_config_path)."""
-    if config_path is None:
-        return Config(hotspot_weights=_load_caps_weights())
-    toml_path = config_path
-    if not toml_path.exists():
+    """Parse a code-review.toml file; return defaults if `config_path` is None
+    or the file is absent. The CWD lookup and precedence policy live in
+    cli._resolve_config_path; the existence check here is a defensive fallback
+    so direct callers (notably tests) don't need to pre-check."""
+    if config_path is None or not config_path.exists():
         return Config(hotspot_weights=_load_caps_weights())
 
     try:
-        raw: dict[str, Any] = tomllib.loads(toml_path.read_text(encoding="utf-8"))
+        raw: dict[str, Any] = tomllib.loads(config_path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
         raise ConfigError(
-            f"Failed to parse {toml_path}: {exc}"
+            f"Failed to parse {config_path}: {exc}"
         ) from exc
 
     dedup_tolerance = int(raw.get("dedup", {}).get("line_tolerance", _DEFAULT_DEDUP_TOLERANCE))

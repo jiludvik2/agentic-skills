@@ -39,3 +39,22 @@ updated: 2026-05-28
 - After this task, `_SKILL_DIR` is gone — that frees up `cli.py:24` and removes the deferred ADR-0007 question.
 - The `--config` flag belongs in the main command's options, alongside `--review`, `--depth`, `--scope`, `--diff`, `--output`, `--analyzer`. Don't subcommand it.
 - Document `--config` in `--help` output: "Path to code-review.toml. Default: ./code-review.toml in CWD if present, else built-in defaults."
+
+## Notes (post-review)
+
+### Important finding deferred as architectural follow-up
+
+Reviewer flagged a producer/consumer cache-path divergence in `adapters/trivy.py` and `adapters/js_base.py`: the path my change reads (`<cwd>/.claude/skills/code-review/cache/...`) does not align with the path `scripts/setup.sh` + `scripts/prefetch_caches.py` write to (`${SKILL_ROOT}/cache/...`) outside the production-nested layout with CLI run from `<host>/`.
+
+**Status: pre-existing, not a regression.** Investigation showed the OLD `_SKILL_DIR`-walked consumer path had the same divergence in dev sibling layout (`<repo>/code-review/.claude/skills/code-review/cache/trivy-db` — directory doesn't exist; producer wrote to `<repo>/code-review/cache/` instead). Tests patch the helpers, so the divergence has been latent. Story s0's AC8 smoke test passes because it uses the one layout where producer and consumer happen to align.
+
+**Deferred to** `s0-t6-cache-path-unification` (new task filed in this session). The fix needs an architectural decision on the cache contract across all three layouts including the wheel-installed-no-producer case — outside this task's spec even after the scope expansion.
+
+### Minor fixes applied inline (during close)
+
+- `config.py:load_config` — collapsed the two `Config(...)` default branches into one; tightened the docstring to be honest about the defensive existence check.
+- `cli.py` — renamed the Typer `config: Path | None` parameter to `config_path` to remove the local-variable shadow with the loaded `Config` object downstream; downstream `loaded_config.*` references reverted to `config.*`.
+
+### Nit (dropped, per §review)
+
+- N/A — the rename Nit was applied as part of the Minor cleanup above.
