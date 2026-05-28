@@ -2,7 +2,7 @@
 id: s0-t2-cwd-relative-toml
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-deployment-layout-fixup
 created: 2026-05-28
 updated: 2026-05-28
@@ -20,7 +20,7 @@ updated: 2026-05-28
 - `code_review/cli.py` adds a `--config <PATH>` option to the main command via Typer. The default is `None`. When `None`, the CLI computes `Path.cwd() / "code-review.toml"` and passes it to `load_config` only if the path exists; otherwise passes `None`.
 - When `--config <path>` is explicitly given and the path does not exist, the CLI exits non-zero with: `Error: --config path does not exist: <path>` (or close to it). No silent fall-through to defaults.
 - The `_SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"` line in `cli.py:24` is removed.
-- Any other reference to `_SKILL_DIR` in `code_review/` is removed (per `grep -rn '_SKILL_DIR' code_review/` returning empty).
+- Any other reference to `_SKILL_DIR` in `code_review/` is removed (per `grep -rn '_SKILL_DIR' code_review/` returning empty). Specifically: `adapters/trivy.py:11` and `adapters/js_base.py:7` (operator-runtime cache paths) are migrated to `Path.cwd() / ".claude" / "skills" / "code-review" / "<cache subpath>"` — same CWD-relative idiom as `code-review.toml`. No env var override; operator runs CLI from project root. (Scope-expansion approved 2026-05-28 per operator escalation.)
 
 ## Test specification
 

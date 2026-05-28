@@ -25,7 +25,10 @@ async def test_trivy_returns_error_when_cache_absent(tmp_path):
     request = ReviewRequest(scope="per-task", diff_range=None,
                             target_paths=(str(tmp_path),),
                             languages=frozenset(), config={})
-    with patch("code_review.adapters.trivy._TRIVY_CACHE_DIR", tmp_path / "nonexistent"):
+    with patch(
+        "code_review.adapters.trivy._trivy_cache_dir",
+        return_value=tmp_path / "nonexistent",
+    ):
         output = await TrivyAdapter().run(request)
     assert output.status == "error"
     assert "setup.sh" in (output.error or "")
@@ -53,7 +56,7 @@ async def test_trivy_parses_sarif_from_report_file(tmp_path):
                             target_paths=(str(tmp_path),),
                             languages=frozenset(), config={})
     with (
-        patch("code_review.adapters.trivy._TRIVY_CACHE_DIR", cache_dir),
+        patch("code_review.adapters.trivy._trivy_cache_dir", return_value=cache_dir),
         patch("code_review.adapters.trivy.run_subprocess", new=AsyncMock(side_effect=fake_run)),
     ):
         output = await TrivyAdapter().run(request)
@@ -62,10 +65,10 @@ async def test_trivy_parses_sarif_from_report_file(tmp_path):
 
 @pytest.mark.skipif(shutil.which("trivy") is None, reason="trivy not installed")
 async def test_trivy_integration(tmp_path):
-    from code_review.adapters.trivy import _TRIVY_CACHE_DIR, TrivyAdapter
+    from code_review.adapters.trivy import TrivyAdapter, _trivy_cache_dir
     from code_review.contracts import ReviewRequest
 
-    if not _TRIVY_CACHE_DIR.exists():
+    if not _trivy_cache_dir().exists():
         pytest.skip("trivy DB not pre-fetched (run scripts/setup.sh)")
     clean_file = tmp_path / "main.py"
     clean_file.write_text("x = 1\n")

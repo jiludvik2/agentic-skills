@@ -8,8 +8,9 @@ from typing import Any, ClassVar
 from code_review.adapters.base import run_subprocess
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 
-_SKILL_DIR = Path(__file__).resolve().parent.parent.parent / ".claude" / "skills" / "code-review"
-_TRIVY_CACHE_DIR = _SKILL_DIR / "cache" / "trivy-db"
+
+def _trivy_cache_dir() -> Path:
+    return Path.cwd() / ".claude" / "skills" / "code-review" / "cache" / "trivy-db"
 
 
 class TrivyAdapter:
@@ -20,12 +21,13 @@ class TrivyAdapter:
     required_binary: ClassVar[str] = "trivy"
 
     async def run(self, request: ReviewRequest) -> AnalyzerOutput:
-        if not _TRIVY_CACHE_DIR.exists():
+        cache_dir = _trivy_cache_dir()
+        if not cache_dir.exists():
             return AnalyzerOutput(
                 sarif={}, status="error",
                 error=(
                     f"Trivy DB not pre-fetched. Run scripts/setup.sh."
-                    f" Expected: {_TRIVY_CACHE_DIR}"
+                    f" Expected: {cache_dir}"
                 ),
             )
         source = request.target_paths[0] if request.target_paths else "."
@@ -35,7 +37,7 @@ class TrivyAdapter:
                 "trivy", "fs",
                 "--format", "sarif",
                 "--output", str(tmp_path),
-                "--cache-dir", str(_TRIVY_CACHE_DIR),
+                "--cache-dir", str(cache_dir),
                 "--skip-db-update",
                 "--offline-scan",
                 source,

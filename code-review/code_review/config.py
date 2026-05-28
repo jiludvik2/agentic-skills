@@ -40,9 +40,13 @@ class Config:
     contract_testing: dict[str, Any] = field(default_factory=dict)
 
 
-def load_config(skill_dir: Path) -> Config:
-    """Load code-review.toml from skill_dir; return defaults if absent."""
-    toml_path = skill_dir / "code-review.toml"
+def load_config(config_path: Path | None) -> Config:
+    """Parse the given code-review.toml file; return defaults if path is None
+    or the file doesn't exist. Existence/precedence checking is the caller's
+    responsibility (see cli._resolve_config_path)."""
+    if config_path is None:
+        return Config(hotspot_weights=_load_caps_weights())
+    toml_path = config_path
     if not toml_path.exists():
         return Config(hotspot_weights=_load_caps_weights())
 

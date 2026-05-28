@@ -66,7 +66,7 @@ async def test_trivy_no_temp_files_in_cwd(tmp_path: Path) -> None:
 
     before = set(tmp_path.iterdir())
     with (
-        patch("code_review.adapters.trivy._TRIVY_CACHE_DIR", cache_dir),
+        patch("code_review.adapters.trivy._trivy_cache_dir", return_value=cache_dir),
         patch("code_review.adapters.trivy.run_subprocess", side_effect=fake_run),
         patch("os.getcwd", return_value=str(tmp_path)),
     ):

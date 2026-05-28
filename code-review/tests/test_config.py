@@ -13,7 +13,7 @@ from code_review.config import ConfigError, load_config
 
 
 def test_absent_file_returns_defaults(tmp_path: Path) -> None:
-    config = load_config(tmp_path)
+    config = load_config(tmp_path / "code-review.toml")
     assert config.dedup_line_tolerance == 3
     assert config.severity_overrides == {}
     assert isinstance(config.hotspot_weights, dict)
@@ -32,7 +32,7 @@ def test_line_tolerance_override(tmp_path: Path) -> None:
             line_tolerance = 5
         """)
     )
-    config = load_config(tmp_path)
+    config = load_config(tmp_path / "code-review.toml")
     assert config.dedup_line_tolerance == 5
 
 
@@ -44,7 +44,7 @@ def test_line_tolerance_override_affects_aggregate(tmp_path: Path) -> None:
             line_tolerance = 5
         """)
     )
-    config = load_config(tmp_path)
+    config = load_config(tmp_path / "code-review.toml")
 
     from code_review.aggregator import aggregate
     from code_review.contracts import AnalyzerOutput
@@ -85,7 +85,7 @@ def test_severity_override(tmp_path: Path) -> None:
             "warning+high" = "critical"
         """)
     )
-    config = load_config(tmp_path)
+    config = load_config(tmp_path / "code-review.toml")
     assert config.severity_overrides.get("warning+high") == "critical"
 
 
@@ -101,7 +101,7 @@ def test_hotspot_weights_override(tmp_path: Path) -> None:
             cyclomatic_complexity = 2.0
         """)
     )
-    config = load_config(tmp_path)
+    config = load_config(tmp_path / "code-review.toml")
     assert config.hotspot_weights["cyclomatic_complexity"] == 2.0
     # other weights still have defaults
     assert "severity_weighted_findings" in config.hotspot_weights
@@ -115,7 +115,7 @@ def test_hotspot_weights_override_affects_score(tmp_path: Path) -> None:
             cyclomatic_complexity = 2.0
         """)
     )
-    config = load_config(tmp_path)
+    config = load_config(tmp_path / "code-review.toml")
 
     from code_review.contracts import MetricSet
     from code_review.hotspots import compute_hotspots
@@ -156,14 +156,14 @@ def test_load_config_reads_disabled_analyzers(tmp_path: Path) -> None:
     toml.write_text('disabled_analyzers = ["trivy", "pydeps"]\n')
     from code_review.config import load_config
 
-    cfg = load_config(tmp_path)
+    cfg = load_config(tmp_path / "code-review.toml")
     assert cfg.disabled_analyzers == ["trivy", "pydeps"]
 
 
 def test_load_config_disabled_analyzers_default_empty(tmp_path: Path) -> None:
     from code_review.config import load_config
 
-    cfg = load_config(tmp_path)  # no toml file
+    cfg = load_config(tmp_path / "code-review.toml")  # no toml file
     assert cfg.disabled_analyzers == []
 
 
@@ -175,7 +175,7 @@ def test_load_config_disabled_analyzers_default_empty(tmp_path: Path) -> None:
 def test_malformed_toml_raises_config_error(tmp_path: Path) -> None:
     (tmp_path / "code-review.toml").write_text("this is [not valid toml !!!")
     with pytest.raises(ConfigError) as exc_info:
-        load_config(tmp_path)
+        load_config(tmp_path / "code-review.toml")
     assert str(tmp_path) in str(exc_info.value) or "code-review.toml" in str(exc_info.value)
 
 
@@ -192,7 +192,7 @@ def test_invalid_severity_override_value_raises_config_error(tmp_path: Path) -> 
         """)
     )
     with pytest.raises(ConfigError, match="blocker"):
-        load_config(tmp_path)
+        load_config(tmp_path / "code-review.toml")
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +212,7 @@ def test_contract_testing_parses_single_target(tmp_path: Path) -> None:
             token_env = "PETSTORE_TOKEN"
         """)
     )
-    config = load_config(tmp_path)
+    config = load_config(tmp_path / "code-review.toml")
     assert "petstore" in config.contract_testing
     target = config.contract_testing["petstore"]
     assert target["spec_url"] == "http://localhost:8000/openapi.json"
@@ -222,5 +222,5 @@ def test_contract_testing_parses_single_target(tmp_path: Path) -> None:
 
 
 def test_contract_testing_absent_is_empty(tmp_path: Path) -> None:
-    config = load_config(tmp_path)
+    config = load_config(tmp_path / "code-review.toml")
     assert config.contract_testing == {}

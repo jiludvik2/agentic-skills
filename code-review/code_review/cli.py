@@ -22,9 +22,24 @@ from code_review.selector import resolve_review_selection
 
 app = typer.Typer(add_completion=False)
 
-_SKILL_DIR = Path(__file__).resolve().parent.parent / ".claude" / "skills" / "code-review"
 _CAPABILITIES_PATH = importlib.resources.files("code_review").joinpath("capabilities.json")
 _SCHEMA_PATH = importlib.resources.files("code_review").joinpath("schemas", "review-response.json")
+
+
+def _resolve_config_path(config_arg: Path | None) -> Path | None:
+    """Resolve the config-file path per the CWD-relative lookup convention.
+
+    - None + CWD has code-review.toml → return that CWD path
+    - None + no CWD code-review.toml → return None (caller uses defaults)
+    - Explicit Path that exists → return it (CWD ignored)
+    - Explicit Path that does not exist → raise FileNotFoundError naming the path
+    """
+    if config_arg is None:
+        cwd_toml = Path.cwd() / "code-review.toml"
+        return cwd_toml if cwd_toml.exists() else None
+    if not config_arg.exists():
+        raise FileNotFoundError(f"--config path does not exist: {config_arg}")
+    return config_arg
 
 _VALID_DEPTHS = {"quick", "full"}
 
@@ -230,6 +245,14 @@ def main(
     capabilities: bool = typer.Option(
         False, "--capabilities", help="Print static + runtime capabilities as JSON and exit"
     ),
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Path to code-review.toml. "
+            "Default: ./code-review.toml in CWD if present, else built-in defaults."
+        ),
+    ),
 ) -> None:
     if capabilities:
         typer.echo(json.dumps(_build_capabilities()))
@@ -301,12 +324,18 @@ def main(
         raise typer.Exit(1)
 
     try:
-        config = load_config(_SKILL_DIR)
+        resolved_config_path = _resolve_config_path(config)
+    except FileNotFoundError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    try:
+        loaded_config = load_config(resolved_config_path)
     except ConfigError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(1) from exc
 
-    disabled = set(config.disabled_analyzers)
+    disabled = set(loaded_config.disabled_analyzers)
     explicitly_disabled = [n for n in names if n in disabled]
     if explicitly_disabled:
         typer.echo(
@@ -333,10 +362,10 @@ def main(
             target,
             diff,
             timing_scope,
-            line_tolerance=config.dedup_line_tolerance,
-            hotspot_weights=config.hotspot_weights,
-            severity_overrides=config.severity_overrides,
-            contract_testing=config.contract_testing,
+            line_tolerance=loaded_config.dedup_line_tolerance,
+            hotspot_weights=loaded_config.hotspot_weights,
+            severity_overrides=loaded_config.severity_overrides,
+            contract_testing=loaded_config.contract_testing,
         )
     )
     analyzers_dict: dict[str, Any] = result["analyzers"]

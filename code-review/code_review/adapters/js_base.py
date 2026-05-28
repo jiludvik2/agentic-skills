@@ -4,13 +4,14 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-_SKILL_DIR = Path(__file__).resolve().parent.parent.parent / ".claude" / "skills" / "code-review"
-_NODE_MODULES = _SKILL_DIR / "node_modules"
+
+def _node_modules() -> Path:
+    return Path.cwd() / ".claude" / "skills" / "code-review" / "node_modules"
 
 
 def node_binary(tool: str) -> Path | None:
     """Return path to vendored Node.js binary, or None if not installed."""
-    candidate = _NODE_MODULES / ".bin" / tool
+    candidate = _node_modules() / ".bin" / tool
     return candidate if candidate.exists() else None
 
 
@@ -22,6 +23,6 @@ def probe_js_adapter(tool: str) -> dict[str, Any]:
     if binary is None:
         return {
             "status": "unavailable",
-            "error": f"{tool} not in {_NODE_MODULES / '.bin'}. Run scripts/setup.sh first.",
+            "error": f"{tool} not in {_node_modules() / '.bin'}. Run scripts/setup.sh first.",
         }
     return {"status": "available", "error": None}
