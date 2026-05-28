@@ -2,7 +2,7 @@
 id: s1-t0-project-metadata
 kind: task
 project: code-review
-status: done
+status: active
 parent: s1-package-publication
 created: 2026-05-28
 updated: 2026-05-28
