@@ -17,15 +17,8 @@ from code_review.contracts import AnalyzerOutput, ReviewRequest
 _SCHEMA_PATH = importlib.resources.files("code_review").joinpath("schemas", "sarif-2.1.0.json")
 _sarif_schema: dict[str, Any] | None = None
 
-_DEFAULT_RULES = (
-    Path(__file__).resolve().parent.parent.parent
-    / ".claude"
-    / "skills"
-    / "code-review"
-    / "cache"
-    / "semgrep"
-    / "rules"
-)
+def _semgrep_rules_dir() -> Path:
+    return Path.cwd() / ".claude" / "skills" / "code-review" / "cache" / "semgrep" / "rules"
 
 
 def _schema() -> dict[str, Any]:
@@ -48,10 +41,11 @@ class SemgrepAdapter:
 
         # Resolve rules: config-supplied → pre-fetched local cache → auto (network)
         rules_override: str | None = request.config.get("semgrep_rules")
+        default_rules = _semgrep_rules_dir()
         if rules_override and Path(rules_override).exists():
             config_arg = rules_override
-        elif _DEFAULT_RULES.is_dir():
-            config_arg = str(_DEFAULT_RULES)
+        elif default_rules.is_dir():
+            config_arg = str(default_rules)
         else:
             config_arg = "auto"
 
