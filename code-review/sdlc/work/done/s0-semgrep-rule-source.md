@@ -2,12 +2,36 @@
 id: s0-semgrep-rule-source
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-ga-hardening
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-29
 tags: [semgrep, security, setup, ga-readiness]
+notes: |
+  Closed 2026-05-29. Tasks: s0-t0 (ADR-0016, 09c6154), s0-t1 (vendor+provision,
+  9a5bab1), s0-t2 (adapter cache_root/fail-loud/config wiring, 37c83ac), s0-t3
+  (clean-setup e2e + de-hack smoke + resolve F3, 7f207e0). Resolves FINDINGS F3.
+
+  Story-level Review: MINOR-ONLY (no Critical/Important). Deferred Minors for
+  opportunistic cleanup:
+  - [DEFER] `--capabilities` reports semgrep available on binary presence only;
+    it doesn't check the rules cache, so capabilities can say available while a
+    security run errors "rules not found". Mitigated by the adapter's loud
+    runtime error. Consider having the semgrep probe also assert the rules dir.
+  - [DEFER] provision_semgrep_rules copies but never prunes — a renamed/removed
+    vendored rule leaves a stale copy in cache/semgrep/rules. Low risk at one
+    rule file; mirror-sync or document the additive cache + manual-clear-on-rename.
+  - [DEFER] no test for the producer's missing-source warning branch
+    (prefetch_caches.py returns 0 with a stderr warning); consumer error
+    branches are covered, producer degraded path is not.
+  - [NIT] _bundled_semgrep_rules docstring says it "copies"; it only locates.
+
+  **OPERATOR DECISION NEEDED:** ADR-0016 §Decision #2 specifies "Security rules
+  for Python AND JS/TS", but the vendored security.yaml ships Python-only (the
+  header frames JS/TS as future work). Either add JS/TS security rules (new
+  task) or amend ADR-0016 #2 to "Python-first, JS/TS tracked follow-up". Not
+  amended unilaterally — ADR content stays human.
 ---
 
 # s0 — Semgrep rule source
