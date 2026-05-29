@@ -98,9 +98,19 @@ If TestPyPI staging isn't useful for a given release (typical for a hotfix), ski
 
 ## Trusted Publishers (no tokens to manage)
 
-Authentication is via **PyPI Trusted Publishers (OIDC)**. There are no long-lived secrets stored in the GitHub repository. The trust relationship lives on each registry's side and binds: project name, GitHub repo, workflow filename, optional environment.
+Authentication is via **PyPI Trusted Publishers (OIDC)**. There are no long-lived secrets stored in the GitHub repository. The trust relationship lives on each registry's side and binds: project name, GitHub repo, workflow filename, environment.
 
-The workflow declares `permissions: id-token: write` on its publish job; `uv publish` exchanges the GitHub OIDC identity for a short-lived registry upload token at runtime.
+The workflow declares `permissions: id-token: write` scoped to the `publish` job only. The publish step uses `pypa/gh-action-pypi-publish@release/v1` (the official PyPA action); the action exchanges the GitHub OIDC identity for a short-lived registry upload token at runtime.
+
+### Workflow shape (post s2-t3)
+
+`release.yml` is three sequential jobs:
+
+1. **`build`** — `uv sync --frozen` → `uv build` → upload `dist/` as an artifact. No special permissions.
+2. **`test-dist`** (`needs: build`) — download the artifact, create a fresh venv, `pip install` the wheel, run `claude-code-review --capabilities`, assert the output parses as JSON. This catches packaging defects (missing data files, broken entry points) BEFORE publication, against the installed wheel rather than the source tree. No special permissions.
+3. **`publish`** (`needs: test-dist`) — validates the tag matches `code-review-vX.Y.Z[-rcN]` (rejects ambiguous tags like `-rcdraft`), downloads the artifact, calls `pypa/gh-action-pypi-publish@release/v1` with the appropriate registry URL. `permissions: id-token: write` at job level; `environment: pypi` (or `testpypi` for `-rc` tags).
+
+The `environment:` binding is now **mandatory** for the Trusted Publisher configuration — see the per-registry sections below.
 
 ### PyPI Trusted Publisher (one-time)
 
@@ -110,11 +120,11 @@ The workflow declares `permissions: id-token: write` on its publish job; `uv pub
 - Owner: `jiludvik2`
 - Repository name: `agentic-skills`
 - Workflow filename: `release.yml`
-- Environment name (optional but recommended): `pypi`
+- Environment name: `pypi` (**required** — the workflow's `publish` job declares `environment: pypi` for final releases since s2-t3)
 
 ### TestPyPI Trusted Publisher (one-time)
 
-`https://test.pypi.org/manage/account/publishing/` → same form, separate registry. Use the same project name; environment name (if you use one): `testpypi`.
+`https://test.pypi.org/manage/account/publishing/` → same form, separate registry. Use the same project name; environment name: `testpypi` (**required** — the workflow's `publish` job declares `environment: testpypi` for `-rc` tags since s2-t3).
 
 ### Troubleshooting
 
@@ -128,4 +138,5 @@ Run this list once before the very first release. Subsequent releases skip it.
 - TestPyPI account `jiludvik2` exists (separate signup from PyPI).
 - PyPI distribution name `claude-code-review` is available — reserve it by configuring a "pending publisher" (PyPI lets you do this before the project is published, and auto-creates the project on the first successful upload). The bare `code-review` is taken on PyPI by an unrelated project and is **not** the target.
 - Pending publishers configured on both PyPI and TestPyPI per the **Trusted Publishers** section.
-- `permissions: id-token: write` is declared on the publish job in `release.yml` (already done in `s1-t3`).
+- `permissions: id-token: write` is declared on the publish job in `release.yml` (set up in `s1-t3`; the three-job split in `s2-t3` keeps it scoped to `publish` only).
+- The `pypi` and `testpypi` GitHub environments exist on the `agentic-skills` repo (`Settings → Environments`). Names must match exactly — they're the discriminator in the Trusted Publisher bindings.

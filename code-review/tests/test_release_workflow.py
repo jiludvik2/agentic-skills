@@ -71,35 +71,45 @@ def test_publish_uses_official_pypa_action(workflow: dict[str, Any]) -> None:
     )
 
 
-def test_setup_uv_uses_v5_with_cache(workflow: dict[str, Any]) -> None:
-    """Upgrade from setup-uv@v3 to @v5 (automatic cache-key derivation)."""
-    all_steps: list[dict[str, Any]] = []
-    for job in workflow["jobs"].values():
-        for step in job.get("steps", []):
-            if isinstance(step, dict):
-                all_steps.append(step)
-
-    setup_uv_steps = [
-        s for s in all_steps
-        if str(s.get("uses", "")).startswith("astral-sh/setup-uv@")
+def _setup_uv_steps_in(job: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        s for s in job.get("steps", [])
+        if isinstance(s, dict)
+        and str(s.get("uses", "")).startswith("astral-sh/setup-uv@")
     ]
-    assert setup_uv_steps, "no astral-sh/setup-uv step found in any job"
 
-    for step in setup_uv_steps:
-        assert step["uses"].startswith("astral-sh/setup-uv@v5"), (
-            f"setup-uv must be @v5; got {step['uses']!r}"
-        )
 
-    with_cache = [s for s in setup_uv_steps if s.get("with", {}).get("enable-cache") is True]
-    assert with_cache, (
-        "at least one astral-sh/setup-uv@v5 step must set with.enable-cache: true"
+def test_setup_uv_uses_v5_with_cache_on_build(workflow: dict[str, Any]) -> None:
+    """setup-uv@v5 must be present and configured on `build` — that's where
+    the uv.lock-driven cache benefit actually lands. publish operates on the
+    downloaded artifact and must NOT install uv (no source-tree access)."""
+    build_steps = _setup_uv_steps_in(workflow["jobs"]["build"])
+    assert build_steps, "build job must include an astral-sh/setup-uv step"
+    assert len(build_steps) == 1, (
+        f"expected exactly one setup-uv step in build; got {len(build_steps)}"
     )
-    cache_glob_ok = any(
-        s.get("with", {}).get("cache-dependency-glob") == "code-review/uv.lock"
-        for s in with_cache
+
+    step = build_steps[0]
+    assert step["uses"].startswith("astral-sh/setup-uv@v5"), (
+        f"build's setup-uv must be @v5; got {step['uses']!r}"
     )
-    assert cache_glob_ok, (
-        "setup-uv@v5 cache step must set cache-dependency-glob: code-review/uv.lock"
+    with_block = step.get("with", {})
+    assert with_block.get("enable-cache") is True, (
+        f"build's setup-uv must set with.enable-cache: true; got with={with_block!r}"
+    )
+    assert with_block.get("cache-dependency-glob") == "code-review/uv.lock", (
+        f"build's setup-uv must set cache-dependency-glob to code-review/uv.lock; "
+        f"got {with_block.get('cache-dependency-glob')!r}"
+    )
+
+
+def test_publish_does_not_install_uv(workflow: dict[str, Any]) -> None:
+    """publish must operate on the downloaded artifact only — installing uv there
+    would imply source-tree access and expand the OIDC-privileged blast radius."""
+    publish_steps = _setup_uv_steps_in(workflow["jobs"]["publish"])
+    assert not publish_steps, (
+        f"publish must not install uv; OIDC blast radius should stay minimal. "
+        f"Found: {publish_steps!r}"
     )
 
 

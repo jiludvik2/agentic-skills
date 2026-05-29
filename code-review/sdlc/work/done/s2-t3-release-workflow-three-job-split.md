@@ -2,10 +2,13 @@
 id: s2-t3-release-workflow-three-job-split
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-packaging-hardening
 created: 2026-05-29
 updated: 2026-05-29
+closed: 2026-05-29
+verify: PASS (commit c573495; 312 passed + 6 skipped + 8 deselected; ruff clean; mypy clean; 8 new workflow tests)
+review: MINOR-ONLY (4 Minor + 2 Nit). All four Minors resolved in close commit: (a) wheel install uses `shopt -s nullglob` + exact-count guard; (b) added `Validate tag matches expected pattern` step in publish that rejects anything not matching `^code-review-v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$`; (c) release runbook updated to describe the three-job topology, PyPA action, environment requirement, and tag-validation guard; (d) `test_setup_uv_uses_v5_with_cache` split into `test_setup_uv_uses_v5_with_cache_on_build` (asserts build owns the cache config) + `test_publish_does_not_install_uv` (publish stays minimal). Nits (SHA-pinning actions; YAML 1.1 `on:` quirk helper) dropped — first is a future ADR candidate, second is a documented test workaround.
 ---
 
 # s2-t3 — Release workflow: build / test-dist / publish

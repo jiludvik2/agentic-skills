@@ -62,11 +62,16 @@ jobs:
 
       - name: Install wheel into a fresh venv
         run: |
+          set -euo pipefail
           python -m venv .testvenv
           .testvenv/bin/python -m pip install --upgrade pip
-          # Install only the wheel; sdist coexists in dist/ but we want the wheel path.
-          wheel=$(ls dist/*.whl)
-          .testvenv/bin/python -m pip install "$wheel"
+          shopt -s nullglob
+          wheels=(dist/*.whl)
+          if (( ${#wheels[@]} != 1 )); then
+            echo "expected exactly one wheel in dist/, got ${#wheels[@]}: ${wheels[*]}" >&2
+            exit 1
+          fi
+          .testvenv/bin/python -m pip install "${wheels[0]}"
 
       - name: Verify installed binary runs and emits JSON
         run: |
@@ -83,6 +88,20 @@ jobs:
       id-token: write
     environment: ${{ contains(github.ref, '-rc') && 'testpypi' || 'pypi' }}
     steps:
+      - name: Validate tag matches expected pattern
+        # `contains(github.ref, '-rc')` is a substring match — it would route a
+        # malformed tag like `code-review-v1.0.0-rcdraft` to TestPyPI silently.
+        # Reject anything that isn't `code-review-vX.Y.Z` or `code-review-vX.Y.Z-rcN`
+        # before any artifact is published.
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF#refs/tags/}"
+          if [[ ! "$tag" =~ ^code-review-v[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$ ]]; then
+            echo "tag '$tag' does not match code-review-vX.Y.Z[-rcN]" >&2
+            exit 1
+          fi
+          echo "tag '$tag' validated"
+
       - name: Download built distributions
         uses: actions/download-artifact@v4
         with:
