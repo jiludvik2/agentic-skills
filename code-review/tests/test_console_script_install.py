@@ -1,5 +1,5 @@
 """s1-t4: build the wheel, install into a clean venv, exercise the
-claude-code-review console-script. Catches [project.scripts] regressions
+polyreview console-script. Catches [project.scripts] regressions
 before tagging."""
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def test_console_script_install(tmp_path: Path) -> None:
         check=True,
         capture_output=True,
     )
-    wheels = list(wheel_dir.glob("claude_code_review-*.whl"))
+    wheels = list(wheel_dir.glob("polyreview-*.whl"))
     assert len(wheels) == 1, f"expected exactly one wheel, got {wheels}"
     wheel_path = wheels[0]
 
@@ -42,9 +42,9 @@ def test_console_script_install(tmp_path: Path) -> None:
         capture_output=True,
     )
 
-    console_script = venv_dir / "bin" / "claude-code-review"
+    console_script = venv_dir / "bin" / "polyreview"
     assert console_script.exists(), (
-        f"claude-code-review entry point missing at {console_script}"
+        f"polyreview entry point missing at {console_script}"
     )
 
     installed = subprocess.run(

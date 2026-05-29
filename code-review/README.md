@@ -1,25 +1,27 @@
-# claude-code-review
+# polyreview
 
 Deterministic code-review skill: runs Semgrep, Radon, Bandit and friends across a diff and emits consolidated SARIF + per-finding `sdlc_severity`.
 
 ## Status
 
-Alpha. No API stability guarantees before `1.0`. Expect breaking changes to CLI flags, config schema, and SARIF property names. The canonical version lives in `pyproject.toml`; check the installed version with `claude-code-review --version` once the flag lands or `python -c "import code_review; print(code_review.__version__)"`.
+Alpha. No API stability guarantees before `1.0`. Expect breaking changes to CLI flags, config schema, and SARIF property names. The canonical version lives in `pyproject.toml`; check the installed version with `polyreview --version` once the flag lands or `python -c "import code_review; print(code_review.__version__)"`.
+
+**Renamed from `claude-code-review`.** Early development used the working name `claude-code-review`; the distribution is published to PyPI as **`polyreview`** (it was renamed before its first release, so there is no `claude-code-review` package to migrate from). The rename drops the vendor prefix because the tool is agent-agnostic — its Agent Skill bundle is read by GitHub Copilot, Cursor, Codex, and other agents, not just Claude — and `polyreview` reads as a multi-language, multi-tool reviewer rather than an Anthropic-only one. The Python import name stays `code_review`.
 
 ## Install
 
 ```bash
-pip install claude-code-review
-pipx install claude-code-review
-uv tool install claude-code-review
+pip install polyreview
+pipx install polyreview
+uv tool install polyreview
 ```
 
-The PyPI distribution is `claude-code-review` (the shorter `code-review` is taken). The console-script binary is `claude-code-review`; the Python import name stays `code_review`.
+The PyPI distribution and console-script binary are both `polyreview`; the Python import name stays `code_review` (PEP-423 allows the distribution name to differ from the import name).
 
 ## Quick start
 
 ```bash
-claude-code-review --review security --depth quick --diff HEAD~1..HEAD --output review.json
+polyreview --review security --depth quick --diff HEAD~1..HEAD --output review.json
 ```
 
 Returns a SARIF document at `review.json` containing findings from every analyzer in the `security/quick` set, each annotated with an `sdlc_severity` reflecting how the SDLC treats it (Critical / Important / Minor / Nit).

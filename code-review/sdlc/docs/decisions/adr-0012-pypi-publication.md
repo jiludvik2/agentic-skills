@@ -13,7 +13,7 @@ updated: 2026-05-28
 
 ## Status
 
-Accepted.
+Accepted. **Distribution name superseded by ADR-0014 (2026-05-29):** the distribution and console binary were renamed `claude-code-review` → `polyreview`. References to `claude-code-review` below are retained as the historical record; the publication mechanism (Trusted Publishers / OIDC, three-job `release.yml`, `code-review-v*` tag routing) is unchanged — only the bound distribution name moved.
 
 ## Context
 

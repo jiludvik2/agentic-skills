@@ -20,9 +20,9 @@ _SEMVER_LITERAL = re.compile(r'''["']\d+\.\d+\.\d+(?:[+-][\w.]+)?["']''')
 def test_version_matches_installed_package_metadata() -> None:
     import code_review
 
-    assert code_review.__version__ == importlib.metadata.version("claude-code-review"), (
+    assert code_review.__version__ == importlib.metadata.version("polyreview"), (
         f"__version__ ({code_review.__version__!r}) drifted from "
-        f"installed metadata ({importlib.metadata.version('claude-code-review')!r})"
+        f"installed metadata ({importlib.metadata.version('polyreview')!r})"
     )
 
 
@@ -38,9 +38,21 @@ def test_no_hardcoded_version_in_init() -> None:
     )
 
 
+def test_version_lookup_uses_new_distribution_name() -> None:
+    """s3-t1: the metadata lookup must track the renamed distribution
+    `polyreview`, not the superseded `claude-code-review`."""
+    source = INIT_PATH.read_text(encoding="utf-8")
+    assert 'version("polyreview")' in source, (
+        "code_review/__init__.py must look up the 'polyreview' distribution"
+    )
+    assert "claude-code-review" not in source, (
+        "stale 'claude-code-review' distribution name remains in __init__.py"
+    )
+
+
 def test_fallback_returned_when_metadata_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     def _raise_missing(_: str) -> NoReturn:
-        raise importlib.metadata.PackageNotFoundError("claude-code-review")
+        raise importlib.metadata.PackageNotFoundError("polyreview")
 
     import code_review
 

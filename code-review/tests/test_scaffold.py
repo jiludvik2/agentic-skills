@@ -14,11 +14,11 @@ def test_package_importable():
 def test_pyproject_valid():
     data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())
     project = data["project"]
-    assert project["name"] == "claude-code-review"
+    assert project["name"] == "polyreview"
     assert project["requires-python"].startswith(">=3.11")
     assert data["build-system"]["build-backend"] == "hatchling.build"
     scripts = project.get("scripts", {})
-    assert scripts.get("claude-code-review") == "code_review.cli:app"
+    assert scripts.get("polyreview") == "code_review.cli:app"
 
 
 def test_sarif_schema_present_and_valid():

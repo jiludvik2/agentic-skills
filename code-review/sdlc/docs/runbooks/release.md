@@ -8,7 +8,7 @@ updated: 2026-05-28
 verified-on: null
 ---
 
-# Release runbook — `claude-code-review`
+# Release runbook — `polyreview`
 
 Publishes the wheel to PyPI (or TestPyPI for release candidates) via GitHub Actions on tag push. Authentication is via PyPI Trusted Publishers (OIDC) — no long-lived tokens.
 
@@ -48,8 +48,8 @@ In a fresh, clean venv:
 pip install \
   --index-url https://test.pypi.org/simple/ \
   --extra-index-url https://pypi.org/simple/ \
-  claude-code-review==X.Y.Zrc1
-claude-code-review --capabilities
+  polyreview==X.Y.Zrc1
+polyreview --capabilities
 ```
 
 `--extra-index-url` is required so runtime deps (`typer`, `jsonschema`, etc.) resolve from real PyPI — TestPyPI doesn't host them. PEP 440 normalises the install spec from `X.Y.Z-rc1` to `X.Y.ZrcN` — note the absent hyphen.
@@ -70,8 +70,8 @@ GitHub Actions uploads to PyPI on this tag.
 In a fresh, clean venv:
 
 ```bash
-pip install claude-code-review==X.Y.Z
-claude-code-review --capabilities
+pip install polyreview==X.Y.Z
+polyreview --capabilities
 ```
 
 ### 7. Announce
@@ -107,7 +107,7 @@ The workflow declares `permissions: id-token: write` scoped to the `publish` job
 `release.yml` is three sequential jobs:
 
 1. **`build`** — `uv sync --frozen` → `uv build` → upload `dist/` as an artifact. No special permissions.
-2. **`test-dist`** (`needs: build`) — download the artifact, create a fresh venv, `pip install` the wheel, run `claude-code-review --capabilities`, assert the output parses as JSON. This catches packaging defects (missing data files, broken entry points) BEFORE publication, against the installed wheel rather than the source tree. No special permissions.
+2. **`test-dist`** (`needs: build`) — download the artifact, create a fresh venv, `pip install` the wheel, run `polyreview --capabilities`, assert the output parses as JSON. This catches packaging defects (missing data files, broken entry points) BEFORE publication, against the installed wheel rather than the source tree. No special permissions.
 3. **`publish`** (`needs: test-dist`) — validates the tag matches `code-review-vX.Y.Z[-rcN]` (rejects ambiguous tags like `-rcdraft`), downloads the artifact, calls `pypa/gh-action-pypi-publish@release/v1` with the appropriate registry URL. `permissions: id-token: write` at job level; `environment: pypi` (or `testpypi` for `-rc` tags).
 
 The `environment:` binding is now **mandatory** for the Trusted Publisher configuration — see the per-registry sections below.
@@ -116,7 +116,7 @@ The `environment:` binding is now **mandatory** for the Trusted Publisher config
 
 `https://pypi.org/manage/account/publishing/` → **Add a new pending publisher** (before the project exists) or **Add a new publisher** under an existing project.
 
-- PyPI Project Name: `claude-code-review`
+- PyPI Project Name: `polyreview`
 - Owner: `jiludvik2`
 - Repository name: `agentic-skills`
 - Workflow filename: `release.yml`
@@ -136,7 +136,12 @@ Run this list once before the very first release. Subsequent releases skip it.
 
 - PyPI account `jiludvik2` exists.
 - TestPyPI account `jiludvik2` exists (separate signup from PyPI).
-- PyPI distribution name `claude-code-review` is available — reserve it by configuring a "pending publisher" (PyPI lets you do this before the project is published, and auto-creates the project on the first successful upload). The bare `code-review` is taken on PyPI by an unrelated project and is **not** the target.
+- PyPI distribution name `polyreview` is available (verified 2026-05-29) — reserve it by configuring a "pending publisher" (PyPI lets you do this before the project is published, and auto-creates the project on the first successful upload). The distribution was renamed from `claude-code-review` per ADR-0014; see **Rename history** below.
 - Pending publishers configured on both PyPI and TestPyPI per the **Trusted Publishers** section.
 - `permissions: id-token: write` is declared on the publish job in `release.yml` (set up in `s1-t3`; the three-job split in `s2-t3` keeps it scoped to `publish` only).
 - The `pypi` and `testpypi` GitHub environments exist on the `agentic-skills` repo (`Settings → Environments`). Names must match exactly — they're the discriminator in the Trusted Publisher bindings.
+
+## Rename history
+
+- **2026-05-29 — `claude-code-review` → `polyreview`** (ADR-0014). The distribution and console binary were renamed before the first PyPI release to drop the vendor prefix: the tool is agent-agnostic (its Agent Skill bundle is read by Copilot/Cursor/Codex and others, not only Claude). The Python import name `code_review`, the skill bundle path, and the **release-tag prefix `code-review-v*`** were deliberately kept — each names the capability, not the vendor.
+- **Deferred follow-up:** publish a `claude-code-review` 0.x.y redirect meta-package depending only on `polyreview`, so anyone who typed the old name still lands on the tool. Do this once `polyreview` has its first successful publish (it depends on `polyreview` existing on the index).

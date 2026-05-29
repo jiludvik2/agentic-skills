@@ -1,4 +1,4 @@
-name: Release claude-code-review
+name: Release polyreview
 
 on:
   push:
@@ -76,7 +76,7 @@ jobs:
       - name: Verify installed binary runs and emits JSON
         run: |
           set -euo pipefail
-          out=$(.testvenv/bin/claude-code-review --capabilities)
+          out=$(.testvenv/bin/polyreview --capabilities)
           echo "$out" | python -c "import json,sys; json.loads(sys.stdin.read())"
           echo "smoke test passed"
 

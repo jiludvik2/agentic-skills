@@ -10,7 +10,7 @@ A deterministic code-analysis layer that runs one or more analyzers against a ta
 ## Invocation
 
 ```
-claude-code-review [--review <domain|subcategory>] [--depth quick|full]
+polyreview [--review <domain|subcategory>] [--depth quick|full]
     [--analyzer <name>] [--target <path>] [--diff HEAD~1..HEAD]
     [--output <path inside CWD>] [--scope per-task|story-level]
 ```
@@ -25,7 +25,7 @@ claude-code-review [--review <domain|subcategory>] [--depth quick|full]
 
 The request/response contracts and capability declaration are bundled inside the `code_review` package (`code_review/schemas/*.json`, `code_review/capabilities.json`).
 
-**Developer note.** In a source checkout (e.g. during the SDLC verb cycle on this repo), `python -m code_review.cli …` works as a fallback when the console script binary isn't on `PATH` for the current shell. Under any of the supported install paths (`pip install claude-code-review`, `pipx install claude-code-review`, `uv tool install claude-code-review`) prefer the `claude-code-review` binary — the module form breaks under isolated-venv installers because the package isn't on the host `python`'s `sys.path`.
+**Developer note.** In a source checkout (e.g. during the SDLC verb cycle on this repo), `python -m code_review.cli …` works as a fallback when the console script binary isn't on `PATH` for the current shell. Under any of the supported install paths (`pip install polyreview`, `pipx install polyreview`, `uv tool install polyreview`) prefer the `polyreview` binary — the module form breaks under isolated-venv installers because the package isn't on the host `python`'s `sys.path`.
 
 ## Review taxonomy
 
@@ -63,19 +63,19 @@ The taxonomy is data-driven (`capabilities.json`) and enforced at parse time. Us
 
 ```bash
 # Quick security review (semgrep, bandit, gitleaks)
-claude-code-review --review security --diff HEAD~1..HEAD
+polyreview --review security --diff HEAD~1..HEAD
 
 # Full security review (adds trivy)
-claude-code-review --review security --depth full --diff HEAD~1..HEAD
+polyreview --review security --depth full --diff HEAD~1..HEAD
 
 # Specific subcategory (coupling only; ignores --depth)
-claude-code-review --review coupling --scope story-level --target .
+polyreview --review coupling --scope story-level --target .
 
 # Whole quick review (default)
-claude-code-review --target .
+polyreview --target .
 
 # Contract testing at story-level
-claude-code-review --review conformance --scope story-level --target .
+polyreview --review conformance --scope story-level --target .
 ```
 
 ### Warnings and errors
@@ -108,7 +108,7 @@ The skill supports three on-disk shapes. The `code_review` Python package resolv
 
 1. **Dev sibling layout** (repo-as-skill, what this repo is): `<repo>/code_review/` (the package) lives next to `<repo>/.claude/skills/code-review/` (the skill bundle). Used when developing the skill itself.
 2. **Production nested layout**: `<host>/.claude/skills/code-review/code_review/` — the package is nested inside the skill directory. Used when copying the skill bundle into a host project as-is.
-3. **Wheel-installed layout** (verified by `tests/test_wheel_packaging.py`; installable via `pip install claude-code-review` / `pipx install claude-code-review` / `uv tool install claude-code-review` per the project README): `code_review/` lives under `site-packages/` (or under an isolated tool venv for `pipx` / `uv tool`); the host's `<host>/.claude/skills/code-review/` carries only this `SKILL.md` and (optionally) a `code-review.toml`. Used in production deployments where the skill is installed from PyPI.
+3. **Wheel-installed layout** (verified by `tests/test_wheel_packaging.py`; installable via `pip install polyreview` / `pipx install polyreview` / `uv tool install polyreview` per the project README): `code_review/` lives under `site-packages/` (or under an isolated tool venv for `pipx` / `uv tool`); the host's `<host>/.claude/skills/code-review/` carries only this `SKILL.md` and (optionally) a `code-review.toml`. Used in production deployments where the skill is installed from PyPI.
 
 `code-review.toml` is always looked up CWD-relative — `<cwd>/code-review.toml` by default, or whatever `--config <path>` names. Run the CLI from the host project root.
 
@@ -120,7 +120,7 @@ The skill supports three on-disk shapes. The `code_review` Python package resolv
 - **Missing** — flagged with a hint to install via the SDLC skill (re-run its bootstrap) or copy your own. Without a reviewer.md the SDLC Review verb cannot dispatch.
 - **No `.claude/` ancestor** — the skill appears to be the repo itself (developer layout) rather than installed under `<host>/.claude/skills/code-review/`; the check is skipped.
 
-How a consumer (CI script, the `intent-review` sibling skill, a human at the terminal, or a custom reviewer.md) actually drives `code-review` is up to the consumer — invoke `claude-code-review` with the `--review` / `--depth` flags documented above.
+How a consumer (CI script, the `intent-review` sibling skill, a human at the terminal, or a custom reviewer.md) actually drives `code-review` is up to the consumer — invoke `polyreview` with the `--review` / `--depth` flags documented above.
 
 ## Sandbox configuration
 

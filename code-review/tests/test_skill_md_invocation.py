@@ -1,4 +1,4 @@
-"""s2-t5: SKILL.md must lead with the installed `claude-code-review` binary,
+"""s2-t5: SKILL.md must lead with the installed `polyreview` binary,
 not `python -m code_review.cli`. The module form breaks under `pipx install` /
 `uv tool install` (isolated venv, package not on sys.path for arbitrary
 python). The source-checkout fallback is acknowledged in a prose note only."""
@@ -39,8 +39,8 @@ def test_invocation_block_leads_with_binary() -> None:
     first_block_match = _FENCE.search(inv_section)
     assert first_block_match, "no fenced code block found in Invocation section"
     leader = _first_nonblank_line(first_block_match.group(1))
-    assert leader.startswith("claude-code-review"), (
-        f"Invocation section's primary block must lead with 'claude-code-review'; "
+    assert leader.startswith("polyreview"), (
+        f"Invocation section's primary block must lead with 'polyreview'; "
         f"got {leader!r}"
     )
 

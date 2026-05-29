@@ -5,8 +5,16 @@ project: code-review
 status: active
 parent: s3-multi-agent-rename
 sources: [s3-multi-agent-rename]
+status: done
 created: 2026-05-29
 updated: 2026-05-29
+notes: |
+  Verify PASS (all ACs evidenced; 337 passed, ruff+mypy clean). Review MINOR-ONLY:
+  one Minor (README migration note claimed the package "was previously published",
+  but it was never published) — resolved in-task by rewording to "early development
+  used the working name … renamed before its first release". Nit (stale
+  claude-code-review framing in STATE.md) deferred to Wrap. ADR-0013 also annotated
+  with a rename pointer (bonus, beyond task scope, consistent with ADR-0012).
 ---
 
 # s3-t1 — atomic rename: PyPI dist + binary + docs + release.yml

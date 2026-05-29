@@ -17,6 +17,8 @@ tags: [dependencies, governance, supply-chain, pypi, packaging]
 
 Accepted. Partially supersedes ADR-0003 §Decision item 1 ("Pin every tool version exactly") for **runtime dependencies only**. ADR-0003's other three decisions (pip-install fallback, ruff via CLI, no uv-specific pyproject features) remain in force unchanged.
 
+> Note (ADR-0014, 2026-05-29): the distribution was renamed `claude-code-review` → `polyreview`. The `claude-code-review` / `pip install claude-code-review` references below are the historical record at time of writing; the pinning rationale is unchanged. Read the install commands as `polyreview`.
+
 ## Context
 
 ADR-0003 (May 2026) mandated exact (`==`) version pins on every dependency as a supply-chain mitigation, written against the Astral/OpenAI governance-risk backdrop. At that time the package was internal — installed via `pip install -e .` from a checkout, never resolved alongside a consumer's existing environment.

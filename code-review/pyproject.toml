@@ -1,5 +1,5 @@
 [project]
-name = "claude-code-review"
+name = "polyreview"
 version = "0.1.0rc1"
 requires-python = ">=3.11"
 description = "AI-native code review skill — deterministic analyzer layer"
@@ -43,7 +43,7 @@ Source = "https://github.com/jiludvik2/agentic-skills"
 Issues = "https://github.com/jiludvik2/agentic-skills/issues"
 
 [project.scripts]
-claude-code-review = "code_review.cli:app"
+polyreview = "code_review.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["code_review"]

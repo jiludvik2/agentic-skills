@@ -12,8 +12,8 @@ def _project() -> dict:
     return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
 
 
-def test_name_is_claude_code_review() -> None:
-    assert _project()["name"] == "claude-code-review"
+def test_name_is_polyreview() -> None:
+    assert _project()["name"] == "polyreview"
 
 
 def test_version_is_set() -> None:
@@ -80,9 +80,9 @@ def test_keywords_present() -> None:
         assert kw in keywords, f"missing keyword: {kw}"
 
 
-def test_console_script_is_claude_code_review() -> None:
+def test_console_script_is_polyreview() -> None:
     scripts = _project()["scripts"]
-    assert scripts == {"claude-code-review": "code_review.cli:app"}, (
+    assert scripts == {"polyreview": "code_review.cli:app"}, (
         f"expected exactly the renamed console script; got {scripts}"
     )
 

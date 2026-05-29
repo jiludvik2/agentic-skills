@@ -130,6 +130,31 @@ def test_tag_prefix_routing_preserved(workflow: dict[str, Any]) -> None:
     )
 
 
+def test_test_dist_smoke_invokes_renamed_binary(workflow: dict[str, Any]) -> None:
+    """s3-t1: after the polyreview rename, the test-dist smoke step must invoke
+    the renamed console binary `polyreview --capabilities`. The old
+    `claude-code-review` binary no longer ships, so a stale reference would fail
+    the job at publish time."""
+    steps = workflow["jobs"]["test-dist"].get("steps", [])
+    run_blocks = "\n".join(
+        s.get("run", "") for s in steps if isinstance(s, dict)
+    )
+    assert "polyreview --capabilities" in run_blocks, (
+        "test-dist must smoke-test `polyreview --capabilities`; "
+        f"got run blocks:\n{run_blocks}"
+    )
+    assert "claude-code-review" not in run_blocks, (
+        "stale `claude-code-review` binary reference remains in the test-dist job"
+    )
+
+
+def test_workflow_name_uses_renamed_distribution(workflow: dict[str, Any]) -> None:
+    """s3-t1: the workflow display name should reference the renamed distribution."""
+    assert "claude-code-review" not in workflow.get("name", ""), (
+        f"stale distribution name in workflow `name:`; got {workflow.get('name')!r}"
+    )
+
+
 def test_testpypi_routing_present(workflow: dict[str, Any]) -> None:
     """An -rc tag must route to TestPyPI; a non-rc tag to PyPI."""
     steps = workflow["jobs"]["publish"].get("steps", [])
