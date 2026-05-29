@@ -10,11 +10,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Build and publish
+  build:
+    name: Build wheel and sdist
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
     defaults:
       run:
         working-directory: code-review
@@ -28,7 +26,10 @@ jobs:
           python-version: '3.12'
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "code-review/uv.lock"
 
       - name: Sync dependencies
         run: uv sync --frozen
@@ -36,10 +37,67 @@ jobs:
       - name: Build wheel and sdist
         run: uv build
 
+      - name: Upload built distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: code-review/dist/
+          if-no-files-found: error
+
+  test-dist:
+    name: Smoke-test the built wheel
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download built distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install wheel into a fresh venv
+        run: |
+          python -m venv .testvenv
+          .testvenv/bin/python -m pip install --upgrade pip
+          # Install only the wheel; sdist coexists in dist/ but we want the wheel path.
+          wheel=$(ls dist/*.whl)
+          .testvenv/bin/python -m pip install "$wheel"
+
+      - name: Verify installed binary runs and emits JSON
+        run: |
+          set -euo pipefail
+          out=$(.testvenv/bin/claude-code-review --capabilities)
+          echo "$out" | python -c "import json,sys; json.loads(sys.stdin.read())"
+          echo "smoke test passed"
+
+  publish:
+    name: Publish to PyPI / TestPyPI
+    runs-on: ubuntu-latest
+    needs: test-dist
+    permissions:
+      id-token: write
+    environment: ${{ contains(github.ref, '-rc') && 'testpypi' || 'pypi' }}
+    steps:
+      - name: Download built distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
       - name: Publish to TestPyPI (release candidates)
         if: contains(github.ref, '-rc')
-        run: uv publish --publish-url https://test.pypi.org/legacy/
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          repository-url: https://test.pypi.org/legacy/
 
       - name: Publish to PyPI (final releases)
         if: ${{ !contains(github.ref, '-rc') }}
-        run: uv publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
