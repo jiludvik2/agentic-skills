@@ -62,6 +62,17 @@ for **s3** (the dependency-cruiser pin lands in this lockfile).
 - **Then** the eslint and knip cases pass without the harness installing pinned
   versions by hand. (jscpd and depcruiser still require s2/s3 to pass.)
 
+### Scenario: CI runs the Node-analyzer integration tests (F9)
+- **Given** the vendored toolchain from this story
+- **When** CI runs the fast-tier suite
+- **Then** CI installs the Node toolchain and the Node-analyzer integration tests
+  (`test_depcruiser_integration`, `test_jscpd_integration`,
+  `test_eslint_integration_*`) **run rather than skip** — so F1/F2/F8 regressions
+  are caught. The `skipif(binary missing)` is dropped or gated on a CI flag set
+  once the toolchain is vendored. (Until s2/s3/s4 land, these tests legitimately
+  fail; this scenario closes only when the toolchain is present AND those fixes
+  are in — i.e. it gates at the story-boundary alongside s2/s3/s4.)
+
 ## Notes
 
 - The eslint SARIF formatter must resolve at runtime regardless of the adapter's

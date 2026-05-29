@@ -11,9 +11,12 @@ sources: [sdlc/docs/qa/analyzer-coverage/run_smoke.py]
 
 # Analyzer-coverage findings — 2026-05-29
 
-Defects surfaced by the analyzer-coverage smoke test (`run_smoke.py`). Severity
-uses the SDLC taxonomy (Critical / Important / Minor). **11/13 analyzers passed;
-2 are broken by real defects.** Several findings bear directly on GA readiness.
+Defects surfaced by the analyzer-coverage smoke test (`run_smoke.py`) and a
+follow-up CLI/test-coverage pass. Severity uses the SDLC taxonomy (Critical /
+Important / Minor). The smoke run scored **11/13 analyzers** (2 broken by real
+defects). The follow-up pass added F8–F10: it ran the pytest suite with the Node
+toolchain actually installed (exposing F8/F9) and audited CLI option/error
+coverage (F10). Several findings bear directly on GA readiness.
 
 The environment under test: macOS, Node 24.14.1, pinned Node tools
 (knip 5.0.0, jscpd 4.0.5, dependency-cruiser 16.0.0, eslint 9), semgrep/gitleaks/
@@ -76,6 +79,33 @@ vendored nor version-pinned anywhere except the `version` strings in
 toolchain is effectively unshippable until a committed `package.json` +
 lockfile pins these versions and `setup.sh` vendors them.
 
+### F8 — `eslint` adapter passes only under harness-specific conditions
+The smoke harness originally reported eslint as a clean pass, but that was an
+artefact of how the harness ran it (`NODE_PATH` set so `@microsoft/eslint-formatter-sarif`
+resolves, **and** cwd inside the fixture where `eslint.config.js` lives). Run as
+the adapter itself invokes it (e.g. `tests/test_adapters/test_eslint.py::
+test_eslint_integration_detects_console_log`), it returns `status=error`:
+- `ESLint couldn't find an eslint.config.(js|mjs|cjs) file` — flat-config
+  discovery is relative to the process cwd, which the adapter doesn't control;
+- the SARIF formatter only resolves because the harness sets `NODE_PATH` — the
+  adapter passes a bare `--format @microsoft/eslint-formatter-sarif` with no
+  guarantee it resolves from the run cwd.
+
+In the real "review a JS project from its root" case eslint finds that project's
+config, so this is a robustness gap rather than a hard F1/F2-style break — but
+the adapter must guarantee formatter resolution (absolute path or `NODE_PATH`)
+and the integration test must be runnable without harness scaffolding.
+
+### F9 — CI green is masking three failing Node-analyzer integration tests
+`test_depcruiser_integration`, `test_jscpd_integration`, and
+`test_eslint_integration_detects_console_log` carry `@pytest.mark.skipif(binary
+missing)`. Because CI never installs the Node toolchain (F5), **all three skip**,
+so the suite reports green while the Node analyzers are effectively untested —
+this is *why* F1/F2 were never caught by pytest. Provisioning the toolchain
+locally flips all three skip→**fail** (F1, F2, F8 respectively). Fix: once F5
+vendors the tools, CI must install them and these tests must **fail, not skip**
+(drop the skipif, or gate it on a CI flag that is set once the toolchain lands).
+
 ## Minor
 
 ### F4 — `knip` adapter drops unused-*export* findings (schema mismatch)
@@ -98,17 +128,30 @@ A bare `pip install polyreview` ships only the Python analyzers; the Node tools
 and gitleaks/trivy are silently unavailable. A drafted fix to `README.md`'s
 Install section is staged in the working tree (pending operator sign-off).
 
-## Passing cleanly (8)
+### F10 — Three CLI error branches have no test coverage
+The CLI option surface and most invalid-input paths are covered by the pytest
+suite (`CliRunner`, mocked analyzers) — `--output` outside CWD, unknown
+`--depth`, unknown `--review`, contradictory `--depth`, scope violations,
+malformed/missing/invalid `--config`. But three error branches in `cli.py` have
+**zero** tests: unknown `--analyzer <name>` ("unknown analyzer(s)"), explicitly
+selecting a **disabled** analyzer ("analyzer(s) disabled in code-review.toml"),
+and "no analyzers selected after filtering". Add `CliRunner` cases asserting
+exit 1 + message for each.
+
+## Passing cleanly (7)
 
 `bandit` (8), `gitleaks` (1), `trivy` (8), `vulture` (22), `cohesion` (2),
-`radon` (metrics, max_cc=13), `eslint` (2), `schemathesis` (1) — all produced
-their expected signal with no caveats. `semgrep`, `knip`, `pydeps` pass with the
-caveats noted above.
+`radon` (metrics, max_cc=13), `schemathesis` (1) — all produced their expected
+signal with no caveats. `semgrep`, `knip`, `pydeps` pass with the caveats noted
+above. **`eslint` is no longer counted clean** — it only passed under harness
+scaffolding (see F8).
 
 ## GA-readiness implication
 
 The original GA question was "is `polyreview` ready to publish?" This test says:
 **the Python analyzers and schemathesis are solid, but the JS/TS toolchain is not
-shippable** (F1, F2, F5) and **semgrep is broken out of the box** (F3). A GA that
-advertises TypeScript coverage and security scanning would mislead users until
-F1–F3 and F5 are fixed.
+shippable** (F1, F2, F5, F8) and **semgrep is broken out of the box** (F3). A GA
+that advertises TypeScript coverage and security scanning would mislead users
+until F1–F3, F5, and F8 are fixed. Compounding this, **CI is green only because
+the Node-analyzer integration tests skip** (F9) — so the test suite currently
+provides false assurance for exactly the analyzers that are broken.

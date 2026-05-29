@@ -8,6 +8,8 @@ children:
   - s1-js-toolchain-manifest
   - s2-jscpd-output-plumbing
   - s3-depcruiser-node-compat
+  - s4-eslint-adapter-robustness
+  - s5-cli-error-branch-coverage
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-29
@@ -20,14 +22,18 @@ Make every analyzer `polyreview` advertises actually work on a fresh install,
 before the GA publish. The analyzer-coverage smoke test
 (`sdlc/docs/qa/analyzer-coverage/`) ran all 13 adapters against synthetic code on
 2026-05-29 and found **11/13 working, 2 broken, and semgrep broken out of the
-box** — see `FINDINGS.md`. This epic fixes the four ship-blockers (F1, F2, F3,
-F5). The two Minor caveats (F4 knip unused-export mapping, F6 pydeps fan-out
-threshold) and the README install note (F7, already staged) are out of scope —
-recorded in FINDINGS.md for opportunistic cleanup.
+box**; a follow-up pass (running the pytest suite with the Node toolchain
+installed, plus a CLI option/error audit) surfaced three more — see `FINDINGS.md`.
+This epic fixes the ship-blockers across **six stories**: F1, F2, F3, F5 plus F8
+(eslint adapter only works under harness scaffolding) and F9 (CI green is masking
+the skipped Node-analyzer integration tests), and closes the small F10 CLI
+error-branch test gap. The Minor caveats (F4 knip unused-export mapping, F6
+pydeps fan-out threshold) and the README install note (F7, already staged) are
+out of scope — recorded in FINDINGS.md for opportunistic cleanup.
 
 ## Why this is an epic, not a single story
 
-The four fixes split along two independent axes and one has a hard dependency:
+The fixes split along two independent axes with a few hard dependencies:
 
 - **Python side (independent):** s0 — semgrep has no working rule source on a
   fresh install (prefetch ships 0 rules; the `--config auto` fallback is
@@ -39,8 +45,12 @@ The four fixes split along two independent axes and one has a hard dependency:
   independent of s1. s3 (dependency-cruiser 16.0.0 crashes on Node ≥22) is a
   version bump that lands in **s1's lockfile**, so s3 depends on s1.
 
+  s4 (eslint formatter resolution + config discovery) is adapter-code, depends on
+  s1's toolchain. s5 (CLI error-branch tests) is test-only and independent.
+
 Together they answer: "does a fresh `polyreview` install actually deliver the
-TypeScript coverage and security scanning the capabilities advertise?"
+TypeScript coverage and security scanning the capabilities advertise — and would
+CI catch it if one broke?"
 
 ## What's in scope
 
@@ -51,6 +61,11 @@ TypeScript coverage and security scanning the capabilities advertise?"
 - jscpd adapter reads its JSON report from a temp file, not `/dev/stdout` (F2).
 - dependency-cruiser pinned to a Node-≥22-compatible version + the adapter
   supplying (or documenting) the required cruise config (F1).
+- eslint adapter guarantees SARIF-formatter resolution from any cwd, and its
+  integration test runs without harness scaffolding (F8).
+- CI installs the vendored Node toolchain so the Node-analyzer integration tests
+  **fail rather than skip** — closing the false-green gap that hid F1/F2 (F9).
+- The three untested CLI error branches get coverage (F10).
 - The analyzer-coverage smoke test reaching **13/13 without the harness manually
   provisioning anything** — i.e. a clean `setup.sh` is sufficient.
 
@@ -80,3 +95,7 @@ harness.
 - **s2 — jscpd output plumbing.** Temp-dir report read instead of `/dev/stdout`.
 - **s3 — depcruiser Node compat.** Node-≥22-compatible pin + cruise config.
   Depends on s1.
+- **s4 — eslint adapter robustness.** Guarantee SARIF-formatter resolution + make
+  the integration test self-sufficient (F8). Depends on s1.
+- **s5 — CLI error-branch coverage.** Tests for unknown `--analyzer`, disabled
+  analyzer, empty selection (F10). Test-only; no dependency.

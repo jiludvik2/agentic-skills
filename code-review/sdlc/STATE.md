@@ -1,6 +1,6 @@
 # State — last updated 2026-05-29
 
-**Active focus:** `epic-analyzer-ga-hardening` → **s0-semgrep-rule-source in progress** (s0-t0 done; s0-t1 next). On branch `ccglass-traffic-analysis`, committed through `09c6154`.
+**Active focus:** `epic-analyzer-ga-hardening` (**now 6 stories**, s0–s5) → **s0-semgrep-rule-source in progress** (s0-t0 done; s0-t1 next). On branch `ccglass-traffic-analysis`. A follow-up QA pass added F8 (eslint only works under harness scaffolding), F9 (CI green masks the *skipped* Node-analyzer integration tests — why F1/F2 hid), F10 (3 untested CLI error branches) → new stories s4 (eslint), s5 (CLI error tests) + an F9 AC on s1.
 **Last completed:** **s0-t0** (`09c6154`) — ADR-0016 semgrep rule provenance: vendored-in-bundle, `cache_root()` resolution, fail-loud on missing cache, CLI exposure of `semgrep_rules`. Verify PASS, Review MINOR-ONLY (findings applied). Baseline commit `2297081` carries the QA harness + epic + full s0 plan.
 **Next:** **s0-t1** — vendor the curated ruleset under `.claude/skills/code-review/semgrep-rules/` and have `prefetch_caches.py`/`setup.sh` copy it into `cache_root()/cache/semgrep/rules` (idempotent), TDD. Then t2 (adapter: cache_root resolution, drop `auto`+`--metrics off` and the `--x-` flag, wire `semgrep_rules` config) → t3 (e2e green + de-hack smoke harness + mark F3 resolved). Then s1→s3. **Paused at this clean task boundary for context** — resume with `/clear`.
 
