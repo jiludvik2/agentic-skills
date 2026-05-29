@@ -7,10 +7,7 @@ from typing import Any, ClassVar
 
 from code_review.adapters.base import run_subprocess
 from code_review.contracts import AnalyzerOutput, ReviewRequest
-
-
-def _trivy_cache_dir() -> Path:
-    return Path.cwd() / ".claude" / "skills" / "code-review" / "cache" / "trivy-db"
+from code_review.paths import trivy_cache_dir as _trivy_cache_dir
 
 
 class TrivyAdapter:
@@ -26,8 +23,10 @@ class TrivyAdapter:
             return AnalyzerOutput(
                 sarif={}, status="error",
                 error=(
-                    f"Trivy DB not pre-fetched. Run scripts/setup.sh."
-                    f" Expected: {cache_dir}"
+                    f"Trivy DB not pre-fetched at {cache_dir}. "
+                    "Prefetch it with scripts/setup.sh (source checkout), or set "
+                    "POLYREVIEW_CACHE_DIR to a directory whose cache/trivy-db is "
+                    "already populated."
                 ),
             )
         source = request.target_paths[0] if request.target_paths else "."

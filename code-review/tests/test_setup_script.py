@@ -13,8 +13,12 @@ PREFETCH = REPO_ROOT / "scripts" / "prefetch_caches.py"
 
 
 def _run_prefetch(cwd: Path) -> subprocess.CompletedProcess[str]:
+    # Pin cache_root() to `cwd` via the s0-t6 env override (ADR-0015), so the
+    # producer writes its cache/ + manifest.json directly under `cwd` — matching
+    # this suite's assertions independent of the CWD-anchored default subpath.
+    env = {**os.environ, "POLYREVIEW_CACHE_DIR": str(cwd)}
     return subprocess.run(
-        [sys.executable, str(PREFETCH)], capture_output=True, text=True, cwd=cwd
+        [sys.executable, str(PREFETCH)], capture_output=True, text=True, cwd=cwd, env=env
     )
 
 

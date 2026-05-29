@@ -4,7 +4,8 @@
 Stub for s1: the artifact map is empty. Real fetches (Trivy DB, Semgrep rule packs)
 land with the analyzers that need them in s3. The contract this establishes now:
 
-- caches live under ``cache/`` in the current working directory;
+- caches live under ``cache/`` within ``code_review.paths.cache_root()`` (s0-t6) —
+  the same base the consumers (trivy/js_base) read from;
 - ``cache/manifest.json`` records the artifact set (id -> expected content hash) that
   has been fetched — manifest-addressed, not a verification of on-disk bytes;
 - the script is idempotent — when the on-disk manifest already matches the desired
@@ -21,13 +22,26 @@ import json
 import sys
 from pathlib import Path
 
+# s0-t6 / ADR-0015: resolve the cache base through the same source of truth the
+# consumers (trivy/js_base) use, so the producer cannot write somewhere the
+# consumers don't read. Bootstrap sys.path so this runs as a bare script
+# (`python scripts/prefetch_caches.py`) before the package is importable.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from code_review.paths import cache_root  # noqa: E402
+
 # artifact id -> expected content hash. Empty in s1; populated as analyzers land in s3.
 _ARTIFACTS: dict[str, str] = {}
 
 
+def prefetch_cache_dir() -> Path:
+    """The directory this producer writes caches into — ``cache_root()/cache``,
+    the exact tree the consumers resolve their reads against."""
+    return cache_root() / "cache"
+
+
 def main() -> int:
-    cache_dir = Path.cwd() / "cache"
-    cache_dir.mkdir(exist_ok=True)
+    cache_dir = prefetch_cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = cache_dir / "manifest.json"
 
     existing: dict[str, str] | None = None

@@ -35,9 +35,10 @@ fail() {
 }
 
 # Locate the host project root: the nearest ancestor of the skill dir that contains a
-# .claude/ directory. Used only for read-only state inspection; setup.sh never writes
-# outside SKILL_ROOT. Returns empty string if no ancestor has .claude/ (skill is the
-# repo itself, or installed in an unexpected layout).
+# .claude/ directory. Used for read-only reviewer.md state inspection AND (s0-t6/ADR-0015)
+# to select the cache-write anchor in the production-nested layout, so the producer writes
+# where the CWD-anchored consumers read. Returns empty string if no ancestor has .claude/
+# (skill is the repo itself, or installed in an unexpected layout).
 find_host_root() {
   local d="$1"
   while [[ "${d}" != "/" && -n "${d}" ]]; do
@@ -54,17 +55,41 @@ find_host_root() {
 step "Python dependencies"
 uv sync --frozen || fail "uv sync --frozen"
 
+# The producer must write caches where the consumers (trivy/js_base, via
+# code_review.paths.cache_root) read them. cache_root() honours
+# $POLYREVIEW_CACHE_DIR, else resolves CWD-relative to ./.claude/skills/code-review.
+# Run the producer from the host root (nearest .claude/ ancestor) when present so the
+# production-nested layout aligns; fall back to SKILL_ROOT for the developer layout.
+# An explicit $POLYREVIEW_CACHE_DIR wins regardless of CWD. ADR-0015.
+if [[ -n "${POLYREVIEW_CACHE_DIR:-}" ]]; then
+  CACHE_CWD="${SKILL_ROOT}"
+elif CACHE_CWD="$(find_host_root "${SKILL_ROOT}")" && [[ -n "${CACHE_CWD}" ]]; then
+  :
+else
+  CACHE_CWD="${SKILL_ROOT}"
+fi
+note "cache anchor: ${CACHE_CWD} (export POLYREVIEW_CACHE_DIR to override; the CLI must run from the same anchor)"
+
 # 2. Node dependencies for JS/TS analyzers — guarded; the JS toolchain lands in s3.
 if [[ -f "${SKILL_ROOT}/package.json" && -f "${SKILL_ROOT}/package-lock.json" ]]; then
   step "Node dependencies"
-  npm ci || fail "npm ci"
+  # Pass SKILL_ROOT via env, not string-interpolated into the Python source, so paths
+  # with spaces/quotes don't break the resolution.
+  CACHE_ROOT="$(cd "${CACHE_CWD}" && POLYREVIEW_SKILL_ROOT="${SKILL_ROOT}" python -c \
+    'import os, sys; sys.path.insert(0, os.environ["POLYREVIEW_SKILL_ROOT"]); from code_review.paths import node_modules_dir; print(node_modules_dir().parent)')" \
+    || fail "resolve cache_root"
+  mkdir -p "${CACHE_ROOT}"
+  cp "${SKILL_ROOT}/package.json" "${SKILL_ROOT}/package-lock.json" "${CACHE_ROOT}/"
+  ( cd "${CACHE_ROOT}" && npm ci ) || fail "npm ci"
 else
   step "Node dependencies (skipped — no package.json/package-lock.json yet)"
 fi
 
 # 3. Prefetch offline caches (Trivy DB, Semgrep rule packs in s3). Idempotent.
+# prefetch_caches.py resolves cache_root() itself; running it from CACHE_CWD makes
+# the CWD-anchored default land where the consumers read.
 step "Prefetch offline caches"
-( cd "${SKILL_ROOT}" && python "${SCRIPT_DIR}/prefetch_caches.py" ) || fail "prefetch_caches.py"
+( cd "${CACHE_CWD}" && python "${SCRIPT_DIR}/prefetch_caches.py" ) || fail "prefetch_caches.py"
 
 # 4. Reviewer.md state report. The code-review skill is a pure deterministic analyzer
 #    (no LLM inside; no sub-agent installed). The SDLC's Review verb dispatches a

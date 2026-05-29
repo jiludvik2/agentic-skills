@@ -2,13 +2,23 @@
 id: s0-t6-cache-path-unification
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-deployment-layout-fixup
 sources: [s0-t2-cwd-relative-toml.md]
 created: 2026-05-28
-updated: 2026-05-28
+updated: 2026-05-29
 tags: [deployment, cache, trivy, npm, architecture]
----
+notes: |
+  Closed 2026-05-29. Single resolver code_review.paths.cache_root()
+  ($POLYREVIEW_CACHE_DIR else CWD/.claude/skills/code-review) consumed by producer
+  (prefetch_caches.py + setup.sh) and consumers (trivy/js_base). ADR-0015 records
+  the CWD-anchor + env-override decision (operator-selected). Verify PASS; per-task
+  Review MINOR-ONLY. Resolved in-task: shell-quoting robustness (env-var path pass),
+  cache-anchor visibility note in setup.sh, stale find_host_root comment, and a
+  wheel-no-producer layout-agnostic clean-error test. Left per reviewer: the dual
+  sys.path-bootstrap Nit (acceptable). Documented residual: in dev-sibling layout,
+  producer/consumer alignment assumes the CLI runs from the same anchor setup.sh
+  chose (surfaced via the new "cache anchor:" setup.sh note). 351 passed.
 
 # s0-t6 — Producer/consumer cache-path unification
 

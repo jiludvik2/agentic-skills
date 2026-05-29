@@ -4,9 +4,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-
-def _node_modules() -> Path:
-    return Path.cwd() / ".claude" / "skills" / "code-review" / "node_modules"
+from code_review.paths import node_modules_dir as _node_modules
 
 
 def node_binary(tool: str) -> Path | None:
@@ -23,6 +21,10 @@ def probe_js_adapter(tool: str) -> dict[str, Any]:
     if binary is None:
         return {
             "status": "unavailable",
-            "error": f"{tool} not in {_node_modules() / '.bin'}. Run scripts/setup.sh first.",
+            "error": (
+                f"{tool} not in {_node_modules() / '.bin'}. Install vendored Node "
+                "tooling with scripts/setup.sh (source checkout), or set "
+                "POLYREVIEW_CACHE_DIR to a directory with a populated node_modules."
+            ),
         }
     return {"status": "available", "error": None}
