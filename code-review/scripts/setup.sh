@@ -14,6 +14,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# BUNDLE_DIR points at the skill bundle itself — the directory containing
+# SKILL.md and code-review.toml.example. In developer/source layout it lives
+# under <SKILL_ROOT>/.claude/skills/code-review/; in installed layouts where
+# the bundle and SKILL_ROOT coincide we fall back to SKILL_ROOT. Used only by
+# the read-only "starter config" report step; nothing here writes to it.
+if [[ -f "${SKILL_ROOT}/.claude/skills/code-review/SKILL.md" ]]; then
+  BUNDLE_DIR="${SKILL_ROOT}/.claude/skills/code-review"
+elif [[ -f "${SKILL_ROOT}/SKILL.md" ]]; then
+  BUNDLE_DIR="${SKILL_ROOT}"
+else
+  BUNDLE_DIR=""
+fi
 
 step() { echo "==> $1"; }
 note() { echo "    $1"; }
@@ -80,7 +92,7 @@ fi
 #    and a one-line copy hint pointing at the host project root (or a generic
 #    hint if no .claude/ ancestor resolves).
 step "Starter config template"
-EXAMPLE_PATH="${SKILL_ROOT}/code-review.toml.example"
+EXAMPLE_PATH="${BUNDLE_DIR}/code-review.toml.example"
 if [[ -f "${EXAMPLE_PATH}" ]]; then
   note "available: ${EXAMPLE_PATH}"
   if HOST_ROOT="$(find_host_root "${SKILL_ROOT}")"; then

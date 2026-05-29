@@ -10,7 +10,7 @@ A deterministic code-analysis layer that runs one or more analyzers against a ta
 ## Invocation
 
 ```
-python -m code_review.cli [--review <domain|subcategory>] [--depth quick|full]
+claude-code-review [--review <domain|subcategory>] [--depth quick|full]
     [--analyzer <name>] [--target <path>] [--diff HEAD~1..HEAD]
     [--output <path inside CWD>] [--scope per-task|story-level]
 ```
@@ -24,6 +24,8 @@ python -m code_review.cli [--review <domain|subcategory>] [--depth quick|full]
 - `--capabilities` prints the static capability declaration merged with runtime per-analyzer availability checks.
 
 The request/response contracts and capability declaration are bundled inside the `code_review` package (`code_review/schemas/*.json`, `code_review/capabilities.json`).
+
+**Developer note.** In a source checkout (e.g. during the SDLC verb cycle on this repo), `python -m code_review.cli …` works as a fallback when the console script binary isn't on `PATH` for the current shell. Under any of the supported install paths (`pip install claude-code-review`, `pipx install claude-code-review`, `uv tool install claude-code-review`) prefer the `claude-code-review` binary — the module form breaks under isolated-venv installers because the package isn't on the host `python`'s `sys.path`.
 
 ## Review taxonomy
 
@@ -61,19 +63,19 @@ The taxonomy is data-driven (`capabilities.json`) and enforced at parse time. Us
 
 ```bash
 # Quick security review (semgrep, bandit, gitleaks)
-python -m code_review.cli --review security --diff HEAD~1..HEAD
+claude-code-review --review security --diff HEAD~1..HEAD
 
 # Full security review (adds trivy)
-python -m code_review.cli --review security --depth full --diff HEAD~1..HEAD
+claude-code-review --review security --depth full --diff HEAD~1..HEAD
 
 # Specific subcategory (coupling only; ignores --depth)
-python -m code_review.cli --review coupling --scope story-level --target .
+claude-code-review --review coupling --scope story-level --target .
 
 # Whole quick review (default)
-python -m code_review.cli --target .
+claude-code-review --target .
 
 # Contract testing at story-level
-python -m code_review.cli --review conformance --scope story-level --target .
+claude-code-review --review conformance --scope story-level --target .
 ```
 
 ### Warnings and errors
@@ -118,7 +120,7 @@ The skill supports three on-disk shapes. The `code_review` Python package resolv
 - **Missing** — flagged with a hint to install via the SDLC skill (re-run its bootstrap) or copy your own. Without a reviewer.md the SDLC Review verb cannot dispatch.
 - **No `.claude/` ancestor** — the skill appears to be the repo itself (developer layout) rather than installed under `<host>/.claude/skills/code-review/`; the check is skipped.
 
-How a consumer (CI script, the `intent-review` sibling skill, a human at the terminal, or a custom reviewer.md) actually drives `code-review` is up to the consumer — invoke `python -m code_review.cli` with the `--review` / `--depth` flags documented above.
+How a consumer (CI script, the `intent-review` sibling skill, a human at the terminal, or a custom reviewer.md) actually drives `code-review` is up to the consumer — invoke `claude-code-review` with the `--review` / `--depth` flags documented above.
 
 ## Sandbox configuration
 
