@@ -2,12 +2,25 @@
 id: s0-t3-end-to-end-green-from-clean-setup
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-semgrep-rule-source
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-29
 tags: [semgrep, integration, qa, docs]
+notes: |
+  Manual smoke verification (AC scenario 2): cleared cache/semgrep, ran
+  scripts/prefetch_caches.py (the setup.sh path) → "provisioned 1 semgrep rule
+  file(s)"; then `cli --analyzer semgrep --target tests/fixtures/
+  python-with-known-issues` with no override → status=ok, 1 finding
+  (subprocess-shell-true). Clean setup.sh is sufficient.
+  Review (MINOR-ONLY):
+  - [APPLIED] Minor: e2e test asserted only len>=1; now also asserts the
+    AC-named subprocess-shell-true ruleId fires.
+  - [DEFERRED] Minor: the importlib loader for prefetch_caches.py duplicates
+    _load_prefetch() in test_prefetch_semgrep_rules.py — worth hoisting to a
+    shared conftest helper; opportunistic, low value, not filed as a task.
+  - 1 Nit dropped.
 ---
 
 # s0-t3 — End-to-end: semgrep green from a clean setup

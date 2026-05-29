@@ -54,7 +54,16 @@ trivy/gitleaks adapters already do), instead of `/dev/stdout`.
 
 ## Important
 
-### F3 — `semgrep` has no working rule source out of the box
+### F3 — `semgrep` has no working rule source out of the box — ✅ RESOLVED (s0, ADR-0016)
+**Resolved 2026-05-29** by epic `analyzer-ga-hardening` story `s0-semgrep-rule-source`:
+a security ruleset is now vendored in the skill bundle (`semgrep-rules/`) and
+provisioned into `cache/semgrep/rules` by `setup.sh` (s0-t1); the adapter
+resolves it through `cache_root()`, drops the broken `--config auto` + `--metrics
+off` combo for a loud, actionable error, and keeps the load-bearing
+`--x-ignore-semgrepignore-files` flag (s0-t2); end-to-end from a clean `setup.sh`
+is proven and the smoke harness no longer self-provisions (s0-t3). Original
+problem statement retained below for history.
+
 Two compounding problems:
 1. `scripts/setup.sh`'s prefetch step writes **0** semgrep rules
    (`cache/semgrep/rules` is never populated).

@@ -27,7 +27,8 @@ analyzer-coverage/
   scaffold_fixtures.sh   regenerates fixtures/ (planted defects, one per analyzer)
   run_smoke.py           the harness: runs all 13 analyzers, writes results
   contract-testing.toml  schemathesis target config (local FastAPI app)
-  semgrep-rules/         offline ruleset copied into the cache before the run
+  semgrep-rules/         legacy QA fixture ruleset (independent of the canonical
+                         vendored set the harness now relies on — see below)
   fixtures/              synthetic targets (generated; safe to delete)
   results/
     <date>-results.md    machine-generated run record (overwritten each run)
@@ -55,10 +56,14 @@ analyzer-coverage/
 
 ## Prerequisites
 
-Run **outside** the sandbox (needs network for semgrep rule provisioning, the
-Trivy DB, and the schemathesis HTTP loop). From the repo root (`code-review/`):
+Run **outside** the sandbox (needs network for the Trivy DB and the
+schemathesis HTTP loop; semgrep rules are now vendored, not downloaded — see
+step 1). From the repo root (`code-review/`):
 
-1. **Python tooling:** `./scripts/setup.sh` (or `uv sync --frozen`).
+1. **Python tooling + semgrep rules:** `./scripts/setup.sh` — installs Python
+   deps and provisions the vendored semgrep ruleset into `cache/semgrep/rules`
+   (ADR-0016). The harness asserts this cache is populated and no longer
+   self-provisions; if you skip `setup.sh` it fails loud naming it.
 2. **Node tooling** — the repo ships no `package.json`/lockfile (see FINDINGS
    #5), so install the *pinned* versions the adapters target into the cache:
    ```bash
@@ -79,8 +84,9 @@ uv run python sdlc/docs/qa/analyzer-coverage/run_smoke.py
 
 Exit code 0 iff all 13 analyzers produce their expected signal. The harness sets
 `POLYREVIEW_CACHE_DIR` (→ the skill's vendored `node_modules` + Trivy DB) and
-`NODE_PATH` (so eslint resolves its SARIF formatter regardless of cwd), copies
-`semgrep-rules/` into the cache, and manages the FastAPI server lifecycle.
+`NODE_PATH` (so eslint resolves its SARIF formatter regardless of cwd), asserts
+the vendored semgrep ruleset is already provisioned (by `setup.sh`), and manages
+the FastAPI server lifecycle.
 
 ## Note on committing fixtures
 

@@ -109,15 +109,17 @@ CASES = [
 ]
 
 
-def _provision_semgrep_rules() -> None:
-    """Copy the bundled QA ruleset into the cache dir so the semgrep adapter uses
-    its `--config <local-dir>` path. (setup.sh's prefetch ships 0 rules, and the
-    `--config auto` fallback is incompatible with the adapter's `--metrics off`.)"""
-    src = HERE / "semgrep-rules"
-    dst = SKILL / "cache" / "semgrep" / "rules"
-    dst.mkdir(parents=True, exist_ok=True)
-    for f in src.glob("*.yaml"):
-        (dst / f.name).write_text(f.read_text())
+def _require_provisioned_semgrep_rules() -> None:
+    """Assert the vendored semgrep ruleset is already in the runtime cache — i.e.
+    setup.sh has run. The harness no longer self-provisions (s0-t3 / ADR-0016):
+    its job is to prove a clean `setup.sh` is sufficient, so it fails loud here
+    rather than silently copying rules in (which is what hid F3)."""
+    rules = SKILL / "cache" / "semgrep" / "rules"
+    if not rules.is_dir() or not list(rules.glob("*.y*ml")):
+        sys.exit(
+            f"semgrep rules not provisioned at {rules}. Run scripts/setup.sh "
+            "(or scripts/prefetch_caches.py) before the smoke test."
+        )
 
 
 def run_standard() -> list[dict]:
@@ -196,7 +198,7 @@ def _evaluate(name, out_path, rc, stderr, check, note) -> dict:
 
 def main() -> int:
     RAW.mkdir(parents=True, exist_ok=True)
-    _provision_semgrep_rules()
+    _require_provisioned_semgrep_rules()
     rows = run_standard()
     rows.append(run_schemathesis())
 
@@ -225,8 +227,10 @@ def main() -> int:
         "- **radon** and **pydeps** are (partly) metrics analyzers: radon emits no "
         "SARIF findings, only `metrics.per_file` complexity; the check asserts "
         "`max_cc >= 10`. pydeps emits both a high-fan-out finding and coupling metrics.",
-        "- **semgrep** uses `--config auto` (network) when no local rule cache exists; "
-        "finding count depends on the live registry ruleset.",
+        "- **semgrep** runs against the vendored ruleset that `setup.sh` provisions "
+        "into `cache/semgrep/rules` (ADR-0016); offline and deterministic, no "
+        "`--config auto` network fallback. The harness asserts the cache is "
+        "populated rather than provisioning it itself.",
         "- Fixtures live in `fixtures/` and are regenerable via `scaffold_fixtures.sh`.",
         "",
     ]

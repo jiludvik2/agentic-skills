@@ -241,6 +241,52 @@ async def test_semgrep_override_takes_precedence_over_cache(
     assert config_arg == str(override), "override must win over the cache dir"
 
 
+@pytest.mark.integration
+async def test_semgrep_end_to_end_with_provisioned_cache(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """s0-t3: with rules provisioned the way setup.sh does it (vendored ruleset
+    copied into cache_root()/cache/semgrep/rules) and NO manual override, the
+    adapter returns findings. Proves a clean setup is sufficient (resolves F3)."""
+    import importlib.util
+
+    if shutil.which("semgrep") is None:
+        pytest.skip("semgrep not on PATH")
+
+    from code_review.adapters.semgrep import SemgrepAdapter
+    from code_review.contracts import ReviewRequest
+
+    monkeypatch.setenv("POLYREVIEW_CACHE_DIR", str(tmp_path))
+
+    # Provision exactly as `setup.sh` does — via prefetch_caches.main().
+    prefetch_path = Path(__file__).parent.parent.parent / "scripts" / "prefetch_caches.py"
+    spec = importlib.util.spec_from_file_location("prefetch_caches", prefetch_path)
+    assert spec is not None and spec.loader is not None
+    prefetch = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(prefetch)
+    assert prefetch.main() == 0
+    assert (tmp_path / "cache" / "semgrep" / "rules").is_dir()
+
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(str(FIXTURE_PATH),),
+        languages=frozenset({"python"}),
+        config={},  # no override — rely solely on the provisioned cache
+    )
+    output = await SemgrepAdapter().run(request)
+
+    assert output.status == "ok", f"expected ok, got {output.status}: {output.error}"
+    schema = json.loads(SCHEMA_PATH.read_text())
+    jsonschema.validate(output.sarif, schema)
+    results = output.sarif.get("runs", [{}])[0].get("results", [])
+    assert len(results) >= 1, f"expected >=1 finding from the provisioned cache; got {results}"
+    rule_ids = [r.get("ruleId", "") for r in results]
+    assert any("subprocess-shell-true" in rid for rid in rule_ids), (
+        f"expected the vendored subprocess-shell-true rule to fire; got {rule_ids}"
+    )
+
+
 async def test_semgrep_bad_override_fails_loudly_naming_override(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
