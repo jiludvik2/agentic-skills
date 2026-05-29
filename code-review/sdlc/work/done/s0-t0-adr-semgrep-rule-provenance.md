@@ -2,11 +2,14 @@
 id: s0-t0-adr-semgrep-rule-provenance
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-semgrep-rule-source
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-29
+closed: 2026-05-29
+verify: PASS — all 5 decisions recorded with rationale; consistent with ADR-0015 + FINDINGS F3; root causes confirmed against semgrep.py.
+review: MINOR-ONLY — 1 Minor (stale-note misattributed to stack-pins.md; actually setup.sh:88 + prefetch_caches.py) + 3 Nits. Minor and 2 substantive Nits applied in-place (supersession target corrected; canonical-vs-fixture rule dirs clarified; --x flag tests/-ignore trade-off noted). Deliverable: adr-0016 (co-located, moves to docs/decisions at epic close).
 tags: [semgrep, adr, decision]
 ---
 
@@ -50,8 +53,9 @@ semgrep analyzer obtains its rules and how the adapter resolves them.
 - **When** `adr-00NN-semgrep-rule-provenance.md` is read
 - **Then** it states a decision (with rationale) for each of provenance, ruleset
   scope & license, resolution precedence, missing-cache behavior, and CLI
-  exposure — and supersedes/links the stale "Semgrep rule packs in s3" note in
-  `stack-pins.md` / architecture.
+  exposure — and supersedes/links the stale "Semgrep rule packs in s3" deferral
+  at `scripts/setup.sh:88` + `scripts/prefetch_caches.py` (corrected from an
+  earlier mis-reference to `stack-pins.md`, per the s0-t0 review).
 
 ## Test specification
 
