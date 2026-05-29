@@ -2,9 +2,10 @@
 id: s3-multi-agent-rename
 kind: story
 project: code-review
-status: proposed
+status: active
 parent: epic-deployment-readiness
 sources: [multi-agent-research-2026-05-29, audit-claude-coupling-2026-05-29]
+children: [s3-t0-adr-0014-multi-agent-rename, s3-t1-rename-pypi-and-binary-and-docs, s3-t2-agents-md-and-claude-md-redirect]
 created: 2026-05-29
 updated: 2026-05-29
 tags: [naming, multi-agent, pypi, agents-md, copilot]
@@ -43,6 +44,11 @@ Research findings reframing the question — captured here because they're load-
 - **CLAUDE.md:** shrunk to a one-line redirect (`See AGENTS.md.`). Claude Code reads it as-is.
 - **Redirect meta-package:** publish `claude-code-review` 0.x.y depending only on `polyreview`. **Not a task in this story** — it depends on `polyreview` first being published to PyPI, which is operator-side off-repo work. Captured as a deferred follow-up in the runbook.
 - **Cache paths** (`.claude/skills/code-review/cache/...` hardcoded in 3 adapters): also vendor-coupled but orthogonal. **Out of scope** for this story — those land in the existing `s0-t6-cache-path-unification` carryover.
+
+### s3 execution amendments (2026-05-29, on "run s3")
+
+- **Tag prefix `code-review-v*` kept unchanged.** The release-tag stream names the capability, not the vendor — same reasoning as keeping the `code-review/` folder and skill-folder names. Package `polyreview` is released under `code-review-v*` tags. Recorded in ADR-0014 (s3-t0) so the asymmetry is auditable, not accidental. Operator may veto in favour of renaming the prefix.
+- **`.github/workflows/release.yml` folded into s3-t1.** The story's original task list omitted it, but the binary rename forces two edits there: the `test-dist` smoke step (`claude-code-review --capabilities` → `polyreview --capabilities`, else the job fails on the renamed binary) and the workflow `name:`. The tag trigger + validation regex stay (see above).
 
 ## Acceptance criteria
 
