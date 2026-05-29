@@ -105,3 +105,35 @@ def test_license_file_matches_repo_root_license() -> None:
     assert pkg_license.read_bytes() == repo_license.read_bytes(), (
         "code-review/LICENSE drifted from agentic-skills/LICENSE"
     )
+
+
+def test_dependencies_use_lower_bound_only() -> None:
+    """s2-t1: PyPI distributed packages should not exact-pin transitive deps —
+    consumers can't resolve. Lower bound only; upper bounds need a written reason."""
+    deps = _project()["dependencies"]
+    assert deps, "dependencies list must be non-empty"
+    for spec in deps:
+        assert ">=" in spec, f"dep must use >= lower bound; got {spec!r}"
+        assert "==" not in spec, f"dep must not use == exact pin; got {spec!r}"
+        assert "~=" not in spec, f"dep must not use ~= compatible release; got {spec!r}"
+        assert "<" not in spec, (
+            f"dep must not carry upper bound without justification; got {spec!r}"
+        )
+
+
+def test_dependency_anchors_match_locked_minors() -> None:
+    """s2-t1: anchors are pinned to the minor of the currently-locked version,
+    not to the patch. Drift to a lower minor or to patch-level anchoring trips this."""
+    expected = {
+        "typer>=0.18",
+        "jsonschema>=4.26",
+        "bandit>=1.7",
+        "radon>=6.0",
+        "vulture>=2.13",
+        "pydeps>=1.12",
+        "cohesion>=1.1",
+        "schemathesis>=4.0",
+    }
+    actual = set(_project()["dependencies"])
+    missing = expected - actual
+    assert not missing, f"missing dependency anchors: {sorted(missing)}; got {sorted(actual)}"

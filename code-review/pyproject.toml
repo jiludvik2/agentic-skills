@@ -27,14 +27,14 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "typer==0.18.0",
-    "jsonschema==4.26.0",
-    "bandit==1.7.10",
-    "radon==6.0.1",
-    "vulture==2.13",
-    "pydeps==1.12.20",
-    "cohesion==1.1.0",
-    "schemathesis==4.0.10",
+    "typer>=0.18",
+    "jsonschema>=4.26",
+    "bandit>=1.7",
+    "radon>=6.0",
+    "vulture>=2.13",
+    "pydeps>=1.12",
+    "cohesion>=1.1",
+    "schemathesis>=4.0",
 ]
 
 [project.urls]
