@@ -85,7 +85,8 @@ else
   step "Node dependencies (skipped — no package.json/package-lock.json yet)"
 fi
 
-# 3. Prefetch offline caches (Trivy DB, Semgrep rule packs in s3). Idempotent.
+# 3. Prefetch offline caches: copies the vendored Semgrep ruleset into the cache
+#    (ADR-0016) and reconciles any download-based artifacts. Idempotent.
 # prefetch_caches.py resolves cache_root() itself; running it from CACHE_CWD makes
 # the CWD-anchored default land where the consumers read.
 step "Prefetch offline caches"

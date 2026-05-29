@@ -2,11 +2,14 @@
 id: s0-t1-vendor-and-provision-ruleset
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-semgrep-rule-source
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-29
+closed: 2026-05-29
+verify: PASS — 17/17 tests; provisioning idempotent + cache_root-anchored; no drift from ADR-0016. Vendored rules validated via live semgrep (both planted defects fire).
+review: MINOR-ONLY — 3 Minor + 2 Nit, no Critical/Important. Applied in-place: warn on missing vendored source; corrected stale `_provision_semgrep_rules()` comment ref; documented flat-layout glob assumption. Nits (public/private naming, read-to-compare) dropped. Also updated the stale "Semgrep rule packs in s3" notes in prefetch_caches.py docstring + setup.sh:88 (ADR-0016-assigned to s0-t1).
 tags: [semgrep, setup, prefetch, rules]
 ---
 

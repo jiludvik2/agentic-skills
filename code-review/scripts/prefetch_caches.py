@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Prefetch offline caches the analyzers need at runtime.
 
-Stub for s1: the artifact map is empty. Real fetches (Trivy DB, Semgrep rule packs)
-land with the analyzers that need them in s3. The contract this establishes now:
+Two provisioning paths: (1) the vendored **semgrep ruleset** is copied from the
+skill bundle into the runtime cache by ``provision_semgrep_rules()`` (s0-t1 /
+ADR-0016) — not a download, so it is not manifest-tracked; (2) download-based
+artifacts (e.g. a pinned Trivy DB) are hash-addressed via ``_ARTIFACTS`` + the
+manifest below (still empty pending such a pin). The contract for path (2):
 
 - caches live under ``cache/`` within ``code_review.paths.cache_root()`` (s0-t6) —
   the same base the consumers (trivy/js_base) read from;
@@ -11,10 +14,10 @@ land with the analyzers that need them in s3. The contract this establishes now:
 - the script is idempotent — when the on-disk manifest already matches the desired
   artifact set, nothing is re-downloaded and the manifest is not rewritten.
 
-This lets s3 add an entry to ``_ARTIFACTS`` (id -> expected hash) and get idempotent
-download-on-change behaviour. s3 must verify the on-disk artifact bytes against the
-expected hash before skipping a fetch; manifest equality alone does not detect a
-truncated or corrupted cached file.
+This lets a future download-based artifact add an entry to ``_ARTIFACTS``
+(id -> expected hash) and get idempotent download-on-change behaviour. Such a
+fetch must verify the on-disk artifact bytes against the expected hash before
+skipping; manifest equality alone does not detect a truncated or corrupted file.
 """
 from __future__ import annotations
 
@@ -29,7 +32,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from code_review.paths import cache_root  # noqa: E402
 
-# artifact id -> expected content hash. Empty in s1; populated as analyzers land in s3.
+# artifact id -> expected content hash. Empty for now; populated as download-based
+# artifacts (e.g. a Trivy DB pin) land. The semgrep ruleset is vendored, not
+# downloaded, so it is provisioned by provision_semgrep_rules() rather than via
+# this manifest (s0-t1 / ADR-0016).
 _ARTIFACTS: dict[str, str] = {}
 
 
@@ -39,9 +45,50 @@ def prefetch_cache_dir() -> Path:
     return cache_root() / "cache"
 
 
+def _bundled_semgrep_rules() -> Path:
+    """The vendored semgrep ruleset committed in the skill bundle (ADR-0016).
+    Copied into ``cache_root()/cache/semgrep/rules`` so the semgrep adapter's
+    cache-anchored lookup finds it — the runtime cache is gitignored, the
+    vendored source is not."""
+    return (
+        Path(__file__).resolve().parent.parent
+        / ".claude" / "skills" / "code-review" / "semgrep-rules"
+    )
+
+
+def provision_semgrep_rules(cache_dir: Path) -> int:
+    """Copy the vendored ruleset into ``<cache_dir>/semgrep/rules`` idempotently.
+    Returns the number of files written (0 when already up to date). Rules are
+    expected in a flat layout (``*.yaml``/``*.yml`` directly under the bundle dir)."""
+    src = _bundled_semgrep_rules()
+    if not src.is_dir():
+        # A missing vendored ruleset is a packaging regression, not "up to date" —
+        # make it visible rather than silently provisioning nothing.
+        print(f"prefetch: WARNING vendored semgrep rules missing at {src}", file=sys.stderr)
+        return 0
+    dst = cache_dir / "semgrep" / "rules"
+    dst.mkdir(parents=True, exist_ok=True)
+    written = 0
+    for rule_file in sorted(src.glob("*.y*ml")):
+        target = dst / rule_file.name
+        content = rule_file.read_text(encoding="utf-8")
+        if not target.exists() or target.read_text(encoding="utf-8") != content:
+            target.write_text(content, encoding="utf-8")
+            written += 1
+    return written
+
+
 def main() -> int:
     cache_dir = prefetch_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # Vendored semgrep ruleset — reconciled on every run (idempotent copy),
+    # independent of the download manifest below so it self-heals even when the
+    # manifest is already up to date.
+    written = provision_semgrep_rules(cache_dir)
+    if written:
+        print(f"prefetch: provisioned {written} semgrep rule file(s)")
+
     manifest_path = cache_dir / "manifest.json"
 
     existing: dict[str, str] | None = None
