@@ -2,10 +2,13 @@
 id: s2-t5-skill-md-and-setup-script-fixes
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-packaging-hardening
 created: 2026-05-29
 updated: 2026-05-29
+closed: 2026-05-29
+verify: PASS (commit 039b2ed; 326 passed + 6 skipped + 8 deselected; ruff clean; mypy clean; 5 new tests)
+review: MINOR-ONLY (2 Minor + 1 Nit). Both Minors resolved in close commit: (a) setup.sh BUNDLE_DIR-empty degenerate branch now prints a clear "skill bundle not located" diagnostic and skips step 5's body, instead of emitting a phantom leading-slash path; (b) test_no_primary_module_invocations now scans every non-comment line in each fenced block (not just the leader), catching the `# comment` followed by `python -m code_review.cli` pattern that would otherwise slip through. Nit (developer-note paragraph could be split) dropped — single dense paragraph reads fine; splitting would be churn.
 ---
 
 # s2-t5 — SKILL.md binary invocation + `setup.sh` example-path fix

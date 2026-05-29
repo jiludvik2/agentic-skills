@@ -46,17 +46,22 @@ def test_invocation_block_leads_with_binary() -> None:
 
 
 def test_no_primary_module_invocations_in_examples() -> None:
-    """Every fenced code block's first non-blank line must NOT use the
-    `python -m code_review.cli` form. A later line in the same block is allowed
-    (e.g., a comment noting both forms exist), and prose paragraphs outside code
-    blocks are allowed."""
-    offenders: list[str] = []
-    for block in _code_blocks():
-        leader = _first_nonblank_line(block)
-        if leader.startswith("python -m code_review.cli"):
-            offenders.append(leader)
+    """Within every fenced code block, no NON-COMMENT line may use the
+    `python -m code_review.cli` form. A `#`-prefixed comment line mentioning
+    it is fine (some examples use comment headers like `# Quick security review`
+    above the invocation — those headers are not the invocation themselves).
+    Prose paragraphs outside code blocks are also allowed."""
+    offenders: list[tuple[int, str]] = []
+    for block_idx, block in enumerate(_code_blocks()):
+        for line in block.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            if "python -m code_review.cli" in stripped:
+                offenders.append((block_idx, stripped))
     assert not offenders, (
-        f"these fenced blocks still lead with the module form: {offenders}"
+        f"non-comment invocations using the module form remain in these blocks: "
+        f"{offenders}"
     )
 
 

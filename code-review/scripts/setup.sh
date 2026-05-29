@@ -92,6 +92,10 @@ fi
 #    and a one-line copy hint pointing at the host project root (or a generic
 #    hint if no .claude/ ancestor resolves).
 step "Starter config template"
+if [[ -z "${BUNDLE_DIR}" ]]; then
+  note "skill bundle not located (no SKILL.md under SKILL_ROOT or its .claude/skills/code-review/ subtree)"
+  note "skipping starter-config report — re-fetch the skill bundle if the layout is unexpected"
+else
 EXAMPLE_PATH="${BUNDLE_DIR}/code-review.toml.example"
 if [[ -f "${EXAMPLE_PATH}" ]]; then
   note "available: ${EXAMPLE_PATH}"
@@ -105,5 +109,6 @@ else
   note "missing: ${EXAMPLE_PATH}"
   note "the starter template is bundled with the skill; if missing, re-fetch the bundle."
 fi
+fi  # close BUNDLE_DIR-empty guard
 
 step "Done. The code-review skill is installed and ready."
