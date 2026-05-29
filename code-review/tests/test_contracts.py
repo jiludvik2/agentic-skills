@@ -4,7 +4,7 @@ import inspect
 import pytest
 
 
-def test_protocol_members_present():
+def test_protocol_members_present() -> None:
     import typing
 
     from code_review.contracts import Analyzer
@@ -19,7 +19,7 @@ def test_protocol_members_present():
     assert inspect.iscoroutinefunction(members["run"])
 
 
-def test_analyzer_output_is_frozen_dataclass():
+def test_analyzer_output_is_frozen_dataclass() -> None:
     from code_review.contracts import AnalyzerOutput
 
     assert dataclasses.is_dataclass(AnalyzerOutput)
@@ -28,7 +28,7 @@ def test_analyzer_output_is_frozen_dataclass():
         obj.status = "error"  # type: ignore[misc]
 
 
-def test_metric_set_fields():
+def test_metric_set_fields() -> None:
     from code_review.contracts import MetricSet
 
     ms = MetricSet(per_file={}, per_class={}, coupling={})
@@ -37,7 +37,7 @@ def test_metric_set_fields():
     assert ms.coupling == {}
 
 
-def test_review_request_target_paths_is_tuple():
+def test_review_request_target_paths_is_tuple() -> None:
     from code_review.contracts import ReviewRequest
 
     req = ReviewRequest(
@@ -50,7 +50,7 @@ def test_review_request_target_paths_is_tuple():
     assert isinstance(req.target_paths, tuple)
 
 
-def test_non_conforming_class_fails_protocol():
+def test_non_conforming_class_fails_protocol() -> None:
     from code_review.contracts import Analyzer
 
     class Bad:

@@ -65,7 +65,8 @@ def _consolidated_results(outputs: list[AnalyzerOutput], **kwargs: Any) -> list[
     runs = consolidated.get("runs", [])
     if not runs:
         return []
-    return runs[0].get("results", [])
+    results: list[dict[str, Any]] = runs[0].get("results", [])
+    return results
 
 
 # ---------------------------------------------------------------------------

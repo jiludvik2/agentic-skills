@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -49,7 +50,7 @@ def test_line_tolerance_override_affects_aggregate(tmp_path: Path) -> None:
     from code_review.aggregator import aggregate
     from code_review.contracts import AnalyzerOutput
 
-    def sarif(line: int, tool: str) -> dict:
+    def sarif(line: int, tool: str) -> dict[str, Any]:
         return {
             "version": "2.1.0",
             "runs": [{

@@ -599,6 +599,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
     { name = "types-jsonschema" },
+    { name = "types-pyyaml" },
     { name = "uvicorn" },
 ]
 
@@ -622,6 +623,7 @@ dev = [
     { name = "pytest-asyncio", specifier = "==0.25.0" },
     { name = "ruff", specifier = "==0.15.14" },
     { name = "types-jsonschema", specifier = "==4.23.0.20241208" },
+    { name = "types-pyyaml", specifier = "==6.0.12.20260518" },
     { name = "uvicorn", specifier = "==0.34.3" },
 ]
 
@@ -1269,6 +1271,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ad/e6/9e5cd771687086844caa43dbb211ec0d1cfa899d17c110f3220efcd46e83/types_jsonschema-4.23.0.20241208.tar.gz", hash = "sha256:e8b15ad01f290ecf6aea53f93fbdf7d4730e4600313e89e8a7f95622f7e87b7c", size = 14770, upload-time = "2024-12-08T03:02:21.995Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/91/64/4b2fba8b7cb0104ba013f2a1bf6f39a98e927e14befe1ef947d373b25218/types_jsonschema-4.23.0.20241208-py3-none-any.whl", hash = "sha256:87934bd9231c99d8eff94cacfc06ba668f7973577a9bd9e1f9de957c5737313e", size = 15021, upload-time = "2024-12-08T03:02:20.528Z" },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20260518"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/83/4a1afc3fbfcf5b8d46fc390cd95ed6b0dc9010a265f4e9f46314efffa37a/types_pyyaml-6.0.12.20260518.tar.gz", hash = "sha256:d917f83fb38462550338c1297faedd860b3ec83912b96b1e3d73255f7473e466", size = 17850, upload-time = "2026-05-18T06:01:58.675Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/06/a2/c01db32be2ae7d6a1689972f3c492b149ee4e164b12fdfd9f64b50888215/types_pyyaml-6.0.12.20260518-py3-none-any.whl", hash = "sha256:d2150f75a231c9fe9c7463bd29487d93e60bac90400287351384bc2284eba7cd", size = 20312, upload-time = "2026-05-18T06:01:57.368Z" },
 ]
 
 [[package]]

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
+from typing import Any
 
 PYPROJECT = Path(__file__).parent.parent / "pyproject.toml"
 
 
-def _project() -> dict:
-    return tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+def _project() -> dict[str, Any]:
+    project: dict[str, Any] = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))["project"]
+    return project
 
 
 def test_name_is_polyreview() -> None:

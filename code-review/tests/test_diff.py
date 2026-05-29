@@ -18,7 +18,7 @@ def _make_repo_with_two_commits(root: Path) -> None:
     _git(["commit", "-m", "add file_b"], root)
 
 
-async def test_resolve_diff_paths_returns_changed_files(tmp_path: Path):
+async def test_resolve_diff_paths_returns_changed_files(tmp_path: Path) -> None:
     from code_review.diff import resolve_diff_paths
 
     _make_repo_with_two_commits(tmp_path)
@@ -26,7 +26,7 @@ async def test_resolve_diff_paths_returns_changed_files(tmp_path: Path):
     assert result == ("file_b.py",)
 
 
-async def test_resolve_diff_paths_empty_range(tmp_path: Path):
+async def test_resolve_diff_paths_empty_range(tmp_path: Path) -> None:
     from code_review.diff import resolve_diff_paths
 
     _git(["init"], tmp_path)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import jsonschema
 
@@ -11,8 +12,9 @@ SCHEMA = REPO_ROOT / "code_review" / "schemas" / "capabilities.json"
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 
 
-def _load_caps() -> dict:
-    return json.loads(CAPS.read_text(encoding="utf-8"))
+def _load_caps() -> dict[str, Any]:
+    caps: dict[str, Any] = json.loads(CAPS.read_text(encoding="utf-8"))
+    return caps
 
 
 def test_capabilities_validates_against_schema() -> None:

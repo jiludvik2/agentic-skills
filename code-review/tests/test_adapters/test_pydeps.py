@@ -7,7 +7,7 @@ SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" /
 PACKAGE = Path(__file__).parent.parent.parent / "code_review"
 
 
-def test_pydeps_protocol_conformance():
+def test_pydeps_protocol_conformance() -> None:
     from code_review.adapters.pydeps import PydepsAdapter
     from code_review.contracts import Analyzer
 
@@ -15,7 +15,7 @@ def test_pydeps_protocol_conformance():
     assert PydepsAdapter.name == "pydeps"
 
 
-async def test_pydeps_empty_target_paths_returns_empty():
+async def test_pydeps_empty_target_paths_returns_empty() -> None:
     from code_review.adapters.pydeps import PydepsAdapter
     from code_review.contracts import ReviewRequest
 
@@ -27,7 +27,7 @@ async def test_pydeps_empty_target_paths_returns_empty():
     assert output.metrics.coupling == {}
 
 
-async def test_pydeps_produces_coupling_metrics():
+async def test_pydeps_produces_coupling_metrics() -> None:
     from code_review.adapters.pydeps import PydepsAdapter
     from code_review.contracts import ReviewRequest
 
@@ -43,7 +43,7 @@ async def test_pydeps_produces_coupling_metrics():
         assert "fan_in" in entry
 
 
-async def test_pydeps_sarif_schema_valid():
+async def test_pydeps_sarif_schema_valid() -> None:
     from code_review.adapters.pydeps import PydepsAdapter
     from code_review.contracts import ReviewRequest
 

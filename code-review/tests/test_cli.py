@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import subprocess
 import sys
@@ -16,28 +17,36 @@ from tests.conftest import FakeAnalyzer, FakeAnalyzer2, SlowFakeAnalyzer
 
 
 def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
+    # Pin a wide terminal width so Typer/Rich never wraps or truncates option
+    # names in --help output. Rich derives its width from the runner's terminal
+    # (80 cols with no TTY); at that width the long help-text column forces Rich
+    # into column reduction, which truncates option names like "--analyzer" ->
+    # "analyz…". The reduction lands differently across platforms, so the bare
+    # subprocess passed locally but failed in CI. A fixed wide width decouples
+    # these assertions from the environment.
     return subprocess.run(
         [sys.executable, "-m", "code_review.cli", *args],
         capture_output=True,
         text=True,
         cwd=cwd,
+        env={**os.environ, "COLUMNS": "200"},
     )
 
 
-def test_help_exits_zero():
+def test_help_exits_zero() -> None:
     result = _run("--help")
     assert result.returncode == 0
     assert "--analyzer" in result.stdout
     assert "--output" in result.stdout
 
 
-def test_capabilities_stub_exits_zero():
+def test_capabilities_stub_exits_zero() -> None:
     result = _run("--capabilities")
     assert result.returncode == 0
     json.loads(result.stdout)
 
 
-def test_output_tmp_rejected():
+def test_output_tmp_rejected() -> None:
     result = _run("--output", "/tmp/x.json")
     assert result.returncode != 0
     combined = result.stdout + result.stderr
@@ -45,7 +54,7 @@ def test_output_tmp_rejected():
     assert not Path("/tmp/x.json").exists()
 
 
-def test_output_home_rejected():
+def test_output_home_rejected() -> None:
     path = str(Path.home() / "review.json")
     result = _run("--output", path)
     assert result.returncode != 0
@@ -54,7 +63,7 @@ def test_output_home_rejected():
     assert not Path(path).exists()
 
 
-def test_output_etc_rejected():
+def test_output_etc_rejected() -> None:
     result = _run("--output", "/etc/review.json")
     assert result.returncode != 0
     combined = result.stdout + result.stderr
@@ -62,7 +71,7 @@ def test_output_etc_rejected():
     assert not Path("/etc/review.json").exists()
 
 
-def test_concurrent_execution_faster_than_sequential(monkeypatch: pytest.MonkeyPatch):
+def test_concurrent_execution_faster_than_sequential(monkeypatch: pytest.MonkeyPatch) -> None:
     class _Slow1(SlowFakeAnalyzer):
         name = "slow1"
         sleep_s = 0.2
@@ -83,7 +92,7 @@ def test_concurrent_execution_faster_than_sequential(monkeypatch: pytest.MonkeyP
     assert elapsed < 0.35, f"Elapsed {elapsed:.3f}s suggests sequential execution"
 
 
-def test_consolidated_output_shape(monkeypatch: pytest.MonkeyPatch):
+def test_consolidated_output_shape(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake2", FakeAnalyzer2)
 
@@ -96,7 +105,7 @@ def test_consolidated_output_shape(monkeypatch: pytest.MonkeyPatch):
     assert "fake2" in data["analyzers"]
 
 
-def test_diff_scope_excludes_unchanged_files(monkeypatch: pytest.MonkeyPatch):
+def test_diff_scope_excludes_unchanged_files(monkeypatch: pytest.MonkeyPatch) -> None:
     received_paths: list[tuple[str, ...]] = []
 
     class PathCapturingFake:

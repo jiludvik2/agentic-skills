@@ -76,6 +76,9 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
+files = ["code_review", "tests"]
+# Fixtures hold deliberately malformed code for analyzers to flag — do not type-check them.
+exclude = "^tests/fixtures/"
 
 [dependency-groups]
 dev = [
@@ -86,4 +89,5 @@ dev = [
     "types-jsonschema==4.23.0.20241208",
     "fastapi==0.136.3",
     "uvicorn==0.34.3",
+    "types-PyYAML==6.0.12.20260518",
 ]

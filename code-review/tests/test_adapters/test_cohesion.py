@@ -7,7 +7,7 @@ FIXTURE = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
 SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 
 
-def test_cohesion_protocol_conformance():
+def test_cohesion_protocol_conformance() -> None:
     from code_review.adapters.cohesion_ import CohesionAdapter
     from code_review.contracts import Analyzer
 
@@ -15,7 +15,7 @@ def test_cohesion_protocol_conformance():
     assert CohesionAdapter.name == "cohesion"
 
 
-async def test_cohesion_empty_target_paths():
+async def test_cohesion_empty_target_paths() -> None:
     from code_review.adapters.cohesion_ import CohesionAdapter
     from code_review.contracts import ReviewRequest
 
@@ -27,7 +27,7 @@ async def test_cohesion_empty_target_paths():
     assert output.metrics.per_class == {}
 
 
-async def test_cohesion_detects_low_cohesion_class():
+async def test_cohesion_detects_low_cohesion_class() -> None:
     from code_review.adapters.cohesion_ import CohesionAdapter
     from code_review.contracts import ReviewRequest
 
@@ -41,7 +41,7 @@ async def test_cohesion_detects_low_cohesion_class():
         f"Expected low-cohesion finding; got: {[r['ruleId'] for r in results]}"
 
 
-async def test_cohesion_populates_per_class_metrics():
+async def test_cohesion_populates_per_class_metrics() -> None:
     from code_review.adapters.cohesion_ import CohesionAdapter
     from code_review.contracts import ReviewRequest
 
@@ -56,7 +56,7 @@ async def test_cohesion_populates_per_class_metrics():
         assert "lineno" in entry
 
 
-async def test_cohesion_sarif_schema_valid():
+async def test_cohesion_sarif_schema_valid() -> None:
     from code_review.adapters.cohesion_ import CohesionAdapter
     from code_review.contracts import ReviewRequest
 

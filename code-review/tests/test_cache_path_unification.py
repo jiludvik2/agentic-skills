@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -14,7 +15,7 @@ from code_review.paths import cache_root, node_modules_dir, trivy_cache_dir
 _PREFETCH = Path(__file__).parent.parent / "scripts" / "prefetch_caches.py"
 
 
-def _load_prefetch():
+def _load_prefetch() -> ModuleType:
     spec = importlib.util.spec_from_file_location("prefetch_caches", _PREFETCH)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)

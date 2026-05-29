@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from code_review.severity import map_severity
@@ -32,7 +34,7 @@ def test_map_severity_table(level: str, props_sev: str | None, expected: str) ->
     assert map_severity(level, props_sev) == expected
 
 
-def _make_sarif_with_rule(level: str, rule_id: str) -> dict:
+def _make_sarif_with_rule(level: str, rule_id: str) -> dict[str, Any]:
     return {
         "version": "2.1.0",
         "runs": [{
@@ -76,7 +78,7 @@ def test_map_severity_unknown_strings_never_raise() -> None:
         ("", ""),
         ("ERROR", "CRITICAL"),
         ("Warning", None),
-        (None, None),  # type: ignore[arg-type]
+        (None, None),
         ("note", "UNKNOWN"),
         ("undefined", "medium"),
         ("debug", None),

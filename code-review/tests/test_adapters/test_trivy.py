@@ -9,7 +9,7 @@ import pytest
 SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 
 
-def test_trivy_protocol_conformance():
+def test_trivy_protocol_conformance() -> None:
     from code_review.adapters.trivy import TrivyAdapter
     from code_review.contracts import Analyzer
 
@@ -18,7 +18,7 @@ def test_trivy_protocol_conformance():
     assert TrivyAdapter.required_binary == "trivy"
 
 
-async def test_trivy_returns_error_when_cache_absent(tmp_path):
+async def test_trivy_returns_error_when_cache_absent(tmp_path: Path) -> None:
     from code_review.adapters.trivy import TrivyAdapter
     from code_review.contracts import ReviewRequest
 
@@ -34,7 +34,7 @@ async def test_trivy_returns_error_when_cache_absent(tmp_path):
     assert "setup.sh" in (output.error or "")
 
 
-async def test_trivy_parses_sarif_from_report_file(tmp_path):
+async def test_trivy_parses_sarif_from_report_file(tmp_path: Path) -> None:
     from code_review.adapters.base import SubprocessResult
     from code_review.adapters.trivy import TrivyAdapter
     from code_review.contracts import ReviewRequest
@@ -64,11 +64,12 @@ async def test_trivy_parses_sarif_from_report_file(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("trivy") is None, reason="trivy not installed")
-async def test_trivy_integration(tmp_path):
-    from code_review.adapters.trivy import TrivyAdapter, _trivy_cache_dir
+async def test_trivy_integration(tmp_path: Path) -> None:
+    from code_review.adapters.trivy import TrivyAdapter
     from code_review.contracts import ReviewRequest
+    from code_review.paths import trivy_cache_dir
 
-    if not _trivy_cache_dir().exists():
+    if not trivy_cache_dir().exists():
         pytest.skip("trivy DB not pre-fetched (run scripts/setup.sh)")
     clean_file = tmp_path / "main.py"
     clean_file.write_text("x = 1\n")

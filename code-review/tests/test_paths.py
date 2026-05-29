@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 
-def test_skill_paths_dirs_inside_root(tmp_path: Path):
+def test_skill_paths_dirs_inside_root(tmp_path: Path) -> None:
     from code_review.paths import SkillPaths
 
     paths = SkillPaths(skill_root=tmp_path)
@@ -11,7 +11,7 @@ def test_skill_paths_dirs_inside_root(tmp_path: Path):
     assert paths.cache_dir.is_relative_to(tmp_path)
 
 
-def test_cwd_guard_accepts_symlink_inside_cwd(tmp_path: Path):
+def test_cwd_guard_accepts_symlink_inside_cwd(tmp_path: Path) -> None:
     real_output = tmp_path / "real_output.json"
     real_output.touch()
     symlink = tmp_path / "link_output.json"

@@ -7,7 +7,7 @@ FIXTURE = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
 SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 
 
-def test_bandit_protocol_conformance():
+def test_bandit_protocol_conformance() -> None:
     from code_review.adapters.bandit import BanditAdapter
     from code_review.contracts import Analyzer
 
@@ -15,7 +15,7 @@ def test_bandit_protocol_conformance():
     assert BanditAdapter.name == "bandit"
 
 
-async def test_bandit_empty_target_paths_returns_empty_sarif():
+async def test_bandit_empty_target_paths_returns_empty_sarif() -> None:
     from code_review.adapters.bandit import BanditAdapter
     from code_review.contracts import ReviewRequest
 
@@ -26,7 +26,7 @@ async def test_bandit_empty_target_paths_returns_empty_sarif():
     assert output.sarif.get("runs") == []
 
 
-async def test_bandit_finds_subprocess_issue():
+async def test_bandit_finds_subprocess_issue() -> None:
     from code_review.adapters.bandit import BanditAdapter
     from code_review.contracts import ReviewRequest
 
@@ -41,7 +41,7 @@ async def test_bandit_finds_subprocess_issue():
         f"Expected subprocess-related finding; got: {rule_ids}"
 
 
-async def test_bandit_sarif_schema_valid():
+async def test_bandit_sarif_schema_valid() -> None:
     from code_review.adapters.bandit import BanditAdapter
     from code_review.contracts import ReviewRequest
 

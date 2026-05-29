@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Any
 
 
-def workflow_on_block(workflow: dict[str, Any]) -> dict[str, Any]:
+def workflow_on_block(workflow: dict[Any, Any]) -> dict[str, Any]:
     """Return the workflow's `on:` block as a mapping.
 
     PyYAML's YAML 1.1 safe-loader maps the bare key `on` to Python `True`

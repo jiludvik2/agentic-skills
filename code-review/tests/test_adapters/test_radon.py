@@ -1,14 +1,18 @@
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import jsonschema
+
+if TYPE_CHECKING:
+    from code_review.contracts import ReviewRequest
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
 SCHEMA_PATH = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 HIGH_CC_FILE = str(FIXTURE_PATH / "complex.py")
 
 
-def _make_request():
+def _make_request() -> "ReviewRequest":
     from code_review.contracts import ReviewRequest
 
     return ReviewRequest(
@@ -20,7 +24,7 @@ def _make_request():
     )
 
 
-def test_radon_protocol_conformance():
+def test_radon_protocol_conformance() -> None:
     from code_review.adapters.radon import RadonAdapter
     from code_review.contracts import Analyzer
 
@@ -28,7 +32,7 @@ def test_radon_protocol_conformance():
     assert RadonAdapter.name == "radon"
 
 
-async def test_radon_produces_metric_set():
+async def test_radon_produces_metric_set() -> None:
     from code_review.adapters.radon import RadonAdapter
 
     output = await RadonAdapter().run(_make_request())
@@ -37,7 +41,7 @@ async def test_radon_produces_metric_set():
     assert len(output.metrics.per_file) > 0
 
 
-async def test_radon_high_cc_function_detected():
+async def test_radon_high_cc_function_detected() -> None:
     from code_review.adapters.radon import RadonAdapter
 
     output = await RadonAdapter().run(_make_request())
@@ -74,7 +78,7 @@ async def test_radon_empty_target_paths_returns_empty_metricset() -> None:
     assert output.metrics.coupling == {}
 
 
-async def test_radon_sarif_is_valid():
+async def test_radon_sarif_is_valid() -> None:
     from code_review.adapters.radon import RadonAdapter
 
     output = await RadonAdapter().run(_make_request())

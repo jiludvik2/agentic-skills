@@ -9,7 +9,7 @@ import pytest
 SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 
 
-def test_gitleaks_protocol_conformance():
+def test_gitleaks_protocol_conformance() -> None:
     from code_review.adapters.gitleaks import GitleaksAdapter
     from code_review.contracts import Analyzer
 
@@ -18,7 +18,7 @@ def test_gitleaks_protocol_conformance():
     assert GitleaksAdapter.required_binary == "gitleaks"
 
 
-async def test_gitleaks_returns_error_when_subprocess_fails():
+async def test_gitleaks_returns_error_when_subprocess_fails() -> None:
     from code_review.adapters.base import SubprocessResult
     from code_review.adapters.gitleaks import GitleaksAdapter
     from code_review.contracts import ReviewRequest
@@ -33,7 +33,7 @@ async def test_gitleaks_returns_error_when_subprocess_fails():
     assert output.status == "error"
 
 
-async def test_gitleaks_parses_sarif_from_report_file(tmp_path):
+async def test_gitleaks_parses_sarif_from_report_file(tmp_path: Path) -> None:
     from code_review.adapters.base import SubprocessResult
     from code_review.adapters.gitleaks import GitleaksAdapter
     from code_review.contracts import ReviewRequest
@@ -60,7 +60,7 @@ async def test_gitleaks_parses_sarif_from_report_file(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("gitleaks") is None, reason="gitleaks not installed")
-async def test_gitleaks_integration_no_secrets(tmp_path):
+async def test_gitleaks_integration_no_secrets(tmp_path: Path) -> None:
     from code_review.adapters.gitleaks import GitleaksAdapter
     from code_review.contracts import ReviewRequest
 

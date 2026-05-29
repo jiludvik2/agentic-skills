@@ -12,7 +12,7 @@ SCHEMA_PATH = Path(__file__).parent.parent.parent / "code_review" / "schemas" / 
 RULES_PATH = Path(__file__).parent.parent / "fixtures" / "semgrep-rules"
 
 
-def test_semgrep_protocol_conformance():
+def test_semgrep_protocol_conformance() -> None:
     from code_review.adapters.semgrep import SemgrepAdapter
     from code_review.contracts import Analyzer
 
@@ -22,7 +22,7 @@ def test_semgrep_protocol_conformance():
 
 
 @pytest.mark.integration
-async def test_semgrep_produces_valid_sarif():
+async def test_semgrep_produces_valid_sarif() -> None:
     if shutil.which("semgrep") is None:
         pytest.skip("semgrep not on PATH")
 
@@ -48,7 +48,7 @@ async def test_semgrep_produces_valid_sarif():
     )
 
 
-async def test_semgrep_missing_binary_returns_error(monkeypatch: pytest.MonkeyPatch):
+async def test_semgrep_missing_binary_returns_error(monkeypatch: pytest.MonkeyPatch) -> None:
     from code_review.adapters.semgrep import SemgrepAdapter
     from code_review.contracts import ReviewRequest
 
@@ -70,7 +70,7 @@ async def test_semgrep_missing_binary_returns_error(monkeypatch: pytest.MonkeyPa
     assert output.error is not None and len(output.error) > 0
 
 
-async def test_base_subprocess_timeout(monkeypatch: pytest.MonkeyPatch):
+async def test_base_subprocess_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     from code_review.adapters.base import run_subprocess
 
     class _HangingProcess:

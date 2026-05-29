@@ -11,7 +11,7 @@ FIXTURE = Path(__file__).parent.parent / "fixtures" / "js-with-known-issues"
 SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 
 
-def test_eslint_protocol_conformance():
+def test_eslint_protocol_conformance() -> None:
     from code_review.adapters.eslint import EslintAdapter
     from code_review.contracts import Analyzer
 
@@ -20,7 +20,7 @@ def test_eslint_protocol_conformance():
     assert EslintAdapter.node_tool == "eslint"
 
 
-async def test_eslint_returns_error_when_binary_absent(tmp_path):
+async def test_eslint_returns_error_when_binary_absent(tmp_path: Path) -> None:
     from code_review.adapters.eslint import EslintAdapter
     from code_review.contracts import ReviewRequest
 
@@ -33,7 +33,7 @@ async def test_eslint_returns_error_when_binary_absent(tmp_path):
     assert "setup.sh" in (output.error or "")
 
 
-async def test_eslint_empty_target_paths():
+async def test_eslint_empty_target_paths() -> None:
     from code_review.adapters.eslint import EslintAdapter
     from code_review.contracts import ReviewRequest
 
@@ -44,7 +44,7 @@ async def test_eslint_empty_target_paths():
     assert output.status == "ok"
 
 
-async def test_eslint_parses_sarif_stdout():
+async def test_eslint_parses_sarif_stdout() -> None:
     from code_review.adapters.base import SubprocessResult
     from code_review.adapters.eslint import EslintAdapter
     from code_review.contracts import ReviewRequest
@@ -73,7 +73,7 @@ async def test_eslint_parses_sarif_stdout():
     node_binary("eslint") is None,
     reason="eslint not in node_modules (run scripts/setup.sh)",
 )
-async def test_eslint_integration_detects_console_log():
+async def test_eslint_integration_detects_console_log() -> None:
     from code_review.adapters.eslint import EslintAdapter
     from code_review.contracts import ReviewRequest
 

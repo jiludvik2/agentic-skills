@@ -9,7 +9,7 @@ from code_review.cli import app
 from tests.conftest import FakeAnalyzer
 
 
-def test_fake_adapter_no_subprocess(monkeypatch: pytest.MonkeyPatch):
+def test_fake_adapter_no_subprocess(monkeypatch: pytest.MonkeyPatch) -> None:
     called: list[bool] = []
 
     def _raise(*args: object, **kwargs: object) -> object:
@@ -28,7 +28,7 @@ def test_fake_adapter_no_subprocess(monkeypatch: pytest.MonkeyPatch):
     assert "fake" in data["analyzers"]
 
 
-def test_fake_adapter_end_to_end(monkeypatch: pytest.MonkeyPatch):
+def test_fake_adapter_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
 
     runner = CliRunner()
