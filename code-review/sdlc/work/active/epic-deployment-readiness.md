@@ -7,6 +7,7 @@ children:
   - s0-deployment-layout-fixup
   - s1-package-publication
   - s2-packaging-hardening
+  - s3-multi-agent-rename
 created: 2026-05-28
 updated: 2026-05-29
 tags: [deployment, packaging, release, pypi, importlib-resources]
@@ -55,7 +56,7 @@ Unlike `epic-reviewer-subagent`, this epic is not a hypothesis-test. The deliver
 
 0. **s0-deployment-layout-fixup** — Fix the layout / wheel / config-lookup issues that block any reasonable install. Prerequisite for s1.
 1. **s1-package-publication** — Publish to PyPI via GitHub Actions on tag-push; semver + manual bumps; TestPyPI for staging; release runbook.
-2. **s2-packaging-hardening** — Bring packaging to current PyPA best practice: LICENSE bundled in the wheel, runtime deps lower-bounded (ADR-0013), `__version__` single-sourced via `importlib.metadata`, three-job release workflow (build → test-dist → publish, OIDC scoped to publish, official PyPA action), push/PR CI workflow gating on pytest+ruff+mypy, SKILL.md leads with the installed `claude-code-review` binary, `setup.sh` BUNDLE_DIR fix.
+2. **s2-packaging-hardening** — Bring packaging to current PyPA best practice: LICENSE bundled in the wheel, runtime deps lower-bounded (ADR-0013), `__version__` single-sourced via `importlib.metadata`, three-job release workflow (build → test-dist → publish, OIDC scoped to publish, official PyPA action), push/PR CI workflow gating on pytest+ruff+mypy, SKILL.md leads with the installed `polyreview` binary (renamed from `claude-code-review` in s3 per ADR-0014), `setup.sh` BUNDLE_DIR fix.
 
 ## Future stories (anticipated but not yet planned)
 

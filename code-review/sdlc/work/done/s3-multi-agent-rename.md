@@ -2,12 +2,22 @@
 id: s3-multi-agent-rename
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-deployment-readiness
 sources: [multi-agent-research-2026-05-29, audit-claude-coupling-2026-05-29]
 children: [s3-t0-adr-0014-multi-agent-rename, s3-t1-rename-pypi-and-binary-and-docs, s3-t2-agents-md-and-claude-md-redirect]
 created: 2026-05-29
 updated: 2026-05-29
+notes: |
+  Closed 2026-05-29. Three tasks (t0 ADR-0014, t1 atomic rename, t2 AGENTS.md +
+  CLAUDE.md redirect); commits 7dba060, b15bbda, 215a2ab. Per-task Verify PASS +
+  Review MINOR-ONLY (all Minors resolved in-task). Story-level Review MINOR-ONLY:
+  (1) AGENTS.md ADR-0014 location pointer — resolved by moving ADR-0014 to
+  sdlc/docs/decisions/ at this close; (2) stale claude-code-review line in the
+  epic summary — fixed; epic children list updated to include s3. No
+  Critical/Important. Security gate (rule #26): no audit target defined — skipped.
+  Suite 343 passed, ruff+mypy clean. First PyPI release (under polyreview) and
+  the claude-code-review redirect meta-package remain operator-side follow-ups.
 tags: [naming, multi-agent, pypi, agents-md, copilot]
 ---
 
