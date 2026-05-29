@@ -64,7 +64,7 @@ markers = [
 target-version = "py311"
 line-length = 100
 # Fixtures hold deliberately bad code for analyzers to flag — do not lint them.
-extend-exclude = ["tests/fixtures"]
+extend-exclude = ["tests/fixtures", "sdlc/docs/qa/analyzer-coverage/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
