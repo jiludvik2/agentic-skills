@@ -107,23 +107,36 @@ def test_license_file_matches_repo_root_license() -> None:
     )
 
 
-def test_dependencies_use_lower_bound_only() -> None:
-    """s2-t1: PyPI distributed packages should not exact-pin transitive deps —
-    consumers can't resolve. Lower bound only; upper bounds need a written reason."""
+def test_runtime_dependencies_disallow_exact_pin() -> None:
+    """s2-t1 + ADR-0013: runtime deps in PyPI-published packages must not exact-pin.
+    Lower-bound-only (>=X.Y). Upper bounds are permitted iff the dep line in the raw
+    TOML carries an inline `#` comment justifying the cap."""
     deps = _project()["dependencies"]
     assert deps, "dependencies list must be non-empty"
     for spec in deps:
         assert ">=" in spec, f"dep must use >= lower bound; got {spec!r}"
         assert "==" not in spec, f"dep must not use == exact pin; got {spec!r}"
         assert "~=" not in spec, f"dep must not use ~= compatible release; got {spec!r}"
-        assert "<" not in spec, (
-            f"dep must not carry upper bound without justification; got {spec!r}"
+
+    raw = PYPROJECT.read_text(encoding="utf-8")
+    for spec in deps:
+        if "<" not in spec:
+            continue
+        line = next(
+            (ln for ln in raw.splitlines() if spec in ln),
+            None,
+        )
+        assert line is not None, (
+            f"could not locate raw TOML line for capped dep {spec!r}; cannot verify justification"
+        )
+        assert "#" in line, (
+            f"capped dep {spec!r} requires inline `#` justification on its TOML line; got: {line!r}"
         )
 
 
-def test_dependency_anchors_match_locked_minors() -> None:
-    """s2-t1: anchors are pinned to the minor of the currently-locked version,
-    not to the patch. Drift to a lower minor or to patch-level anchoring trips this."""
+def test_runtime_dependency_set_is_exactly() -> None:
+    """s2-t1 + ADR-0013: hardcoded full set. Drift to a lower minor, drift to patch-level
+    anchoring, or addition/removal of a dep without updating this test all trip the assertion."""
     expected = {
         "typer>=0.18",
         "jsonschema>=4.26",
@@ -132,8 +145,10 @@ def test_dependency_anchors_match_locked_minors() -> None:
         "vulture>=2.13",
         "pydeps>=1.12",
         "cohesion>=1.1",
-        "schemathesis>=4.0",
+        "schemathesis>=4.0,<5",
     }
     actual = set(_project()["dependencies"])
-    missing = expected - actual
-    assert not missing, f"missing dependency anchors: {sorted(missing)}; got {sorted(actual)}"
+    assert actual == expected, (
+        f"dependency set drifted; missing={sorted(expected - actual)}, "
+        f"unexpected={sorted(actual - expected)}"
+    )

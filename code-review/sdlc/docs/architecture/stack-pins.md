@@ -24,18 +24,20 @@ Status: harvested from the architecture's pin sections at first compile. No proj
 | Node | via `npm ci` | for JS/TS analyzers; binaries vendored into `node_modules/`, not fetched at runtime |
 | Build backend | hatchling | — |
 
-## Python dependencies (exact pins)
+## Python dependencies (runtime — spec floor + locked patch)
 
-| Package | Version | Role |
-|---|---|---|
-| typer | `0.18.0` | CLI |
-| jsonschema | `4.26.0` | schema validation |
-| bandit | `1.7.10` | security (adapter-internal import) |
-| radon | `6.0.1` | complexity metrics |
-| vulture | `2.13` | dead-code detection |
-| pydeps | `1.12.20` | coupling metrics |
-| cohesion | `1.1.0` | LCOM4 cohesion |
-| schemathesis | `4.0.10` | contract testing (full scope) |
+Per **ADR-0013** (partial supersede of ADR-0003): `pyproject.toml` declares a lower-bound-only spec floor (consumer-resolvable); `uv.lock` pins the exact version tested. Justified upper bounds carry an inline `#` comment.
+
+| Package | Spec floor (`pyproject.toml`) | Locked patch (`uv.lock`) | Role |
+|---|---|---|---|
+| typer | `>=0.18` | `0.18.0` | CLI |
+| jsonschema | `>=4.26` | `4.26.0` | schema validation |
+| bandit | `>=1.7` | `1.7.10` | security (adapter-internal import) |
+| radon | `>=6.0` | `6.0.1` | complexity metrics |
+| vulture | `>=2.13` | `2.13` | dead-code detection |
+| pydeps | `>=1.12` | `1.12.20` | coupling metrics |
+| cohesion | `>=1.1` | `1.1.0` | LCOM4 cohesion |
+| schemathesis | `>=4.0,<5` | `4.0.10` | contract testing (full scope). Upper bound: 3→4 was a breaking-change major; re-evaluate before allowing 5.x. |
 
 ## Python dev dependencies (exact pins)
 
@@ -103,4 +105,9 @@ Attempting `mkdir .claude/skills/code-review/<anything>` will fail with "Operati
 
 ## Pinning policy
 
-Exact pins (`==`). Version bumps are deliberate, reviewed events, not incidental. Rationale and governance context: **adr-0003**.
+Split per **ADR-0013**:
+
+- **Runtime deps** (`[project.dependencies]`): lower-bound only (`>=X.Y`), anchored at the currently-locked minor. Justified upper bounds permitted with inline `#` comment (schemathesis is the current example). Spec floor = "minimum compatible minor"; `uv.lock` carries the exact patch the project was tested against.
+- **Dev deps** (`[dependency-groups] dev`): exact pins (`==X.Y.Z`). Never shipped to consumers; reproducible CI matters more than transitive flexibility. ADR-0003 §1 applies unchanged here.
+
+Version bumps are deliberate, reviewed events — for runtime deps the substantive change is the `uv.lock` bump (with `stack-pins.md` reconciled in the same commit per SDLC rule #1b); for dev deps the change is both spec + lock together. Rationale: **adr-0003** (original governance intent), **adr-0013** (split for PyPI consumers).

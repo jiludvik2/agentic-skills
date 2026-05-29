@@ -14,7 +14,7 @@ tags: [dependencies, governance, supply-chain]
 
 ## Status
 
-Accepted. The two governance-risk mitigations agreed during tool-stack review.
+Accepted, with item 1 (exact version pinning) **partially superseded by ADR-0013** (2026-05-29) for runtime dependencies only. Dev dependencies, the pip-install fallback (item 2), ruff-via-CLI (item 3), and the no-uv-specific-features rule (item 4) remain in force unchanged. The governance intent ("version bumps are deliberate, reviewed events") still applies — for runtime deps it now attaches to `uv.lock` changes rather than `pyproject.toml` edits.
 
 ## Context
 

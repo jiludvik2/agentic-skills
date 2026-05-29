@@ -14,7 +14,9 @@ updated: 2026-05-29
 
 Every entry in `[project.dependencies]` switches from exact `==X.Y.Z` to a `>=X.Y` lower bound anchored at the currently-pinned minor. Consumers installing via `pip install claude-code-review` into a pre-existing environment can resolve transitive dependencies. Developer reproducibility is unchanged because `uv.lock` continues to pin exact versions, and `uv sync --frozen` enforces the lockfile.
 
-The lower bound is set at the **currently-pinned minor**, not the patch — this matches the PyPA guidance of "lower bound = minimum tested version, no upper bound absent evidence of incompatibility". Patches roll forward; we don't want to flag bandit 1.7.11 as out-of-range.
+The lower bound is set at the **currently-locked minor** — "minimum compatible minor", with `uv.lock` carrying the exact patch the project was actually tested against. This matches the PyPA guidance of "lower bound at the minimum supported minor; add upper bounds only when there's evidence of a specific incompatibility". Patches roll forward; we don't want to flag bandit 1.7.11 as out-of-range.
+
+ADR-0013 (filed in this same task's remediation pass) formalises this as a split policy: runtime deps lower-bounded for consumer resolution; dev deps stay exact-pinned for reproducible CI; ADR-0003's governance intent ("version bumps are deliberate, reviewed events") attaches to `uv.lock` + `stack-pins.md` for runtime, and to spec + lock together for dev.
 
 ## Acceptance criteria
 
@@ -28,7 +30,7 @@ The lower bound is set at the **currently-pinned minor**, not the patch — this
   - `vulture>=2.13`
   - `pydeps>=1.12`
   - `cohesion>=1.1`
-  - `schemathesis>=4.0`
+  - `schemathesis>=4.0,<5  # 3→4 was a breaking-change major; re-evaluate before allowing 5.x` (the one justified upper bound, per ADR-0013)
 - `uv sync --frozen` still installs exactly the locked versions in the developer venv (no change to runtime behaviour).
 - The full test suite continues to pass; `ruff check .` clean; `mypy code_review` clean.
 - The wheel METADATA carries the same `>=` specifiers (verified by the existing `test_pyproject_metadata.py` extension).

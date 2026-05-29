@@ -34,7 +34,7 @@ dependencies = [
     "vulture>=2.13",
     "pydeps>=1.12",
     "cohesion>=1.1",
-    "schemathesis>=4.0",
+    "schemathesis>=4.0,<5",  # 3→4 was a breaking-change major; re-evaluate before allowing 5.x
 ]
 
 [project.urls]
