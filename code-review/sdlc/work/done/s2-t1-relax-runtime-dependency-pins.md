@@ -2,10 +2,13 @@
 id: s2-t1-relax-runtime-dependency-pins
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-packaging-hardening
 created: 2026-05-29
 updated: 2026-05-29
+closed: 2026-05-29
+verify: PASS round-1 on 24550b2; PASS round-2 on 1d2249f (301 passed + 6 skipped + 8 deselected; ruff clean; mypy clean; uv.lock [[package]] blocks unchanged)
+review: round-1 on 24550b2 — 1 Critical (ADR-0003 contradiction) + 1 Important (unbounded schemathesis) + 2 Minor + 1 Nit; operator chose ADR-supersede path. round-2 on 1d2249f — MINOR-ONLY: 1 Minor (stale "runtime pin" phrasing in stack-pins.md security-floor allow-list) + 1 Nit (test_runtime_dependency_set_is_exactly awkward name). Both resolved in this close commit. ADR-0013 filed in /sdlc/work/active/ per ADR-0012 precedent; will move to /sdlc/docs/decisions/ at story close.
 ---
 
 # s2-t1 — Relax runtime dependency pins

@@ -55,9 +55,10 @@ clearing CVE-2025-54121, CVE-2025-62727, PYSEC-2026-161 introduced by the origin
 pin (→ `starlette 0.46.2`). See s4 close notes.
 
 **Known allow-listed advisory:** `pytest 8.3.4` / CVE-2025-71176 (fix 9.0.3) — un-actionable: the
-runtime pin `schemathesis==4.0.10` requires `pytest>=8,<9`, so pytest cannot reach 9.x without bumping
-schemathesis (a separate story). Test-only, never shipped at runtime. **Expiry: 2026-08-31** — revisit
-when schemathesis is next bumped; if still pinned, re-affirm or escalate.
+schemathesis pin in `uv.lock` (`4.0.10`, against spec floor `>=4.0,<5`) requires `pytest>=8,<9`, so
+pytest cannot reach 9.x without bumping schemathesis (a separate story). Test-only, never shipped at
+runtime. **Expiry: 2026-08-31** — revisit when schemathesis is next bumped; if still pinned, re-affirm
+or escalate.
 
 ## Subprocess-only tools (runtime prerequisites, NOT Python deps)
 

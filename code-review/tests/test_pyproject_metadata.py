@@ -134,7 +134,7 @@ def test_runtime_dependencies_disallow_exact_pin() -> None:
         )
 
 
-def test_runtime_dependency_set_is_exactly() -> None:
+def test_runtime_dependency_set_matches_expected() -> None:
     """s2-t1 + ADR-0013: hardcoded full set. Drift to a lower minor, drift to patch-level
     anchoring, or addition/removal of a dep without updating this test all trip the assertion."""
     expected = {
