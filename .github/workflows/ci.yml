@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'code-review/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'code-review/**'
+      - '.github/workflows/ci.yml'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests, lint, type-check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: code-review
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv (with cache)
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "code-review/uv.lock"
+
+      - name: Sync dependencies (lockfile-enforced)
+        run: uv sync --frozen
+
+      - name: Run pytest (fast tier)
+        run: uv run pytest -m "not slow and not integration"
+
+      - name: Run ruff
+        run: uv run ruff check .
+
+      - name: Run mypy (strict)
+        run: uv run mypy code_review
