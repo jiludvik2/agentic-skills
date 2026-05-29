@@ -1,8 +1,8 @@
 # State — last updated 2026-05-29
 
-**Active focus:** `epic-analyzer-ga-hardening` (active, **4 stories unplanned**) — pre-GA fixes for the 4 ship-blockers the analyzer-coverage QA test found. Filed on branch `ccglass-traffic-analysis` (uncommitted).
-**Last completed:** Analyzer-coverage smoke test (`sdlc/docs/qa/analyzer-coverage/`): all 13 analyzers exercised against synthetic code — **11/13 pass**, 2 broken + semgrep broken OOB. Findings in `FINDINGS.md`; compiled into the new epic.
-**Next:** execute the **s0 plan** (4 tasks: t0 ADR → t1 vendor/provision → t2 adapter fix → t3 e2e). Rule-provenance **decided: vendored-in-bundle** (operator, 2026-05-29). Ready to start s0-t0 on operator go. Then s1→s3. GA gated on this epic.
+**Active focus:** `epic-analyzer-ga-hardening` → **s0-semgrep-rule-source in progress** (s0-t0 done; s0-t1 next). On branch `ccglass-traffic-analysis`, committed through `09c6154`.
+**Last completed:** **s0-t0** (`09c6154`) — ADR-0016 semgrep rule provenance: vendored-in-bundle, `cache_root()` resolution, fail-loud on missing cache, CLI exposure of `semgrep_rules`. Verify PASS, Review MINOR-ONLY (findings applied). Baseline commit `2297081` carries the QA harness + epic + full s0 plan.
+**Next:** **s0-t1** — vendor the curated ruleset under `.claude/skills/code-review/semgrep-rules/` and have `prefetch_caches.py`/`setup.sh` copy it into `cache_root()/cache/semgrep/rules` (idempotent), TDD. Then t2 (adapter: cache_root resolution, drop `auto`+`--metrics off` and the `--x-` flag, wire `semgrep_rules` config) → t3 (e2e green + de-hack smoke harness + mark F3 resolved). Then s1→s3. **Paused at this clean task boundary for context** — resume with `/clear`.
 
 ## Open questions / follow-ups
 
