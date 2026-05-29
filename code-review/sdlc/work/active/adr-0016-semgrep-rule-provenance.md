@@ -36,8 +36,17 @@ problems compound:
 
 The adapter's local-rules path is otherwise correct: the analyzer-coverage smoke
 test confirms semgrep finds the planted `eval`/`shell=True` defects once a
-ruleset is present in the cache. The `--x-ignore-semgrepignore-files` flag is
-also not recognized by the installed semgrep (a non-fatal warning today).
+ruleset is present in the cache.
+
+> **s0-t2 correction (2026-05-29).** This ADR earlier stated the
+> `--x-ignore-semgrepignore-files` flag was "not recognized by the installed
+> semgrep (a non-fatal warning today)." That was empirically wrong: on the
+> pinned semgrep **1.161.0** the flag is recognized and **load-bearing** — it
+> disables semgrep's default `.semgrepignore` patterns (which exclude `tests/`).
+> Verified directly: scanning `tests/fixtures/python-with-known-issues` yields
+> the planted finding *with* the flag and **zero findings without it**. Per this
+> ADR's own scan-scope caveat (below), s0-t2 therefore **keeps** the flag rather
+> than dropping it; the semgrep pin is the version guard.
 
 ## Decision
 

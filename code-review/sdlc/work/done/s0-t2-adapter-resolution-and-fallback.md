@@ -2,12 +2,25 @@
 id: s0-t2-adapter-resolution-and-fallback
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-semgrep-rule-source
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-29
 tags: [semgrep, adapter, cache-root, fallback]
+notes: |
+  Review (MINOR-ONLY). Findings:
+  - [APPLIED] Minor: a non-existent `semgrep_rules` override silently fell
+    through to the cache; now fails loud naming the override path
+    (semgrep.py + test_semgrep_bad_override_fails_loudly_naming_override).
+  - [ACCEPTED] Minor: override branch uses `.exists()` (file or dir) while the
+    cache branch uses `.is_dir()`. Intentional — an override may legitimately be
+    a single rules file; the cache is always a directory. Documented in
+    code-review.toml.example.
+  - [ADDRESSED] Minor: override-precedence coverage — covered by
+    test_semgrep_override_takes_precedence_over_cache; missing-override now by
+    test_semgrep_bad_override_fails_loudly_naming_override.
+  - 2 Nit findings dropped (per SDLC).
 ---
 
 # s0-t2 — Adapter: cache_root resolution, loud fallback, drop unsupported flag
@@ -34,10 +47,14 @@ unsupported `--x-ignore-semgrepignore-files` flag. Implements s0-t0's decisions
   `scripts/setup.sh` — it does **not** emit `--config auto` together with
   `--metrics off`.
 
-### Scenario: no unsupported flags
+### Scenario: x-ignore-semgrepignore flag handled per ADR scan-scope caveat
 - **Given** the built command
-- **Then** it contains no `--x-ignore-semgrepignore-files` (removed, or guarded
-  to the semgrep versions that support it per the ADR).
+- **Then** the `--x-ignore-semgrepignore-files` flag is handled per the ADR's
+  scan-scope caveat. **Resolved: kept** — on the pinned semgrep 1.161.0 the flag
+  is load-bearing (without it, semgrep's default `.semgrepignore` excludes
+  `tests/` and findings there are silently lost; verified empirically). The pin
+  is the version guard. (The ADR's earlier "unsupported flag" framing was a
+  factual error, corrected in ADR-0016.)
 
 ### Scenario: explicit override still works (CLI-wired, if ADR #5 = yes)
 - **Given** `code-review.toml` setting a `semgrep_rules` path (or the existing
@@ -56,7 +73,8 @@ Write first, confirm red, then implement (extend `tests/test_adapters/test_semgr
    monkeypatch so no real semgrep runs; assert `status=error` and the message
    mentions setup.sh; assert the command (if built at all) never contains both
    `--config auto` and `--metrics off`.
-3. `test_semgrep_command_has_no_x_ignore_flag`: capture the constructed argv;
-   assert `--x-ignore-semgrepignore-files` is absent.
+3. `test_semgrep_keeps_x_ignore_flag`: capture the constructed argv; assert
+   `--x-ignore-semgrepignore-files` is **present** (load-bearing — see the
+   scenario above; the test pins the decision against a future tidy-up).
 4. (if ADR #5 = yes) `test_config_parses_semgrep_rules` + a CLI/`load_config`
    test asserting the value reaches `request.config["semgrep_rules"]`.

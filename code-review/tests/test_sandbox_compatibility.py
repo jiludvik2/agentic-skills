@@ -134,20 +134,28 @@ async def test_semgrep_no_temp_files_in_cwd(tmp_path: Path) -> None:
     def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
         return SubprocessResult(fake_sarif.encode(), b"", 0)
 
-    before = set(tmp_path.iterdir())
+    # A real rules dir so the adapter proceeds to run_subprocess (fail-loud
+    # otherwise, per ADR-0016); kept outside `before`/`after` by living in a
+    # sibling dir, not the CWD under inspection.
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+
+    before = set(cwd.iterdir())
     with (
         patch("code_review.adapters.semgrep.run_subprocess", side_effect=fake_run),
-        patch("os.getcwd", return_value=str(tmp_path)),
+        patch("os.getcwd", return_value=str(cwd)),
     ):
         request = ReviewRequest(
             scope="per-task",
             diff_range=None,
             target_paths=(".",),
             languages=frozenset({"python"}),
-            config={"semgrep_rules": "/nonexistent"},
+            config={"semgrep_rules": str(rules_dir)},
         )
         output = await SemgrepAdapter().run(request)
 
-    after = set(tmp_path.iterdir())
+    after = set(cwd.iterdir())
     assert before == after, f"Unexpected files in CWD: {after - before}"
     assert output.status == "ok"

@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock
 import jsonschema
 import pytest
 
+from code_review.adapters.base import SubprocessResult
+
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
 SCHEMA_PATH = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
 RULES_PATH = Path(__file__).parent.parent / "fixtures" / "semgrep-rules"
@@ -92,6 +94,182 @@ async def test_base_subprocess_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     result = await run_subprocess("semgrep", "--version", timeout_s=0.05)
 
     assert result.timed_out is True
+
+
+def _capture_run(
+    captured: list[tuple[object, ...]],
+    *,
+    stdout: bytes = b'{"runs": []}',
+    returncode: int = 0,
+) -> object:
+    """Build a run_subprocess stub that records its positional argv (the
+    semgrep command) and returns a canned SubprocessResult."""
+
+    async def _run(*args: object, **kwargs: object) -> SubprocessResult:
+        captured.append(args)
+        return SubprocessResult(stdout=stdout, stderr=b"", returncode=returncode)
+
+    return _run
+
+
+async def test_semgrep_rules_dir_honors_cache_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from code_review.adapters.semgrep import SemgrepAdapter
+    from code_review.contracts import ReviewRequest
+
+    rules = tmp_path / "cache" / "semgrep" / "rules"
+    rules.mkdir(parents=True)
+    monkeypatch.setenv("POLYREVIEW_CACHE_DIR", str(tmp_path))
+
+    captured: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        "code_review.adapters.semgrep.run_subprocess", _capture_run(captured)
+    )
+
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(".",),
+        languages=frozenset({"python"}),
+        config={},
+    )
+    await SemgrepAdapter().run(request)
+
+    assert captured, "run_subprocess was not called"
+    argv = captured[0]
+    assert "--config" in argv
+    config_arg = argv[argv.index("--config") + 1]
+    assert config_arg == str(rules), f"--config should point at cache dir; got {config_arg}"
+
+
+async def test_semgrep_missing_cache_returns_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from code_review.adapters.semgrep import SemgrepAdapter
+    from code_review.contracts import ReviewRequest
+
+    # Empty cache root: no provisioned rules and no override.
+    monkeypatch.setenv("POLYREVIEW_CACHE_DIR", str(tmp_path))
+
+    called: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        "code_review.adapters.semgrep.run_subprocess", _capture_run(called)
+    )
+
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(".",),
+        languages=frozenset({"python"}),
+        config={},
+    )
+    output = await SemgrepAdapter().run(request)
+
+    assert output.status == "error"
+    assert output.error is not None
+    assert "setup.sh" in output.error, f"error must name setup.sh; got: {output.error}"
+    # The broken `--config auto` + `--metrics off` combination must never run.
+    for argv in called:
+        assert not ("auto" in argv and "off" in argv), (
+            "must not emit --config auto together with --metrics off"
+        )
+
+
+async def test_semgrep_keeps_x_ignore_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # ADR-0016 scenario 3: the flag is NOT removed — it is load-bearing. Without
+    # it, semgrep's default .semgrepignore excludes tests/ and findings there are
+    # silently lost (verified empirically on the pinned semgrep 1.161.0). The ADR
+    # permits "guarded to the semgrep versions that support it"; the pin is the
+    # guard. This test pins the decision so a future "tidy-up" can't drop it
+    # without confronting the coverage regression.
+    from code_review.adapters.semgrep import SemgrepAdapter
+    from code_review.contracts import ReviewRequest
+
+    rules = tmp_path / "cache" / "semgrep" / "rules"
+    rules.mkdir(parents=True)
+    monkeypatch.setenv("POLYREVIEW_CACHE_DIR", str(tmp_path))
+
+    captured: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        "code_review.adapters.semgrep.run_subprocess", _capture_run(captured)
+    )
+
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(".",),
+        languages=frozenset({"python"}),
+        config={},
+    )
+    await SemgrepAdapter().run(request)
+
+    assert captured, "run_subprocess was not called"
+    assert "--x-ignore-semgrepignore-files" in captured[0]
+
+
+async def test_semgrep_override_takes_precedence_over_cache(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from code_review.adapters.semgrep import SemgrepAdapter
+    from code_review.contracts import ReviewRequest
+
+    cache_rules = tmp_path / "cache" / "semgrep" / "rules"
+    cache_rules.mkdir(parents=True)
+    override = tmp_path / "my-rules"
+    override.mkdir()
+    monkeypatch.setenv("POLYREVIEW_CACHE_DIR", str(tmp_path))
+
+    captured: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        "code_review.adapters.semgrep.run_subprocess", _capture_run(captured)
+    )
+
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(".",),
+        languages=frozenset({"python"}),
+        config={"semgrep_rules": str(override)},
+    )
+    await SemgrepAdapter().run(request)
+
+    argv = captured[0]
+    config_arg = argv[argv.index("--config") + 1]
+    assert config_arg == str(override), "override must win over the cache dir"
+
+
+async def test_semgrep_bad_override_fails_loudly_naming_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # A typo'd override must not silently fall back to a populated cache.
+    from code_review.adapters.semgrep import SemgrepAdapter
+    from code_review.contracts import ReviewRequest
+
+    cache_rules = tmp_path / "cache" / "semgrep" / "rules"
+    cache_rules.mkdir(parents=True)  # cache IS populated — must still error
+    monkeypatch.setenv("POLYREVIEW_CACHE_DIR", str(tmp_path))
+
+    called: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        "code_review.adapters.semgrep.run_subprocess", _capture_run(called)
+    )
+
+    bad = str(tmp_path / "does-not-exist")
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(".",),
+        languages=frozenset({"python"}),
+        config={"semgrep_rules": bad},
+    )
+    output = await SemgrepAdapter().run(request)
+
+    assert output.status == "error"
+    assert output.error is not None and bad in output.error
+    assert called == [], "must not run semgrep when the override path is missing"
 
 
 async def test_semgrep_empty_target_paths_returns_empty_sarif(

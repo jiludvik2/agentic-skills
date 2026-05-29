@@ -38,6 +38,7 @@ class Config:
     hotspot_weights: dict[str, float] = field(default_factory=_load_caps_weights)
     disabled_analyzers: list[str] = field(default_factory=list)
     contract_testing: dict[str, Any] = field(default_factory=dict)
+    semgrep_rules: str | None = None
 
 
 def load_config(config_path: Path | None) -> Config:
@@ -78,10 +79,14 @@ def load_config(config_path: Path | None) -> Config:
         raw.get("contract_testing", {}).get("targets", {})
     )
 
+    semgrep_rules_raw = raw.get("semgrep_rules")
+    semgrep_rules = str(semgrep_rules_raw) if semgrep_rules_raw is not None else None
+
     return Config(
         dedup_line_tolerance=dedup_tolerance,
         severity_overrides=severity_overrides,
         hotspot_weights=hotspot_weights,
         disabled_analyzers=disabled_analyzers,
         contract_testing=contract_testing,
+        semgrep_rules=semgrep_rules,
     )

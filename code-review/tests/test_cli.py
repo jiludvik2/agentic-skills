@@ -315,3 +315,35 @@ def test_cli_auto_selects_adapters_from_language(monkeypatch: pytest.MonkeyPatch
     data = json.loads(result.output)
     for name in expected_adapters:
         assert name in data["analyzers"], f"Expected {name} in analyzers"
+
+
+def test_semgrep_rules_from_toml_reaches_request_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """ADR-0016 #5: a `semgrep_rules` path in code-review.toml is threaded into
+    request.config so the adapter can read it."""
+    received: list[dict[str, object]] = []
+
+    class ConfigCapturingFake:
+        name = "fake"
+        kind = "deterministic"
+        default_timeout_s = 30
+        scope_restrictions: frozenset[str] = frozenset()
+
+        async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+            received.append(dict(request.config))
+            return AnalyzerOutput(sarif={})
+
+    monkeypatch.setitem(adapters_mod.REGISTRY, "fake", ConfigCapturingFake)
+    cfg = tmp_path / "code-review.toml"
+    cfg.write_text('semgrep_rules = "/rules/security.yaml"\n')
+
+    runner = CliRunner()
+    result = runner.invoke(
+        app,
+        ["--analyzer", "fake", "--target", str(tmp_path), "--config", str(cfg)],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert received and received[0].get("semgrep_rules") == "/rules/security.yaml"
