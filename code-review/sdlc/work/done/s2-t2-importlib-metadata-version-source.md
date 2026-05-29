@@ -2,10 +2,13 @@
 id: s2-t2-importlib-metadata-version-source
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-packaging-hardening
 created: 2026-05-29
 updated: 2026-05-29
+closed: 2026-05-29
+verify: PASS (commit a05183b; 304 passed + 6 skipped + 8 deselected; ruff clean; mypy clean)
+review: MINOR-ONLY (4 Minor + 1 Nit). Resolved in close commit: (a) regex broadened to match both quote styles; (b) `monkeypatch.setattr` + first `reload` moved inside `try` so `finally` always runs; (c) `_raise_missing` return type changed to `NoReturn`; (d) README `0.1.0` literal replaced with installed-version instructions. Reviewer's Minor #3 ("drop `monkeypatch.undo()`") was rejected on examination: pytest's auto-undo runs at fixture teardown (after the test returns), so the in-test `finally` reload would re-execute the module body while `version` still raises and cache the sentinel for downstream tests. Kept the manual `monkeypatch.undo()` with a clarifying comment explaining the order.
 ---
 
 # s2-t2 — Single-source `__version__` via `importlib.metadata`

@@ -4,7 +4,7 @@ Deterministic code-review skill: runs Semgrep, Radon, Bandit and friends across 
 
 ## Status
 
-Alpha — `0.1.0`. No API stability guarantees before `1.0`. Expect breaking changes to CLI flags, config schema, and SARIF property names.
+Alpha. No API stability guarantees before `1.0`. Expect breaking changes to CLI flags, config schema, and SARIF property names. The canonical version lives in `pyproject.toml`; check the installed version with `claude-code-review --version` once the flag lands or `python -c "import code_review; print(code_review.__version__)"`.
 
 ## Install
 
