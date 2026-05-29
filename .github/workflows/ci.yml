@@ -7,12 +7,17 @@ on:
     paths:
       - 'code-review/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/release.yml'
   pull_request:
     branches:
       - main
     paths:
       - 'code-review/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/release.yml'
+
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.ref }}

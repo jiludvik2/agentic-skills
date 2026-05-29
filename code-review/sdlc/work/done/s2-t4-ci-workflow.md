@@ -2,10 +2,15 @@
 id: s2-t4-ci-workflow
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-packaging-hardening
 created: 2026-05-29
 updated: 2026-05-29
+closed: 2026-05-29
+verify: PASS (commit 1cfcdcc; 321 passed + 6 skipped + 8 deselected; ruff clean; mypy clean; 8 new CI-workflow tests)
+review: MINOR-ONLY (3 Minor + 1 Nit). All resolved in close commit: (a) added explicit `permissions: contents: read` block at workflow level; test_no_elevated_permissions tightened to require the explicit block (not just "not elevated if present"); (b) added `.github/workflows/release.yml` to both CI path filters so a release.yml change runs CI tests against it before merge; (c) hoisted the YAML 1.1 `on:` quirk handler into `tests/_workflow_helpers.py::workflow_on_block()` and called it from both test_ci_workflow.py and test_release_workflow.py; (d) Nit on slow-test coverage chain: corrected the task spec wording — slow tests run locally + verifier/reviewer green-bar; the release workflow's test-dist runs an independent pip-install-then-capabilities smoke, NOT pytest -m slow.
+
+Note: the task spec note about slow tests was minor and the chain is correct as documented; only the wording needed adjustment.
 ---
 
 # s2-t4 — CI workflow on push / PR
@@ -48,7 +53,7 @@ The workflow uses `astral-sh/setup-uv@v5` with cache enabled, runs `uv sync --fr
 ## Notes
 
 - The CI workflow does NOT trigger on `push` to non-`main` branches — feature branches use PRs against `main` to surface CI checks. This is a deliberate choice and the operator's existing branch-protection settings are orthogonal.
-- pytest filter `-m "not slow and not integration"` matches the local + verifier convention; CI keeps the run under ~45s. The slow wheel-build tests don't run in CI; they are exercised by the release workflow's `test-dist` job.
+- pytest filter `-m "not slow and not integration"` matches the local + verifier convention; CI keeps the run under ~45s. The slow wheel-build tests don't run in CI: they're exercised by the local green-bar + the SDLC verifier/reviewer green-bar. (The release workflow's `test-dist` runs an independent pip-install-then-`--capabilities` smoke, NOT `pytest -m slow`.)
 - Path filter on the workflow file itself (`.github/workflows/ci.yml`) means edits to the CI definition trigger their own validation run — standard practice.
 - `defaults.run.working-directory: code-review` applies to `run:` steps but not `uses:` steps; this is the same pattern release.yml uses.
 - Cache key derivation: `setup-uv@v5` with `cache-dependency-glob` automatically invalidates the cache when `code-review/uv.lock` changes. No manual cache key needed.

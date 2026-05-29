@@ -8,6 +8,8 @@ from typing import Any
 import pytest
 import yaml
 
+from tests._workflow_helpers import workflow_on_block
+
 # release.yml lives at the monorepo root, one directory above code-review/.
 WORKFLOW_PATH = (
     Path(__file__).parent.parent.parent / ".github" / "workflows" / "release.yml"
@@ -121,9 +123,7 @@ def test_concurrency_block_preserved(workflow: dict[str, Any]) -> None:
 def test_tag_prefix_routing_preserved(workflow: dict[str, Any]) -> None:
     """The trigger glob must still include code-review-v* so sibling subprojects'
     tags don't fire this workflow."""
-    # PyYAML parses bare `on:` as boolean True (YAML 1.1 quirk). Try both keys.
-    on_block = workflow.get("on") or workflow.get(True)
-    assert isinstance(on_block, dict), f"`on` block must be a mapping; got {on_block!r}"
+    on_block = workflow_on_block(workflow)
     tags = on_block.get("push", {}).get("tags", [])
     assert "code-review-v*" in tags, (
         f"trigger tags must include 'code-review-v*'; got {tags!r}"

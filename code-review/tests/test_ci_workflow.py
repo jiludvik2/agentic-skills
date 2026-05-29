@@ -8,17 +8,11 @@ from typing import Any
 import pytest
 import yaml
 
+from tests._workflow_helpers import workflow_on_block
+
 WORKFLOW_PATH = (
     Path(__file__).parent.parent.parent / ".github" / "workflows" / "ci.yml"
 )
-
-
-def _on_block(workflow: dict[str, Any]) -> dict[str, Any]:
-    # PyYAML's YAML 1.1 loader maps the bare key `on` to Python True. The
-    # canonical GitHub Actions syntax is `on:`; both keys are accepted here.
-    block = workflow.get("on") or workflow.get(True)
-    assert isinstance(block, dict), f"`on` block must be a mapping; got {block!r}"
-    return block
 
 
 @pytest.fixture(scope="module")
@@ -34,7 +28,7 @@ def test_ci_workflow_exists() -> None:
 
 
 def test_triggers_are_push_main_and_pr_main(workflow: dict[str, Any]) -> None:
-    on = _on_block(workflow)
+    on = workflow_on_block(workflow)
     push = on.get("push", {})
     pr = on.get("pull_request", {})
     assert "main" in push.get("branches", []), (
@@ -46,15 +40,17 @@ def test_triggers_are_push_main_and_pr_main(workflow: dict[str, Any]) -> None:
 
 
 def test_path_filter_covers_code_review(workflow: dict[str, Any]) -> None:
-    on = _on_block(workflow)
+    on = workflow_on_block(workflow)
     for trigger_name in ("push", "pull_request"):
         paths = on.get(trigger_name, {}).get("paths", [])
-        assert "code-review/**" in paths, (
-            f"{trigger_name}.paths must include 'code-review/**'; got {paths!r}"
-        )
-        assert ".github/workflows/ci.yml" in paths, (
-            f"{trigger_name}.paths must include '.github/workflows/ci.yml'; got {paths!r}"
-        )
+        for required in (
+            "code-review/**",
+            ".github/workflows/ci.yml",
+            ".github/workflows/release.yml",
+        ):
+            assert required in paths, (
+                f"{trigger_name}.paths must include {required!r}; got {paths!r}"
+            )
 
 
 def test_single_test_job(workflow: dict[str, Any]) -> None:
@@ -65,16 +61,23 @@ def test_single_test_job(workflow: dict[str, Any]) -> None:
 
 
 def test_no_elevated_permissions(workflow: dict[str, Any]) -> None:
-    """CI is read-only — no OIDC, no write permissions on any contents."""
-    workflow_perms = workflow.get("permissions", {})
-    if isinstance(workflow_perms, dict):
-        assert "id-token" not in workflow_perms, (
-            "CI workflow must not declare id-token"
+    """CI is read-only. We require an EXPLICIT `permissions: contents: read`
+    block so we don't silently inherit the repository's default workflow
+    permissions, which can be read-write on legacy/personal repos."""
+    workflow_perms = workflow.get("permissions")
+    assert isinstance(workflow_perms, dict), (
+        f"workflow must declare an explicit permissions block; got {workflow_perms!r}"
+    )
+    assert workflow_perms.get("contents") == "read", (
+        f"workflow permissions must declare contents: read; got {workflow_perms!r}"
+    )
+    assert "id-token" not in workflow_perms, (
+        "CI workflow must not declare id-token"
+    )
+    for key, value in workflow_perms.items():
+        assert value in ("read", "none"), (
+            f"CI workflow permission {key!r}={value!r} elevates beyond read-only"
         )
-        for key, value in workflow_perms.items():
-            assert value in (None, "read", "none"), (
-                f"CI workflow permission {key!r}={value!r} elevates beyond read-only"
-            )
 
     for job_name, job in workflow.get("jobs", {}).items():
         perms = job.get("permissions", {})
