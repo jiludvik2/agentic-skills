@@ -2,12 +2,23 @@
 id: s1-t0-adr-node-range-and-js-pins
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-js-toolchain-manifest
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-29
 tags: [node, javascript, pins, adr, stack-pins]
+notes: |
+  Delivered ADR-0017 (co-located in work/active until epic close) + stack-pins.md
+  (Node row + Node/JS toolchain pin table). Verify PASS. Review MINOR-ONLY:
+  - [APPLIED] Minor: "depcruiser 16 breaks on Node >=22" was unverified — F1 only
+    shows the break on Node 24. Softened to "modern Node (seen on Node 24); lower
+    bound unconfirmed; s3 confirms" in both ADR and stack-pins.
+  - [APPLIED] Minor: clarified that npm caret `^N` is a deliberate major-bounded
+    floor (differs from Python's unbounded `>=`), so s1-t1 keeps `^9` not `>=9`.
+  - [FIXED] Nit: un-wrapped the skill-root code-path span that rendered broken.
+  - [DROPPED] Nit: ADR vs stack-pins locked-patch column phrasing differs
+    cosmetically; not worth churn.
 ---
 
 # s1-t0 — ADR: Node version range & JS toolchain pins

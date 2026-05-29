@@ -4,8 +4,8 @@ kind: architecture
 project: code-review
 sources: [architecture-reviewer-subagent.md]
 created: 2026-05-26
-updated: 2026-05-26
-verified-on: 2026-05-26
+updated: 2026-05-29
+verified-on: 2026-05-29
 tags: [pins, stack, security-floor]
 ---
 
@@ -21,7 +21,7 @@ Status: harvested from the architecture's pin sections at first compile. No proj
 |---|---|---|
 | Python | `>=3.11` | `requires-python` |
 | Package manager | uv (preferred) | `pip install -e .` fallback works (PEP 621); never depend on uv-only `pyproject` features — see adr-0003 |
-| Node | via `npm ci` | for JS/TS analyzers; binaries vendored into `node_modules/`, not fetched at runtime |
+| Node | **20 LTS + 22 LTS** (matrix) | per **ADR-0017**; for JS/TS analyzers; binaries vendored into `node_modules/`, not fetched at runtime; CI matrix-tests both majors (s1-t3) |
 | Build backend | hatchling | — |
 
 ## Python dependencies (runtime — spec floor + locked patch)
@@ -63,6 +63,18 @@ or escalate.
 ## Subprocess-only tools (runtime prerequisites, NOT Python deps)
 
 semgrep, gitleaks, trivy, eslint (+ sonarjs), dependency-cruiser, jscpd, knip. Installed by `scripts/setup.sh`; presence verified at runtime via `python -m code_review.cli --capabilities`. Invoked as separate processes (license isolation — see floor below). (Pact was listed here but dropped — ADR-0008.)
+
+## Node/JS toolchain (vendored via npm)
+
+Per **ADR-0017**. Manifest pins are major-version floors in `package.json` at the skill root; exact patches are locked in `package-lock.json` (mirroring the Python spec-floor/lock split, ADR-0013). The lockfile — not `capabilities.json` — is the source of truth for installed versions. Supported Node range: **20 LTS + 22 LTS** (see Runtime table). Not shipped in the wheel.
+
+| Package | Manifest pin | Locked patch | Role |
+|---|---|---|---|
+| eslint | `^9` | `package-lock.json` (s1-t1) | JS/TS linting |
+| @microsoft/eslint-formatter-sarif | `^3` | `package-lock.json` (s1-t1) | eslint → SARIF |
+| knip | `^5` | `package-lock.json` (s1-t1) | unused-export detection |
+| jscpd | `^4` | `package-lock.json` (s1-t1) | copy-paste detection |
+| dependency-cruiser | TBD (s3) | `package-lock.json` (s3) | coupling/cycles; v16 breaks on modern Node (F1, seen on Node 24) — s3 confirms a version working on both 20 and 22 |
 
 ## Tooling config pins
 
