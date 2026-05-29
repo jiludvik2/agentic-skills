@@ -2,10 +2,13 @@
 id: s2-t0-license-bundling
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-packaging-hardening
 created: 2026-05-29
 updated: 2026-05-29
+closed: 2026-05-29
+verify: PASS (commit b07bc82; 299 passed + 6 skipped + 8 deselected; 3/3 slow wheel tests; ruff clean; mypy 28 files clean)
+review: MINOR-ONLY (2 Minor + 1 Nit, all in tests/test_wheel_packaging.py — all three resolved in this close commit: extracted `_build_wheel` helper to remove triplicated `uv build` invocation; replaced `fnmatch.fnmatch(n, "*.dist-info/*LICENSE*")` with `n.endswith("LICENSE") and ".dist-info/" in n` for self-evident behaviour; the helper made `fnmatch` unused so the inline import was removed entirely)
 ---
 
 # s2-t0 — Bundle LICENSE in the wheel

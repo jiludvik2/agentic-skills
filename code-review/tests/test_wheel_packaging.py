@@ -21,22 +21,23 @@ _EXPECTED_IN_WHEEL = [
 ]
 
 
-@pytest.mark.slow
-def test_wheel_contains_bundled_json(tmp_path: Path) -> None:
+def _build_wheel(tmp_path: Path) -> Path:
     wheel_dir = tmp_path / "dist"
     wheel_dir.mkdir()
-
     subprocess.run(
         ["uv", "build", "--out-dir", str(wheel_dir)],
         cwd=REPO_ROOT,
         check=True,
         capture_output=True,
     )
-
     wheels = list(wheel_dir.glob("*.whl"))
     assert len(wheels) == 1, f"expected exactly one wheel, got {wheels}"
-    wheel_path = wheels[0]
+    return wheels[0]
 
+
+@pytest.mark.slow
+def test_wheel_contains_bundled_json(tmp_path: Path) -> None:
+    wheel_path = _build_wheel(tmp_path)
     with zipfile.ZipFile(wheel_path) as zf:
         names = zf.namelist()
     for expected in _EXPECTED_IN_WHEEL:
@@ -48,24 +49,16 @@ def test_wheel_contains_bundled_json(tmp_path: Path) -> None:
 @pytest.mark.slow
 def test_wheel_contains_license_file(tmp_path: Path) -> None:
     """s2-t0: the built wheel must carry the LICENSE inside its dist-info,
-    regardless of Hatchling's exact PEP 639 sub-path choice."""
-    import fnmatch
-
-    wheel_dir = tmp_path / "dist"
-    wheel_dir.mkdir()
-
-    subprocess.run(
-        ["uv", "build", "--out-dir", str(wheel_dir)],
-        cwd=REPO_ROOT,
-        check=True,
-        capture_output=True,
-    )
-
-    wheel_path = next(wheel_dir.glob("*.whl"))
+    regardless of Hatchling's exact PEP 639 sub-path (`dist-info/LICENSE` vs
+    `dist-info/licenses/LICENSE`)."""
+    wheel_path = _build_wheel(tmp_path)
     with zipfile.ZipFile(wheel_path) as zf:
         names = zf.namelist()
 
-    matches = [n for n in names if fnmatch.fnmatch(n, "*.dist-info/*LICENSE*")]
+    matches = [
+        n for n in names
+        if n.endswith("LICENSE") and ".dist-info/" in n
+    ]
     assert matches, (
         f"no LICENSE file in wheel dist-info; wheel contains: {sorted(names)}"
     )
@@ -73,17 +66,7 @@ def test_wheel_contains_license_file(tmp_path: Path) -> None:
 
 @pytest.mark.slow
 def test_wheel_installed_capabilities_accessible(tmp_path: Path) -> None:
-    wheel_dir = tmp_path / "dist"
-    wheel_dir.mkdir()
-
-    subprocess.run(
-        ["uv", "build", "--out-dir", str(wheel_dir)],
-        cwd=REPO_ROOT,
-        check=True,
-        capture_output=True,
-    )
-
-    wheel_path = next(wheel_dir.glob("*.whl"))
+    wheel_path = _build_wheel(tmp_path)
     venv_dir = tmp_path / "venv"
 
     subprocess.run(
