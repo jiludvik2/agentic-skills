@@ -6,7 +6,7 @@ Deterministic code-review skill: runs Semgrep, Radon, Bandit and friends across 
 
 Alpha. No API stability guarantees before `1.0`. Expect breaking changes to CLI flags, config schema, and SARIF property names. The canonical version lives in `pyproject.toml`; check the installed version with `polyreview --version` once the flag lands or `python -c "import code_review; print(code_review.__version__)"`.
 
-**Renamed from `claude-code-review`.** Early development used the working name `claude-code-review`; the distribution is published to PyPI as **`polyreview`** (it was renamed before its first release, so there is no `claude-code-review` package to migrate from). The rename drops the vendor prefix because the tool is agent-agnostic — its Agent Skill bundle is read by GitHub Copilot, Cursor, Codex, and other agents, not just Claude — and `polyreview` reads as a multi-language, multi-tool reviewer rather than an Anthropic-only one. The Python import name stays `code_review`.
+**Renamed from `claude-code-review`.** Early development used the working name `claude-code-review`; the PyPI distribution is **`polyreview`** (it was renamed before its first release, so there is no `claude-code-review` package to migrate from). The rename drops the vendor prefix because the tool is agent-agnostic — its Agent Skill bundle is read by GitHub Copilot, Cursor, Codex, and other agents, not just Claude — and `polyreview` reads as a multi-language, multi-tool reviewer rather than an Anthropic-only one. The Python import name stays `code_review`.
 
 ## Install
 
@@ -17,6 +17,8 @@ uv tool install polyreview
 ```
 
 The PyPI distribution and console-script binary are both `polyreview`; the Python import name stays `code_review` (PEP-423 allows the distribution name to differ from the import name).
+
+> **Pre-release.** The first GA release to PyPI is pending. A release candidate (`0.1.0rc1`) is published to TestPyPI for staging; see `sdlc/docs/runbooks/release.md`. The `pip install` commands above work once the GA release lands.
 
 ## Quick start
 

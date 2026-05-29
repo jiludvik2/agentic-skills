@@ -2,7 +2,7 @@
 id: epic-deployment-readiness
 kind: epic
 project: code-review
-status: active
+status: done
 children:
   - s0-deployment-layout-fixup
   - s1-package-publication
@@ -57,6 +57,7 @@ Unlike `epic-reviewer-subagent`, this epic is not a hypothesis-test. The deliver
 0. **s0-deployment-layout-fixup** — Fix the layout / wheel / config-lookup issues that block any reasonable install. Prerequisite for s1.
 1. **s1-package-publication** — Publish to PyPI via GitHub Actions on tag-push; semver + manual bumps; TestPyPI for staging; release runbook.
 2. **s2-packaging-hardening** — Bring packaging to current PyPA best practice: LICENSE bundled in the wheel, runtime deps lower-bounded (ADR-0013), `__version__` single-sourced via `importlib.metadata`, three-job release workflow (build → test-dist → publish, OIDC scoped to publish, official PyPA action), push/PR CI workflow gating on pytest+ruff+mypy, SKILL.md leads with the installed `polyreview` binary (renamed from `claude-code-review` in s3 per ADR-0014), `setup.sh` BUNDLE_DIR fix.
+3. **s3-multi-agent-rename** — Rename the PyPI distribution + console binary `claude-code-review` → `polyreview` (ADR-0014); add `AGENTS.md` as the canonical cross-agent policy + shrink `CLAUDE.md` to a redirect. Import name `code_review`, skill bundle path, and `code-review-v*` tag prefix kept. (Also folded in: `s0-t6-cache-path-unification` — single cache-path resolver, ADR-0015.)
 
 ## Future stories (anticipated but not yet planned)
 
@@ -64,4 +65,10 @@ Unlike `epic-reviewer-subagent`, this epic is not a hypothesis-test. The deliver
 - 1.0 graduation: stability guarantee for `--review` / `--depth` flags + `capabilities.json` schema; deprecation policy for analyzer removals.
 - Optional second registry (e.g., GitHub Releases asset attachment) for users who prefer not to depend on PyPI.
 
-The epic stays open as a stable home for those.
+Those will be planned as a new epic when picked up; this one is closed.
+
+## Epic close (2026-05-29)
+
+All four stories (s0–s3) closed; `s0-t6-cache-path-unification` folded into the s3 cycle. Deployment readiness achieved: the package installs cleanly across the three layouts, publishes via OIDC Trusted Publishers on tag-push, is hardened to current PyPA practice, and is renamed `polyreview` for multi-agent distribution. **First release validated end-to-end**: `polyreview 0.1.0rc1` built, wheel-smoke-tested, and published to **TestPyPI** by the three-job `release.yml` (run 26645884515, all jobs green; PyPI step correctly skipped for the `-rc` tag). README reconciled (document verb); 351 tests green, ruff + mypy clean.
+
+**Operator-side follow-ups (out of epic):** cut the GA `code-review-v0.1.0` tag for the first real PyPI publish; publish the `claude-code-review` redirect meta-package once `polyreview` is live (ADR-0014).
