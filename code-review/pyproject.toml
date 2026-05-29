@@ -3,7 +3,7 @@ name = "claude-code-review"
 version = "0.1.0"
 requires-python = ">=3.11"
 description = "AI-native code review skill — deterministic analyzer layer"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 readme = "README.md"
 authors = [{ name = "Jiri Ludvik" }]
 keywords = [

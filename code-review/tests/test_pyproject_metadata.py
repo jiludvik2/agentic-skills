@@ -85,3 +85,23 @@ def test_console_script_is_claude_code_review() -> None:
     assert scripts == {"claude-code-review": "code_review.cli:app"}, (
         f"expected exactly the renamed console script; got {scripts}"
     )
+
+
+def test_license_is_file_reference() -> None:
+    """s2-t0: PyPI/PEP 639 expectation — license declares a file, not inline text.
+    Inline `text = "MIT"` does not result in LICENSE shipping inside the wheel."""
+    assert _project()["license"] == {"file": "LICENSE"}, (
+        f"license must be file-based; got {_project()['license']}"
+    )
+
+
+def test_license_file_matches_repo_root_license() -> None:
+    """s2-t0: code-review/LICENSE must be byte-identical to agentic-skills/LICENSE
+    so the two never drift independently."""
+    pkg_license = PYPROJECT.parent / "LICENSE"
+    repo_license = PYPROJECT.parent.parent / "LICENSE"
+    assert pkg_license.exists(), f"code-review/LICENSE missing at {pkg_license}"
+    assert repo_license.exists(), f"agentic-skills/LICENSE missing at {repo_license}"
+    assert pkg_license.read_bytes() == repo_license.read_bytes(), (
+        "code-review/LICENSE drifted from agentic-skills/LICENSE"
+    )

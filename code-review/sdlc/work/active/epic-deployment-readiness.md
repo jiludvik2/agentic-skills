@@ -6,8 +6,9 @@ status: active
 children:
   - s0-deployment-layout-fixup
   - s1-package-publication
+  - s2-packaging-hardening
 created: 2026-05-28
-updated: 2026-05-28
+updated: 2026-05-29
 tags: [deployment, packaging, release, pypi, importlib-resources]
 ---
 

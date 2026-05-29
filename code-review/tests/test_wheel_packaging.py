@@ -46,6 +46,32 @@ def test_wheel_contains_bundled_json(tmp_path: Path) -> None:
 
 
 @pytest.mark.slow
+def test_wheel_contains_license_file(tmp_path: Path) -> None:
+    """s2-t0: the built wheel must carry the LICENSE inside its dist-info,
+    regardless of Hatchling's exact PEP 639 sub-path choice."""
+    import fnmatch
+
+    wheel_dir = tmp_path / "dist"
+    wheel_dir.mkdir()
+
+    subprocess.run(
+        ["uv", "build", "--out-dir", str(wheel_dir)],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+    )
+
+    wheel_path = next(wheel_dir.glob("*.whl"))
+    with zipfile.ZipFile(wheel_path) as zf:
+        names = zf.namelist()
+
+    matches = [n for n in names if fnmatch.fnmatch(n, "*.dist-info/*LICENSE*")]
+    assert matches, (
+        f"no LICENSE file in wheel dist-info; wheel contains: {sorted(names)}"
+    )
+
+
+@pytest.mark.slow
 def test_wheel_installed_capabilities_accessible(tmp_path: Path) -> None:
     wheel_dir = tmp_path / "dist"
     wheel_dir.mkdir()
