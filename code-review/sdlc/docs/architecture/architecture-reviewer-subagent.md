@@ -629,7 +629,7 @@ testpaths = ["tests"]
 
 The two mitigations agreed during tool-stack review:
 
-- **Tool versions pinned exactly** — protects us against the Astral/OpenAI governance situation. The current code keeps working regardless of what happens upstream. Version bumps are deliberate, reviewed events.
+- **Tool versions are deliberately governed** per **ADR-0003** (original exact-pin policy) and **ADR-0013** (2026-05-29 partial supersede). Post-ADR-0013 the split is: runtime deps in `[project.dependencies]` carry lower-bound `>=` specifiers anchored at the currently-locked minor (consumer-resolution friendly); `uv.lock` continues to pin exact patches (developer reproducibility, "deliberate, reviewed bump" governance attaches here); dev deps in `[dependency-groups] dev` stay exact-pinned. The justification — protecting against upstream governance churn like the Astral/OpenAI situation — is unchanged; only the *layer* at which exactness is enforced moves for runtime deps. See `stack-pins.md` §"Pinning policy" for the canonical phrasing.
 - **Pip-install fallback works** — `pyproject.toml` follows PEP 621 conventions. Anyone can `pip install -e .` (with Python ≥3.11) and have a working environment. uv is preferred but not required.
 
 Two operational consequences:

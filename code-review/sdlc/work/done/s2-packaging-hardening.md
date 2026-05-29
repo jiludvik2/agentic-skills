@@ -2,12 +2,14 @@
 id: s2-packaging-hardening
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-deployment-readiness
 sources: [packaging-research-2026-05-29]
 created: 2026-05-29
 updated: 2026-05-29
-tags: [packaging, dependencies, ci, importlib-metadata, release-workflow, skill-bundle]
+closed: 2026-05-29
+verify: all 6 tasks PASS (s2-t0 b07bc82, s2-t1 24550b2+1d2249f, s2-t2 a05183b, s2-t3 c573495, s2-t4 1cfcdcc, s2-t5 039b2ed)
+review: 5 of 6 tasks MINOR-ONLY round-1 (all resolved in respective close commits); s2-t1 round-1 Critical (ADR-0003 contradiction) + Important (unbounded schemathesis) remediated via s2-t1-fix1 → round-2 MINOR-ONLY. Story-level review on `42045ba..24bc6e8` returned MINOR-ONLY (6 Minor + 1 Nit) — all 17 ACs met. Six story-level Minors resolved in this close commit: architecture doc §10.2 cites ADR-0013 split; epic out-of-scope line replaced with split-policy phrasing; epic Stories list gains s2 entry; SKILL.md stale "not yet published" parenthetical replaced; ADR-0013 moved from active/ to docs/decisions/; story file moved to done/. The Nit (README "once the flag lands" phrasing) and the verified-on: null on release runbook were dropped — both intentional and self-documenting.
 ---
 
 # s2 — Packaging Hardening

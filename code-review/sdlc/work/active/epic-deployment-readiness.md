@@ -46,7 +46,7 @@ Unlike `epic-reviewer-subagent`, this epic is not a hypothesis-test. The deliver
 
 - API stability guarantees — the package stays at `0.x.y` (alpha) for this epic; semver-strict promises wait for 1.0.
 - Conda / Homebrew / system-package-manager distribution.
-- Wildcards on package selection: every analyzer pinning policy is unchanged (exact versions per ADR-0003).
+- Wildcards on package selection: runtime-dep pinning policy per ADR-0013 (lower-bound only, anchored at locked minor); dev-dep policy per ADR-0003 §1 (exact pins, unchanged).
 - Supply-chain audit automation — rule #26 remains N/A for this project; a future ADR could formalise an audit gate.
 - Multi-architecture wheel builds (`code-review` is pure Python; one wheel covers all platforms).
 - Telemetry on installs / downloads.
@@ -55,6 +55,7 @@ Unlike `epic-reviewer-subagent`, this epic is not a hypothesis-test. The deliver
 
 0. **s0-deployment-layout-fixup** — Fix the layout / wheel / config-lookup issues that block any reasonable install. Prerequisite for s1.
 1. **s1-package-publication** — Publish to PyPI via GitHub Actions on tag-push; semver + manual bumps; TestPyPI for staging; release runbook.
+2. **s2-packaging-hardening** — Bring packaging to current PyPA best practice: LICENSE bundled in the wheel, runtime deps lower-bounded (ADR-0013), `__version__` single-sourced via `importlib.metadata`, three-job release workflow (build → test-dist → publish, OIDC scoped to publish, official PyPA action), push/PR CI workflow gating on pytest+ruff+mypy, SKILL.md leads with the installed `claude-code-review` binary, `setup.sh` BUNDLE_DIR fix.
 
 ## Future stories (anticipated but not yet planned)
 

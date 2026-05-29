@@ -108,7 +108,7 @@ The skill supports three on-disk shapes. The `code_review` Python package resolv
 
 1. **Dev sibling layout** (repo-as-skill, what this repo is): `<repo>/code_review/` (the package) lives next to `<repo>/.claude/skills/code-review/` (the skill bundle). Used when developing the skill itself.
 2. **Production nested layout**: `<host>/.claude/skills/code-review/code_review/` — the package is nested inside the skill directory. Used when copying the skill bundle into a host project as-is.
-3. **Wheel-installed layout** (verified by `tests/test_wheel_packaging.py`; not yet published to PyPI — see story `s1-package-publication`): `code_review/` lives under `site-packages/` (installed via `pip install claude-code-review`); the host's `<host>/.claude/skills/code-review/` carries only this `SKILL.md` and (optionally) a `code-review.toml`. Used in production deployments where the skill is installed from PyPI.
+3. **Wheel-installed layout** (verified by `tests/test_wheel_packaging.py`; installable via `pip install claude-code-review` / `pipx install claude-code-review` / `uv tool install claude-code-review` per the project README): `code_review/` lives under `site-packages/` (or under an isolated tool venv for `pipx` / `uv tool`); the host's `<host>/.claude/skills/code-review/` carries only this `SKILL.md` and (optionally) a `code-review.toml`. Used in production deployments where the skill is installed from PyPI.
 
 `code-review.toml` is always looked up CWD-relative — `<cwd>/code-review.toml` by default, or whatever `--config <path>` names. Run the CLI from the host project root.
 
