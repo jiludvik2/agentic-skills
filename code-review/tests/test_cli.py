@@ -15,15 +15,21 @@ from code_review.cli import app
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 from tests.conftest import FakeAnalyzer, FakeAnalyzer2, SlowFakeAnalyzer
 
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
+
 
 def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
-    # Pin a wide terminal width so Typer/Rich never wraps or truncates option
-    # names in --help output. Rich derives its width from the runner's terminal
-    # (80 cols with no TTY); at that width the long help-text column forces Rich
-    # into column reduction, which truncates option names like "--analyzer" ->
-    # "analyz…". The reduction lands differently across platforms, so the bare
-    # subprocess passed locally but failed in CI. A fixed wide width decouples
-    # these assertions from the environment.
+    # COLUMNS=200 guards against the secondary failure mode where a narrow
+    # terminal (Rich defaults to 80 cols with no TTY) truncates option names
+    # like "--analyzer" -> "analyz…". Note this alone is NOT enough: in a
+    # color-enabled environment Rich styles each option's two leading dashes as
+    # separate ANSI spans ("-\x1b[...]-analyzer"), so the literal "--analyzer"
+    # is absent from the raw bytes regardless of width. Callers that assert on
+    # help text must run it through _strip_ansi() first (see test_help_exits_zero).
     return subprocess.run(
         [sys.executable, "-m", "code_review.cli", *args],
         capture_output=True,
@@ -36,8 +42,9 @@ def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str
 def test_help_exits_zero() -> None:
     result = _run("--help")
     assert result.returncode == 0
-    assert "--analyzer" in result.stdout
-    assert "--output" in result.stdout
+    help_text = _strip_ansi(result.stdout)
+    assert "--analyzer" in help_text
+    assert "--output" in help_text
 
 
 def test_capabilities_stub_exits_zero() -> None:
