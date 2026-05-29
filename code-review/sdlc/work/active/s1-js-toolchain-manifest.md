@@ -4,6 +4,7 @@ kind: story
 project: code-review
 status: active
 parent: epic-analyzer-ga-hardening
+children: [s1-t0-adr-node-range-and-js-pins, s1-t1-package-manifest-and-lockfile, s1-t2-version-drift-and-eslint-formatter, s1-t3-ci-node-integration-and-xfail-gating]
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-29
@@ -80,3 +81,24 @@ for **s3** (the dependency-cruiser pin lands in this lockfile).
   layout is the right mechanism (the smoke harness uses `NODE_PATH` as a stopgap).
 - Decide whether the lockfile lives at the skill root or the package root, and
   how it interacts with the wheel (Node tooling is not shipped in the wheel).
+
+## Plan (2026-05-29; operator-approved decisions: Node 20+22 matrix, xfail-gate)
+
+1. **s1-t0 — ADR-0017 + stack-pins: Node range & JS pins.** Records supported
+   Node range (20 LTS + 22 LTS, matrix-tested), the five npm pins working across
+   both, lockfile location (skill root), wheel-exclusion. Hard-stop runtime
+   decision; operator approves the ADR. Foundational for t1.
+2. **s1-t1 — package.json + lockfile; setup.sh vendors.** Commit the manifest +
+   lockfile; `setup.sh`'s existing `npm ci` branch then populates
+   `node_modules`; the four Node analyzers probe `available`. (Story scenarios
+   1 & 2.)
+3. **s1-t2 — version-drift guard + eslint formatter cwd-independence.** Add a
+   version source that matches the lockfile (capabilities currently has none);
+   make the SARIF formatter resolve regardless of cwd, replacing the harness's
+   NODE_PATH stopgap. (Story scenario 3 + formatter note.)
+4. **s1-t3 — CI runs Node integration tests (F9), xfail-gated.** Node 20+22
+   matrix `npm ci` + run the integration tests (not skip); jscpd/depcruiser/
+   eslint xfail(strict) → flip in s2/s3/s4 respectively. (Story scenario 5 / F9.)
+
+**Deferrals:** jscpd findings → s2 (F2); depcruiser-on-both-Nodes → s3 (F1);
+eslint findings robustness → s4 (F8). Their integration tests xfail until then.
