@@ -1,3 +1,5 @@
 # code-review
 
-See `sdlc/SDLC.md` for how to work in this repo.
+See [AGENTS.md](AGENTS.md) — the canonical cross-agent policy (commands, conventions, layout).
+
+SDLC workflow: `sdlc/SDLC.md` (also linked from AGENTS.md).

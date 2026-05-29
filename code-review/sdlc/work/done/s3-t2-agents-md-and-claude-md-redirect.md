@@ -5,8 +5,16 @@ project: code-review
 status: active
 parent: s3-multi-agent-rename
 sources: [s3-multi-agent-rename]
+status: done
 created: 2026-05-29
 updated: 2026-05-29
+notes: |
+  Verify PASS; Review MINOR-ONLY. One Minor (AGENTS.md linked the not-yet-filed
+  decisions/ path for ADR-0014 — transiently dead until story close) resolved
+  in-task by referencing ADR-0014 by id + the decisions/ dir instead of a fragile
+  full path. Two Nits dropped (uv-run vs bare python-m note; sanctioned SDLC
+  pointer in CLAUDE.md). CLAUDE.md hard-stop edit explicitly operator-approved
+  in-turn.
 ---
 
 # s3-t2 — AGENTS.md + CLAUDE.md redirect
