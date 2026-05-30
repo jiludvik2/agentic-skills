@@ -71,9 +71,72 @@ files" → return `unavailable`, not `error`.
 Touches `eslint.py`, `knip.py`, possibly `js_base.py`. Bigger than finding 1 —
 warrants an ADR (the error-vs-unavailable contract is cross-adapter) + a task.
 
+## Update — full-review test drive on deliberately-vulnerable repos (2026-05-30)
+
+Ran `polyreview run --depth full --scope story-level` against two canonical OWASP
+vuln apps: **PyGoat** (`adeyosemanputra/pygoat`, insecure Django, 80 py) → 462
+findings (49 critical); **NodeGoat** (`OWASP/NodeGoat`, insecure Node, 50 js) → 184
+findings (50 critical). This surfaced bugs the unit tests + clean-code self-review
+never hit, because they only trigger on real-world repos. **These are Important
+defects, not nits — they should lead the post-GA polish cycle, ahead of Findings 1–2.**
+
+### Finding 3 (Important) — bandit adapter crashes: progress bar on stdout breaks JSON parse
+
+`code_review/adapters/bandit.py:73` — `json.loads(result.stdout)` fails with
+`invalid JSON: Expecting value: line 1` on PyGoat. **Root cause (confirmed by direct
+repro):** newer bandit prints a Rich progress bar to **stdout** before the JSON:
+```
+Working... ━━━━━━━━━━━━━━━━━ 100% 0:00:00
+{ "errors": [], ... }
+```
+The adapter assumes stdout is pure JSON. Intermittent — our small clean package
+didn't trigger the bar; an 80-file repo did. **Impact: the primary Python SAST
+scanner returns status=error / zero findings on a real Python codebase.**
+**Fix:** add `-q`/`--quiet` to the bandit invocation (suppresses the bar), or strip
+to the first `{` before `json.loads`. **Test (tests-first):** feed the adapter a
+captured stdout that has the `Working... ━━━ 100%` prefix + JSON body; assert it
+parses to findings, not status=error. One-commit fix.
+
+### Finding 4 (Important) — eslint adapter crashes on real JS projects lacking flat config
+
+`code_review/adapters/eslint.py` — eslint `exited 2` on NodeGoat. **Root cause
+(confirmed):** NodeGoat has no `eslint.config.*` and no `.eslintrc`, and ESLint 9
+*requires* a flat config, so it errors on any real-world JS project that hasn't
+migrated to flat config. The adapter anchors cwd at the target root to discover the
+project's config, but when there is none it surfaces a bare `eslint exited 2:` (empty
+stderr). **Impact: the primary JS linter returns zero findings on a real JS app — the
+common case, since most projects haven't migrated.** **Fix (design decision):** when
+no flat config is found under the target, either (a) supply a built-in default flat
+config so eslint can still run base rules, or (b) report `status: unavailable` with a
+clear "no eslint flat config found" reason (graceful skip, same as Finding 2) rather
+than a confusing `exited 2`. Needs a call on (a) vs (b). **Test:** run the adapter
+against a JS tree with no eslint config; assert the chosen behaviour (findings from a
+default config, or a clean `unavailable`), never a bare error.
+
+### Finding 5 (coverage gap, not a crash) — semgrep SAST is thin
+
+semgrep returned only **4** findings on PyGoat and **0** on NodeGoat. The vendored
+ruleset (ADR-0016) is small and Python-first, so first-party code-vuln detection
+badly underperforms the dependency/secret scanners. On both vuln apps, ~all 99
+critical findings came from **trivy (dep CVEs)** + **gitleaks (secrets)**, not from
+SAST. Consider broadening the semgrep ruleset (e.g. vendor `p/security-audit` /
+language packs) or documenting the limitation. Likely an ADR-0016 revisit, not a quick fix.
+
+### What works well (record, don't action)
+
+trivy (133 / 76 real dep CVEs), gitleaks (10 / 3 real secrets incl. a private key),
+jscpd, knip, cohesion, vulture all produced solid real-world signal.
+
 ## Suggested compilation
 
-- A small post-GA story (e.g. `post-ga-analyzer-polish`) with two tasks:
-  - t0: schemathesis swallowed-exception → surface as `execution-error` finding (Finding 1).
-  - t1: JS analyzers report `unavailable` not `error` on no-JS targets (Finding 2) — preceded by an ADR on the error-vs-unavailable contract.
-- Or two standalone tasks. Finding 1 is self-contained; Finding 2 needs the ADR first.
+Priority order for a `post-ga-analyzer-polish` story (Findings 3–4 lead; they're the
+ones that make polyreview miss first-party code vulns on real repos):
+
+- t0 (Important): **Finding 3** — bandit `-q`/strip-to-`{`; tests-first with a
+  progress-bar-prefixed stdout fixture. Self-contained, one commit.
+- t1 (Important): **Finding 4** — eslint no-flat-config handling; needs the (a)
+  default-config vs (b) graceful-`unavailable` decision, then ADR + task.
+- t2 (Minor): **Finding 2** — JS analyzers report `unavailable` not `error` on no-JS
+  targets (shares the error-vs-unavailable contract ADR with t1).
+- t3 (Minor): **Finding 1** — schemathesis swallowed-exception → `execution-error` finding.
+- Backlog: **Finding 5** — semgrep ruleset breadth (ADR-0016 revisit).
