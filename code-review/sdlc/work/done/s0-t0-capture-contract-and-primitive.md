@@ -2,12 +2,16 @@
 id: s0-t0-capture-contract-and-primitive
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-contract-inversion-and-bundle
 sources: [adr-0020-thin-invocation-runner.md, adr-0019-analyzer-unavailable-vs-error.md]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [contract, capture, adr-0019]
+notes:
+  - "Review (MINOR-ONLY) opportunistic cleanup for s1 adapter migration: run_subprocess accepts env (load-bearing for eslint NODE_PATH per ADR-0020) but run_and_capture forwards only cwd — add env param + forward when the first adapter that needs it migrates onto the primitive."
+  - "Review Minor (note-only): spawn-failure and timeout both collapse to exit_code=None (base returncode -1 discarded); acceptable for the contract as spec'd — revisit only if the agent must distinguish the two at the raw layer."
+  - "Verify/Review PASS / MINOR-ONLY. Dropped Nits: :g-format comment on timeout error string; optional exit_code-is-None assertion in the timeout test."
 ---
 
 # Task s0-t0 — CaptureOutput contract + run_and_capture primitive
