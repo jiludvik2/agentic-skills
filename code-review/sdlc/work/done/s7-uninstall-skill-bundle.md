@@ -2,12 +2,24 @@
 id: s7-uninstall-skill-bundle
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-ga-hardening
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md, .claude/skills/code-review/SKILL.md]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [uninstall, cli, safety, agent-skills, cross-agent, ga-readiness]
+notes: |
+  Closed 2026-05-30 (commit 4ec9936). Single task s7-t0: Verify PASS (6/6 AC),
+  per-task Review MINOR-ONLY, story-level Review MINOR-ONLY. All 6 story scenarios
+  covered + 3 added (no-silent-partial-run, recursive-tree, mixed present/absent).
+  Suite 413 passed; ruff + mypy clean.
+  Story-level Review confirmed the CLI-propagation risk is clean: `uninstall` is
+  additive and appears in SKILL.md (the only surface documenting the `install`
+  subcommand). Deferred Minors (opportunistic): install/uninstall refusal-message
+  wording diverges; cli.py duplicates comma-split+resolve_targets+echo loop (hoist
+  a shared helper); all-no-op summary handled asymmetrically vs install.
+  Epic-close follow-up: README documents neither the install nor uninstall
+  subcommand (pre-existing) — reconcile in the Document verb at epic close.
 ---
 
 # s7 — `polyreview uninstall` the skill bundle (agent-independent)
