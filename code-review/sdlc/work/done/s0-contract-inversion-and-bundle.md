@@ -2,7 +2,7 @@
 id: s0-contract-inversion-and-bundle
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-thin-runner
 children:
   - s0-t0-capture-contract-and-primitive
@@ -11,7 +11,9 @@ sources: [epic-analyzer-thin-runner.md, adr-0020-thin-invocation-runner.md]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [contract, bundle, capture, runner]
----
+notes:
+  - "Story-level Review (MINOR-ONLY) — carry into s1: (1) ADR-0019 status taxonomy has no single source of truth — capture.py private constants, the schema enum, and bare literals across the old SARIF path are three disconnected copies; s1 should promote a shared Literal/StrEnum referenced by both modules and (via a test) the schema enum. (2) Coverage gap across the task boundary: run_and_capture produces a `timeout` status (test_capture.py) but the bundle round-trip tests never serialise a timeout capture — add one to the bundle suite in s1. (3) test_capture timeout test leaves a killed-subprocess transport for pytest teardown → `RuntimeError: Event loop is closed` warning; pre-existing base.run_subprocess behaviour, clean up (await/close transport or filter the warning) when s1 touches base."
+  - "SDLC #26 (supply-chain gate) at story close: NO wired gate exists — stack-pins.md cites scripts/license_audit.py which does not exist; npm audit shows 5 pre-existing transitive vulns (offline/local-only). Tracked open question; wiring a gate needs an ADR. Not blocking this purely-additive, no-new-dependency story."
 
 # Story s0 — contract inversion + bundle format
 
