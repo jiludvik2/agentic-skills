@@ -2,11 +2,30 @@
 id: s6-t2-install-command
 kind: task
 project: code-review
-status: active
+status: done
 parent: s6-install-skill-bundle
 sources: [code_review/cli.py, code_review/paths.py, .claude/skills/code-review/SKILL.md, README.md, reference-agentskills-cross-agent-discovery]
 created: 2026-05-30
 updated: 2026-05-30
+closed: 2026-05-30
+notes: >
+  New code_review/install.py (registry, $HOME-relative resolver + CLAUDE_CONFIG_DIR,
+  auto-detect predicate, frontmatter-anchored marker, wheel/dev bundle-source
+  resolver, copy + install()). cli.py: review main→run; new `install` (--agent
+  comma-list, --all, --force). 14 hermetic tests. CLI restructure migrated ~43
+  call sites across 11 test files to `run` + updated SKILL.md/README to `polyreview
+  run` + an Install section. Verify PASS; Review MINOR-ONLY.
+  IN-TASK HARDENING: marker anchored to a frontmatter line (was substring) — a
+  `name: code-reviewer` near-collision now refused, not rmtree-eligible; locked by
+  test_install_refuses_marker_near_collision (the guard is shared with s7 uninstall).
+  DEFERRED Minors (notes only, no fix tasks): (1) --force is rmtree-then-copy → an
+  I/O failure mid-copy leaves partial state; harden to copy-to-temp + atomic rename
+  when convenient (add an I/O-failure test). (2) on a mixed --all run with one
+  refused target, the "Next: provision caches" hint still prints before Exit(1);
+  suppress/reorder on refusal. Nits dropped (Path(str(files())) fs-layout assumption;
+  duplicate target-id validation in skills_dir vs resolve_targets).
+  PROCESS NOTE: impl preceded tests here (CLI restructure + install were tightly
+  coupled) — a tests-first slip; all 8 ACs are nonetheless test-locked. See Wrap memory.
 tags: [cli, install, typer, agent-skills, cross-agent]
 ---
 

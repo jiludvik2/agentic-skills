@@ -41,7 +41,7 @@ def test_multiple_domains_unioned_no_warning(monkeypatch: pytest.MonkeyPatch) ->
     runner = CliRunner(capture="fd")
     result = runner.invoke(
         app,
-        ["--review", "security", "--review", "maintainability",
+        ["run", "--review", "security", "--review", "maintainability",
          "--depth", "quick", "--target", "."],
     )
     assert result.exit_code == 0, result.output
@@ -57,7 +57,9 @@ def test_multiple_domains_unioned_no_warning(monkeypatch: pytest.MonkeyPatch) ->
 def test_domain_same_subcategory_redundancy_warning(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_all(monkeypatch)
     runner = CliRunner(capture="fd")
-    result = runner.invoke(app, ["--review", "security", "--review", "secrets", "--target", "."])
+    result = runner.invoke(
+        app, ["run", "--review", "security", "--review", "secrets", "--target", "."]
+    )
     assert result.exit_code == 0
     assert _ran(result.stdout) == {"semgrep", "bandit", "gitleaks"}
     assert "redundant" in result.stderr
@@ -74,7 +76,9 @@ def test_domain_different_subcategory_additive_no_warning(monkeypatch: pytest.Mo
     _patch_all(monkeypatch)
     runner = CliRunner(capture="fd")
     result = runner.invoke(
-        app, ["--review", "security", "--review", "coupling", "--depth", "quick", "--target", "."]
+        app,
+        ["run", "--review", "security", "--review", "coupling",
+         "--depth", "quick", "--target", "."],
     )
     assert result.exit_code == 0
     assert _ran(result.stdout) == {"semgrep", "bandit", "gitleaks", "pydeps", "depcruiser"}
@@ -90,7 +94,8 @@ def test_domain_tier_extending_subcategory_additive(monkeypatch: pytest.MonkeyPa
     runner = CliRunner(capture="fd")
     result = runner.invoke(
         app,
-        ["--review", "security", "--review", "dependencies", "--depth", "quick", "--target", "."],
+        ["run", "--review", "security", "--review", "dependencies",
+         "--depth", "quick", "--target", "."],
     )
     assert result.exit_code == 0
     ran = _ran(result.stdout)
@@ -105,7 +110,9 @@ def test_domain_tier_extending_subcategory_additive(monkeypatch: pytest.MonkeyPa
 def test_duplicate_review_value_deduped_warning_to_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_all(monkeypatch)
     runner = CliRunner(capture="fd")
-    result = runner.invoke(app, ["--review", "security", "--review", "security", "--target", "."])
+    result = runner.invoke(
+        app, ["run", "--review", "security", "--review", "security", "--target", "."]
+    )
     assert result.exit_code == 0
     assert _ran(result.stdout) == {"semgrep", "bandit", "gitleaks"}
     assert "security" in result.stderr

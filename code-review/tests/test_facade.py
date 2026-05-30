@@ -20,7 +20,7 @@ def test_fake_adapter_no_subprocess(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
 
     runner = CliRunner()
-    result = runner.invoke(app, ["--analyzer", "fake", "--target", "."])
+    result = runner.invoke(app, ["run", "--analyzer", "fake", "--target", "."])
 
     assert not called, "FakeAnalyzer must not spawn any subprocess"
     assert result.exit_code == 0, result.output
@@ -32,7 +32,7 @@ def test_fake_adapter_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
 
     runner = CliRunner()
-    result = runner.invoke(app, ["--analyzer", "fake", "--target", "."])
+    result = runner.invoke(app, ["run", "--analyzer", "fake", "--target", "."])
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)

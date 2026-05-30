@@ -104,7 +104,7 @@ def test_load_config_missing_file_returns_defaults(tmp_path: Path) -> None:
 def test_cli_config_missing_exits_nonzero_with_path(tmp_path: Path) -> None:
     missing = tmp_path / "definitely-not-here.toml"
     result = runner.invoke(
-        app, ["--config", str(missing), "--review", "security"]
+        app, ["run", "--config", str(missing), "--review", "security"]
     )
     assert result.exit_code != 0
     assert str(missing) in (result.stderr or result.stdout)
@@ -115,5 +115,5 @@ def test_cli_capabilities_works_without_config(
 ) -> None:
     """--capabilities should not require a config file even when CWD has none."""
     monkeypatch.chdir(tmp_path)
-    result = runner.invoke(app, ["--capabilities"])
+    result = runner.invoke(app, ["run", "--capabilities"])
     assert result.exit_code == 0, result.stderr or result.stdout

@@ -42,7 +42,7 @@ def _patch_all(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_unknown_analyzer_exits_nonzero_with_message(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_all(monkeypatch)
     runner = CliRunner(capture="fd")
-    result = runner.invoke(app, ["--analyzer", "nonesuch", "--target", "."])
+    result = runner.invoke(app, ["run", "--analyzer", "nonesuch", "--target", "."])
     assert result.exit_code != 0
     assert "unknown analyzer" in result.stderr.lower()
     assert "nonesuch" in result.stderr
@@ -63,7 +63,7 @@ def test_disabled_analyzer_selected_exits_nonzero_with_message(
         lambda _path: Config(disabled_analyzers=["semgrep"]),
     )
     runner = CliRunner(capture="fd")
-    result = runner.invoke(app, ["--analyzer", "semgrep", "--target", "."])
+    result = runner.invoke(app, ["run", "--analyzer", "semgrep", "--target", "."])
     assert result.exit_code != 0
     assert "disabled in code-review.toml" in result.stderr
     assert "semgrep" in result.stderr
@@ -83,7 +83,7 @@ def test_empty_selection_exits_nonzero_with_message(monkeypatch: pytest.MonkeyPa
     # — so if a future capabilities.json edit broke that, this control fails
     # loudly here rather than silently turning the empty-selection case below
     # into a success-path that no longer exercises the cli.py branch.
-    control = runner.invoke(app, ["--review", "security", "--target", "."])
+    control = runner.invoke(app, ["run", "--review", "security", "--target", "."])
     assert control.exit_code == 0, control.output
 
     # Filtering that same selection by an unsupported language excludes every
@@ -91,7 +91,7 @@ def test_empty_selection_exits_nonzero_with_message(monkeypatch: pytest.MonkeyPa
     # cli.py "no analyzers selected after filtering" branch (not an earlier
     # selector error or parser rejection).
     result = runner.invoke(
-        app, ["--review", "security", "--language", "go", "--target", "."]
+        app, ["run", "--review", "security", "--language", "go", "--target", "."]
     )
     assert result.exit_code != 0
     assert "no analyzers selected" in result.stderr.lower()

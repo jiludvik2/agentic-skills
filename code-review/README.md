@@ -27,12 +27,12 @@ The PyPI distribution and console-script binary are both `polyreview`; the Pytho
 - **JavaScript/TypeScript** (ESLint, knip, jscpd, dependency-cruiser) need a vendored `node_modules`.
 - **Secret & dependency scanning** (gitleaks, Trivy) are standalone binaries that must be on your `PATH`.
 
-Run `polyreview --capabilities` and read `analyzers[]` to see which are active: each reports `status: available` or `unavailable` with the reason. To provision the full set from a source checkout, run `./scripts/setup.sh` (Node tooling + offline caches) and install gitleaks/Trivy via your package manager. Analyzers that aren't available are skipped silently — so a finding-free run on a stack you expected coverage for may just mean the analyzer wasn't installed.
+Run `polyreview run --capabilities` and read `analyzers[]` to see which are active: each reports `status: available` or `unavailable` with the reason. To provision the full set from a source checkout, run `./scripts/setup.sh` (Node tooling + offline caches) and install gitleaks/Trivy via your package manager. Analyzers that aren't available are skipped silently — so a finding-free run on a stack you expected coverage for may just mean the analyzer wasn't installed.
 
 ## Quick start
 
 ```bash
-polyreview --review security --depth quick --diff HEAD~1..HEAD --output review.json
+polyreview run --review security --depth quick --diff HEAD~1..HEAD --output review.json
 ```
 
 Returns a SARIF document at `review.json` containing findings from every analyzer in the `security/quick` set, each annotated with an `sdlc_severity` reflecting how the SDLC treats it (Critical / Important / Minor / Nit).

@@ -225,7 +225,7 @@ def _resolve_depth(
 
 
 @app.command()
-def main(
+def run(
     analyzer: list[str] = typer.Option(
         [], "--analyzer", help="Analyzer to run (repeat for multiple; overrides --review/--depth)"
     ),
@@ -404,6 +404,60 @@ def main(
         typer.echo(json_content)
 
     if has_error:
+        raise typer.Exit(1)
+
+
+@app.command()
+def install(
+    agent: list[str] = typer.Option(
+        [],
+        "--agent",
+        help="Install to a specific agent target (repeat/comma for many): "
+        "agents, claude, copilot, gemini. Default: agents + every agent home present.",
+    ),
+    all_targets: bool = typer.Option(
+        False, "--all", help="Install to every registry target (creates each home)."
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Refresh an already-installed bundle in place (remove-then-copy)."
+    ),
+) -> None:
+    """Copy the skill bundle into the user-level skills dir(s) (ADR-0018)."""
+    from code_review.install import TargetResult, resolve_targets
+    from code_review.install import install as do_install
+
+    # Allow comma-separated --agent values (e.g. --agent claude,copilot).
+    agents = [a.strip() for raw in agent for a in raw.split(",") if a.strip()]
+    try:
+        targets = resolve_targets(agents or None, all_targets)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    try:
+        results: list[TargetResult] = do_install(targets, force=force)
+    except FileNotFoundError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    for r in results:
+        typer.echo(f"{r.action:9} {r.dest}")
+
+    refused = [r for r in results if r.action == "refused"]
+    if refused:
+        for r in refused:
+            typer.echo(
+                f"Error: {r.dest} exists but is not a code-review bundle; "
+                "not overwritten (use a clean target or remove it first).",
+                err=True,
+            )
+
+    typer.echo(
+        "\nNext: provision analyzer caches (node_modules, Trivy DB) by running "
+        "the bundle's setup.sh — install places the skill; it does not fetch caches."
+    )
+
+    if refused:
         raise typer.Exit(1)
 
 

@@ -40,7 +40,7 @@ def _stage_production_layout(tmp_path: Path) -> Path:
 def _run_cli(args: list[str], cwd: Path, skill_root: Path) -> subprocess.CompletedProcess[str]:
     env = {**os.environ, "PYTHONPATH": str(skill_root)}
     return subprocess.run(
-        [sys.executable, "-m", "code_review.cli", *args],
+        [sys.executable, "-m", "code_review.cli", "run", *args],
         cwd=cwd,
         env=env,
         capture_output=True,

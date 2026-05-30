@@ -182,7 +182,7 @@ def test_wheel_installed_capabilities_accessible(tmp_path: Path) -> None:
     )
 
     result = subprocess.run(
-        [str(venv_python), "-m", "code_review.cli", "--capabilities"],
+        [str(venv_python), "-m", "code_review.cli", "run", "--capabilities"],
         capture_output=True,
         text=True,
     )

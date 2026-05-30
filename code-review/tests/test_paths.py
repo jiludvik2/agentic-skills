@@ -18,7 +18,7 @@ def test_cwd_guard_accepts_symlink_inside_cwd(tmp_path: Path) -> None:
     symlink.symlink_to(real_output)
 
     result = subprocess.run(
-        [sys.executable, "-m", "code_review.cli", "--output", str(symlink)],
+        [sys.executable, "-m", "code_review.cli", "run", "--output", str(symlink)],
         capture_output=True,
         text=True,
         cwd=tmp_path,
