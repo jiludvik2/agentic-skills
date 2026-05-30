@@ -55,6 +55,7 @@ class BanditAdapter:
             return AnalyzerOutput(sarif=normalise_sarif({"runs": []}))
         cmd = (
             sys.executable, "-m", "bandit",
+            "--quiet",  # suppress the info log / progress bar at source (F3)
             "--format", "json",
             "-r", *request.target_paths,
         )
@@ -69,8 +70,18 @@ class BanditAdapter:
                 sarif={}, status="error",
                 error=f"bandit exited {result.returncode}: {stderr}",
             )
+        # Defensive: tolerate a Rich progress-bar prefix on stdout should --quiet not
+        # suppress it. The first '{' is the JSON start (the bar contains no braces);
+        # if there is none we fail loudly below rather than corrupt the parse (F3).
+        stdout = result.stdout
+        raw = stdout.decode(errors="replace") if isinstance(stdout, bytes) else stdout
+        brace = raw.find("{")
+        if brace == -1:
+            return AnalyzerOutput(
+                sarif={}, status="error", error="invalid JSON: no JSON object in bandit output"
+            )
         try:
-            data: dict[str, Any] = json.loads(result.stdout)
+            data: dict[str, Any] = json.loads(raw[brace:])
         except json.JSONDecodeError as exc:
             return AnalyzerOutput(sarif={}, status="error", error=f"invalid JSON: {exc}")
         return AnalyzerOutput(sarif=_to_sarif(data))

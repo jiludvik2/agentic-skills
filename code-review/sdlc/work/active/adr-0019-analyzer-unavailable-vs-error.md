@@ -2,7 +2,7 @@
 id: adr-0019-analyzer-unavailable-vs-error
 kind: decision
 project: code-review
-status: proposed
+status: accepted
 parent: s0-analyzer-adapter-robustness
 sources: [post-ga-self-review-findings.md]
 created: 2026-05-30
@@ -14,7 +14,11 @@ tags: [adr, analyzer, contract, status, unavailable, error]
 
 ## Status
 
-**Proposed** — needs operator ratification before s0-t1/s0-t2 implement against it.
+**Accepted** — operator-ratified 2026-05-30. The core decision (introduce
+`unavailable` as a clean skip distinct from `error`) and the **eslint graceful-skip**
+choice (report `unavailable` when no flat config; do **not** synthesize a default
+config) are both ratified. The default-config behaviour stays a possible future
+opt-in. s0-t1/s0-t2 implement against this.
 
 ## Context
 

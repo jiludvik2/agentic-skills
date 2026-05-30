@@ -2,12 +2,19 @@
 id: s0-t0-bandit-stdout-progress-bar
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-analyzer-adapter-robustness
 sources: [post-ga-self-review-findings.md, code_review/adapters/bandit.py]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [bandit, adapter, json-parse, sast, important]
+notes: |
+  Closed 2026-05-30. Verify PASS, Review MINOR-ONLY. Fix: `--quiet` + strip-to-first-`{`
+  before json.loads; 3 new mocked tests (progress-bar/plain/garbage). In-green-bar:
+  pinned the garbage-branch error message + softened the comment.
+  Deferred Minor (opportunistic): bandit decode-first (`find("{")` on str) diverges
+  from sibling adapters that json.loads raw bytes; could use `find(b"{")` to match house
+  style. Harmless.
 ---
 
 # s0-t0 — bandit: tolerate a progress-bar prefix on stdout (F3)
