@@ -124,6 +124,61 @@ def test_server_error_maps_to_stable_ruleid() -> None:
 
 
 # ---------------------------------------------------------------------------
+# 3b. Unexpected execution errors surface as findings (not swallowed) — F1
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_unexpected_exception_becomes_execution_error_finding() -> None:
+    """A non-FailureGroup error from call_and_validate (connection drop, validation
+    bug) must yield one schemathesis.execution-error finding naming the operation —
+    never be swallowed as a (false) conformant pass (bandit B110)."""
+    from code_review.adapters.schemathesis_ import _failure_to_sarif_result, _run_operation
+
+    mock_op = MagicMock()
+    mock_op.label = "GET /widgets"
+    mock_case = MagicMock()
+    mock_case.call_and_validate.side_effect = RuntimeError("boom")
+
+    with patch("code_review.adapters.schemathesis_.h_find", return_value=mock_case):
+        failures = await _run_operation(mock_op, MagicMock())
+
+    assert len(failures) == 1, failures
+    result = _failure_to_sarif_result(failures[0])
+    assert result["ruleId"] == "schemathesis.execution-error"
+    assert result["level"] == "error"
+    assert result["properties"]["endpoint"] == "GET /widgets"
+    assert "boom" in result["message"]["text"]
+
+
+@pytest.mark.asyncio
+async def test_failure_group_path_unchanged() -> None:
+    """Regression: a FailureGroup is still unpacked into its constituent failures,
+    unchanged by the execution-error handling."""
+    from schemathesis.core.failures import FailureGroup
+
+    from code_review.adapters.schemathesis_ import _failure_to_sarif_result, _run_operation
+
+    class JsonSchemaError(Exception):  # mirrors Schemathesis 4.0.10's failure class name
+        title = "Response violates schema"
+        message = "'user_name' is a required property"
+        operation = "GET /users"
+
+    mock_op = MagicMock()
+    mock_op.label = "GET /users"
+    mock_case = MagicMock()
+    mock_case.call_and_validate.side_effect = FailureGroup([JsonSchemaError()])
+
+    with patch("code_review.adapters.schemathesis_.h_find", return_value=mock_case):
+        failures = await _run_operation(mock_op, MagicMock())
+
+    assert len(failures) == 1, failures
+    result = _failure_to_sarif_result(failures[0])
+    assert result["ruleId"] == "schemathesis.response_schema_violation"
+    assert "user_name" in result["message"]["text"]
+
+
+# ---------------------------------------------------------------------------
 # 4. Auth from env var
 # ---------------------------------------------------------------------------
 

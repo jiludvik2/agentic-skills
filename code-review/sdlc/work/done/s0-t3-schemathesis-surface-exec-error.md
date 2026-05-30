@@ -2,12 +2,15 @@
 id: s0-t3-schemathesis-surface-exec-error
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-analyzer-adapter-robustness
 sources: [post-ga-self-review-findings.md, code_review/adapters/schemathesis_.py]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [schemathesis, adapter, error-handling, minor]
+notes:
+  - "Review MINOR (deferred, candidate follow-up): the sibling `h_find` strategy-generation swallow (`except Exception: return []`, schemathesis_.py ~line 145) is the SAME B110 false-clean class this task fixed for call_and_validate — a strategy-build crash also makes 'couldn't test it' read as 'conforms'. Out of t3's AC scope; surface at story s0 boundary as a candidate follow-up."
+  - "Review NIT (dropped): ruleId suffix style mixed (response_schema_violation/server_error underscored vs execution-error hyphenated). The new hyphen is the CORRECT cross-adapter convention (depcruiser/jscpd/knip/vulture use hyphens) and the AC pins it; normalising the legacy entries would alter pinned ruleIds — out of scope."
 ---
 
 # s0-t3 — schemathesis: surface unexpected execution errors as findings (F1)

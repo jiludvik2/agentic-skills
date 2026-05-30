@@ -94,7 +94,22 @@ def _hypothesis_storage(tmpdir: str) -> Iterator[None]:
 _RULEID_SUFFIX_BY_FAILURE_TYPE: dict[str, str] = {
     "JsonSchemaError": "response_schema_violation",
     "ServerError": "server_error",
+    "_ExecutionError": "execution-error",
 }
+
+
+class _ExecutionError(Exception):
+    """Synthetic failure for a non-`FailureGroup` error raised while testing one
+    operation (connection drop, a bug in a check). It carries the same `.title` /
+    `.message` / `.operation` shape `_failure_to_sarif_result` reads, so a "couldn't
+    test it" surfaces as a `schemathesis.execution-error` finding rather than being
+    swallowed into a (false) conformant pass — the failure mode bandit B110 flagged."""
+
+    def __init__(self, operation: str, exc: BaseException) -> None:
+        self.title = "Execution error"
+        self.message = f"{type(exc).__name__}: {exc}"
+        self.operation = operation
+        super().__init__(self.message)
 
 
 def _failure_to_sarif_result(failure: Any) -> dict[str, Any]:
@@ -138,8 +153,12 @@ async def _run_operation(op: Any, session: requests.Session) -> list[Any]:
             )
         except FailureGroup as fg:
             failures.extend(fg.exceptions)
-        except Exception:
-            pass
+        except Exception as exc:
+            # A non-FailureGroup error means we could NOT test this operation. Surface
+            # it as a finding instead of swallowing it — for a contract tester,
+            # "couldn't test it" must never read as "it conforms". Do not re-raise:
+            # one bad operation must not fail the whole adapter run.
+            failures.append(_ExecutionError(getattr(op, "label", "unknown"), exc))
         return failures
 
     return await asyncio.to_thread(_sync)
