@@ -9,6 +9,8 @@ children:
   - s0-t1-eslint-no-flat-config
   - s0-t2-js-analyzers-graceful-skip
   - s0-t3-schemathesis-surface-exec-error
+  - s0-fix1-jscpd-unavailable-on-no-js
+  - s0-fix2-unavailable-end-to-end-coverage
 sources: [post-ga-self-review-findings.md]
 created: 2026-05-30
 updated: 2026-05-30

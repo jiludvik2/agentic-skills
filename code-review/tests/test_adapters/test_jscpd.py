@@ -87,6 +87,7 @@ async def test_jscpd_parses_json_to_sarif() -> None:
     )
     with (
         patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
+        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
         patch(
             "code_review.adapters.jscpd.run_subprocess",
             new=AsyncMock(side_effect=_report_writer(fake_json)),
@@ -136,6 +137,7 @@ async def test_jscpd_writes_report_to_tempdir_and_parses_it() -> None:
     )
     with (
         patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
+        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
         patch(
             "code_review.adapters.jscpd.run_subprocess",
             new=AsyncMock(side_effect=fake_run),
@@ -165,6 +167,7 @@ async def test_jscpd_handles_empty_duplicates() -> None:
     )
     with (
         patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
+        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
         patch(
             "code_review.adapters.jscpd.run_subprocess",
             new=AsyncMock(side_effect=_report_writer(fake_json)),
@@ -174,6 +177,37 @@ async def test_jscpd_handles_empty_duplicates() -> None:
 
     assert output.status == "ok"
     assert output.sarif["runs"][0]["results"] == []
+
+
+async def test_jscpd_unavailable_without_js(tmp_path: Path) -> None:
+    """jscpd is intentionally JS-scoped (lang_select._JS_ADAPTERS; capabilities
+    languages=[javascript, typescript]) — duplication detection is a deliberately
+    JS-only feature. On a no-JS target it must skip cleanly as `unavailable` rather
+    than run the out-of-scope language duplication it is capable of (story-level fix,
+    ADR-0019). Defense-in-depth for the all-analyzer / --target path that bypasses
+    language selection."""
+    from code_review.adapters.base import SubprocessResult
+    from code_review.adapters.jscpd import JscpdAdapter
+    from code_review.contracts import ReviewRequest
+
+    (tmp_path / "app.py").write_text("x = 1\n")
+    invoked = False
+
+    async def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
+        nonlocal invoked
+        invoked = True
+        return SubprocessResult(b"", b"", 0)
+
+    request = ReviewRequest(scope="per-task", diff_range=None,
+                            target_paths=(str(tmp_path),), languages=frozenset(), config={})
+    with (
+        patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
+        patch("code_review.adapters.jscpd.run_subprocess", new=AsyncMock(side_effect=fake_run)),
+    ):
+        output = await JscpdAdapter().run(request)
+    assert output.status == "unavailable", output.error
+    assert "javascript" in (output.error or "").lower()
+    assert not invoked, "jscpd must not be invoked when there is no JS to analyse"
 
 
 @pytest.mark.integration

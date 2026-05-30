@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from code_review.adapters.base import run_subprocess
-from code_review.adapters.js_base import node_binary
+from code_review.adapters.js_base import has_js_files, js_unavailable, node_binary
 from code_review.adapters.sarif_utils import empty_sarif, make_location, normalise_sarif
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 
@@ -68,6 +68,14 @@ class JscpdAdapter:
             )
         if not request.target_paths:
             return AnalyzerOutput(sarif=empty_sarif("jscpd"))
+        # jscpd is intentionally JS-scoped in polyreview (lang_select._JS_ADAPTERS;
+        # capabilities languages=[javascript, typescript]) — duplication detection is
+        # a deliberately JS-only feature. Skip cleanly on a no-JS target rather than
+        # run the out-of-scope language duplication jscpd is capable of (ADR-0019).
+        # Defense-in-depth for the all-analyzer / --target path that bypasses the
+        # selector's language filter; mirrors eslint/knip.
+        if not has_js_files(request.target_paths):
+            return js_unavailable("jscpd", "no JavaScript/TypeScript files in target")
         # jscpd treats --output as a *directory* it mkdir's and writes
         # jscpd-report.json into; pointing it at /dev/stdout fails with EEXIST.
         # Use a TemporaryDirectory and read the report, like trivy/gitleaks.
