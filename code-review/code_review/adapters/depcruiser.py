@@ -22,7 +22,7 @@ from code_review.contracts import AnalyzerOutput, ReviewRequest
 _CRUISE_CONFIG = """\
 module.exports = {
   options: {
-    doNotFollow: { path: "node_modules" },
+    doNotFollow: { path: "node_modules" },  // skip vendored deps
     enhancedResolveOptions: {
       extensions: [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".json"],
     },
@@ -86,7 +86,11 @@ class DependencyCruiserAdapter:
             )
         if not request.target_paths:
             return AnalyzerOutput(sarif=empty_sarif("depcruiser"))
-        with tempfile.TemporaryDirectory() as tmpdir:
+        # Unlike jscpd (which reads a report file back out of its tmpdir), depcruise
+        # consumes the config only at startup and writes its result to stdout, so the
+        # tmpdir is intentionally released as soon as the subprocess returns — `result`
+        # is fully materialised and the branches below need no tmpdir access.
+        with tempfile.TemporaryDirectory(prefix="code-review-depcruiser-") as tmpdir:
             config_path = Path(tmpdir) / "cruise-config.cjs"
             config_path.write_text(_CRUISE_CONFIG, encoding="utf-8")
             cmd = (
