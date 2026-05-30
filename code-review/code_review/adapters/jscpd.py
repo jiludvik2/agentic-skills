@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import tempfile
+from pathlib import Path
 from typing import Any, ClassVar
 
 from code_review.adapters.base import run_subprocess
@@ -66,25 +68,34 @@ class JscpdAdapter:
             )
         if not request.target_paths:
             return AnalyzerOutput(sarif=empty_sarif("jscpd"))
-        cmd = (
-            "node", str(binary),
-            "--reporters", "json",
-            "--output", "/dev/stdout",  # jscpd needs --output; /dev/stdout = Linux/macOS only
-            *request.target_paths,
-        )
-        result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
-        if result.error is not None:
-            return AnalyzerOutput(sarif={}, status="error", error=result.error)
-        if result.timed_out:
-            return AnalyzerOutput(sarif={}, status="timeout", error="jscpd timed out")
-        if result.returncode != 0:
-            stderr = result.stderr.decode(errors="replace")
-            return AnalyzerOutput(
-                sarif={}, status="error",
-                error=f"jscpd exited {result.returncode}: {stderr}",
+        # jscpd treats --output as a *directory* it mkdir's and writes
+        # jscpd-report.json into; pointing it at /dev/stdout fails with EEXIST.
+        # Use a TemporaryDirectory and read the report, like trivy/gitleaks.
+        with tempfile.TemporaryDirectory(prefix="code-review-jscpd-") as _tmp:
+            report = Path(_tmp) / "jscpd-report.json"
+            cmd = (
+                "node", str(binary),
+                "--reporters", "json",
+                "--output", _tmp,
+                *request.target_paths,
             )
-        try:
-            data: dict[str, Any] = json.loads(result.stdout)
-        except json.JSONDecodeError as exc:
-            return AnalyzerOutput(sarif={}, status="error", error=f"invalid JSON: {exc}")
+            result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
+            if result.error is not None:
+                return AnalyzerOutput(sarif={}, status="error", error=result.error)
+            if result.timed_out:
+                return AnalyzerOutput(sarif={}, status="timeout", error="jscpd timed out")
+            if result.returncode != 0:
+                stderr = result.stderr.decode(errors="replace")
+                return AnalyzerOutput(
+                    sarif={}, status="error",
+                    error=f"jscpd exited {result.returncode}: {stderr}",
+                )
+            if not report.exists():
+                return AnalyzerOutput(sarif={}, status="error",
+                                      error="jscpd produced no report file")
+            try:
+                data: dict[str, Any] = json.loads(report.read_text())
+            except json.JSONDecodeError as exc:
+                return AnalyzerOutput(sarif={}, status="error",
+                                      error=f"invalid JSON: {exc}")
         return AnalyzerOutput(sarif=_to_sarif(data))

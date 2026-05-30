@@ -16,7 +16,7 @@ ADAPTERS_DIR = Path(__file__).parent
 
 # (test module file, test function, node_tool, must be xfail(strict))
 _NODE_INTEGRATION = [
-    ("test_jscpd.py", "test_jscpd_integration", "jscpd", True),
+    ("test_jscpd.py", "test_jscpd_integration", "jscpd", False),  # F2/s2 fixed
     ("test_depcruiser.py", "test_depcruiser_integration", "depcruise", True),
     ("test_eslint.py", "test_eslint_integration_detects_console_log", "eslint", True),
     ("test_knip.py", "test_knip_integration", "knip", False),

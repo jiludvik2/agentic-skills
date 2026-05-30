@@ -2,7 +2,7 @@
 id: s2-t0-jscpd-tempdir-report
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-jscpd-output-plumbing
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-30
@@ -61,3 +61,28 @@ Write first, confirm red, then implement. Extend `tests/test_adapters/test_jscpd
   is broken; do not bump the pin.
 - The smoke harness (`sdlc/docs/qa/analyzer-coverage/run_smoke.py`) jscpd case
   should pass unchanged once the adapter is fixed; confirm it goes green.
+
+## Closure notes (2026-05-30)
+
+**Done.** Adapter rewritten to `tempfile.TemporaryDirectory` + `<dir>/jscpd-report.json`,
+mirroring trivy/gitleaks (including the `report.exists()` guard and the
+defensive `JSONDecodeError` wrap). Pin 4.0.5 unchanged.
+
+- **Verify PASS**, **story-level Review MINOR-ONLY** (1 Minor, 1 Nit; zero
+  Critical/Important). Single-task story → per-task and story-level review
+  coincide.
+- **Fixture discovery (worth recording):** the existing `test_jscpd_integration`
+  pointed at `fixtures/js-with-known-issues` (`utils.ts`/`utils_copy.ts`), whose
+  "duplicate" uses *renamed identifiers* (`add`→`add2`, etc.). jscpd's token
+  matcher therefore finds **0** duplications there — the old test only "passed"
+  because it was `xfail`. Added a dedicated byte-identical clone pair
+  `tests/fixtures/js-duplication/clone_a.ts`+`clone_b.ts` and repointed the
+  integration `FIXTURE` at it, plus an explicit `len(results) >= 1` assertion
+  (per the verifier) so the AC "duplication is reported" is genuinely tested.
+- **s1-t3 forcing function retired for jscpd:** `test_node_integration_gating.py`
+  `must_xfail` flipped True→False; `xfail(strict)` marker removed from the
+  integration test.
+- **Minor (review):** stale `utils.ts/utils_copy.ts` comment in the integration
+  test — corrected in the same change (one-liner; not deferred).
+- Full suite **377 passed, 2 xfailed** (depcruiser/F1/s3 + eslint/F8/s4 remain);
+  ruff + mypy strict clean. Smoke jscpd case green (status=ok, 1 finding).

@@ -2,11 +2,11 @@
 id: s2-jscpd-output-plumbing
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-ga-hardening
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-05-30
 tags: [jscpd, duplication, adapter, ga-readiness]
 ---
 
@@ -55,3 +55,13 @@ for their file-based reporters.
 
 Single task — **s2-t0-jscpd-tempdir-report** carries the outcome and test
 specification. No dependency on other epic stories.
+
+## Closed 2026-05-30
+
+All three scenarios met. jscpd now writes to a `TemporaryDirectory` and parses
+`jscpd-report.json` (F2 resolved). Verify PASS; story-level Review MINOR-ONLY
+(zero Critical/Important). See the task's closure notes for the integration-fixture
+discovery (the shared `js-with-known-issues` "duplicate" uses renamed identifiers
+and yields no jscpd findings; a dedicated byte-identical `js-duplication` clone
+pair now drives the integration test). Full suite 377 passed / 2 xfailed; ruff +
+mypy strict clean.
