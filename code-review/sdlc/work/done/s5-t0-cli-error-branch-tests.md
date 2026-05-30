@@ -2,12 +2,22 @@
 id: s5-t0-cli-error-branch-tests
 kind: task
 project: code-review
-status: active
+status: done
 parent: s5-cli-error-branch-coverage
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [cli, tests, error-handling]
+notes:
+  - "Review Minor (deferred, opportunistic): ALL_ANALYZER_NAMES + _patch_all are
+    duplicated verbatim from tests/test_review_selection_validation.py; hoist the
+    registry-patch helper into tests/conftest.py and import in both when next
+    touching either file (out of this test-only task's scope)."
+  - "Review Minor (addressed in-task): the empty-selection test's load-bearing
+    precondition (no security analyzer is language-agnostic) is now pinned by a
+    positive control — `--review security` with no language filter must exit 0 —
+    so a future capabilities.json drift fails loudly instead of silently moving
+    the empty-selection case onto the success path."
 ---
 
 # s5-t0 — CLI error-branch tests

@@ -2,13 +2,26 @@
 id: s5-cli-error-branch-coverage
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-ga-hardening
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-05-30
 tags: [cli, tests, error-handling, ga-readiness]
 ---
+
+> **CLOSED 2026-05-30.** All three F10 branches locked by
+> `tests/test_cli_error_branches.py` (unknown `--analyzer`, explicitly-selected
+> disabled analyzer, empty post-filter selection) — each asserts non-zero exit
+> **and** the specific stderr contract. Test-only: no production change needed;
+> the branches already behaved (green on first run). Verify PASS (all 3 ACs
+> traced to their intended `cli.py` branch, incl. the at-risk empty-selection
+> path → `error=None` reaches cli.py:315). Single-task story, so the per-task
+> Review **was** the cumulative-story-diff review (one new test file; no
+> cross-cutting surface): verdict **MINOR-ONLY** — one Minor hardened in-task
+> (positive control), one Minor deferred to the task `notes:`. Suite 387 passed,
+> ruff + mypy clean.
+
 
 # s5 — CLI error-branch coverage
 
