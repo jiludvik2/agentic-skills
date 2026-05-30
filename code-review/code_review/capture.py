@@ -16,13 +16,7 @@ import time
 from dataclasses import dataclass
 
 from code_review.adapters.base import run_subprocess
-
-# ADR-0019 status taxonomy. ``unavailable`` is an adapter pre-flight decision (s1),
-# represented by the type but never produced by ``run_and_capture``.
-_OK = "ok"
-_ERROR = "error"
-_TIMEOUT = "timeout"
-_UNAVAILABLE = "unavailable"
+from code_review.status import Status
 
 
 @dataclass(frozen=True)
@@ -33,7 +27,7 @@ class CaptureOutput:
     stdout: str = ""
     stderr: str = ""
     exit_code: int | None = None
-    status: str = _OK  # ok | error | timeout | unavailable (ADR-0019)
+    status: Status = Status.OK  # ADR-0019 taxonomy (see code_review.status)
     error: str | None = None
     command: tuple[str, ...] = ()
     duration_s: float = 0.0
@@ -46,7 +40,7 @@ class CaptureOutput:
         """
         return CaptureOutput(
             tool=tool,
-            status=_UNAVAILABLE,
+            status=Status.UNAVAILABLE,
             error=reason,
             exit_code=None,
         )
@@ -73,18 +67,21 @@ async def run_and_capture(
     stdout = result.stdout.decode(errors="replace")
     stderr = result.stderr.decode(errors="replace")
 
+    status: Status
+    error: str | None
+    exit_code: int | None
     if result.error is not None:
         # create_subprocess_exec / communicate raised (e.g. missing binary).
-        status, error, exit_code = _ERROR, result.error, None
+        status, error, exit_code = Status.ERROR, result.error, None
     elif result.timed_out:
-        status = _TIMEOUT
+        status = Status.TIMEOUT
         error = f"timed out after {timeout_s:g}s"
         exit_code = None
     elif result.returncode in ok_exit_codes:
-        status, error, exit_code = _OK, None, result.returncode
+        status, error, exit_code = Status.OK, None, result.returncode
     else:
         exit_code = result.returncode
-        status = _ERROR
+        status = Status.ERROR
         summary = stderr.strip() or "(no stderr)"
         error = f"exited {exit_code}: {summary}"
 

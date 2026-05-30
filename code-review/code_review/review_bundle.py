@@ -18,6 +18,7 @@ from typing import Any
 
 from code_review.capture import CaptureOutput
 from code_review.contracts import ReviewRequest
+from code_review.status import Status
 
 # Versioned contract id — bump on any breaking shape change (the agent/SKILL.md pin it).
 SCHEMA_ID = "polyreview/review-bundle/v1"
@@ -51,7 +52,9 @@ class ReviewBundle:
 def _capture_to_dict(capture: CaptureOutput) -> dict[str, Any]:
     return {
         "tool": capture.tool,
-        "status": capture.status,
+        # normalise through the shared SoT: enum member or bare string → canonical value,
+        # and any off-taxonomy status fails loud here rather than in schema validation.
+        "status": Status(capture.status).value,
         "exit_code": capture.exit_code,
         "stdout": capture.stdout,
         "stderr": capture.stderr,

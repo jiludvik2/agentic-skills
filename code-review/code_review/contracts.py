@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+if TYPE_CHECKING:
+    # Import only for type-checking: contracts → capture → adapters would cycle at
+    # runtime. The annotation is a lazy string (PEP 563), so the protocol still names
+    # the consolidated return type without closing the import loop.
+    from code_review.capture import CaptureOutput
 
 
 @runtime_checkable
@@ -11,7 +17,7 @@ class Analyzer(Protocol):
     default_timeout_s: int
     scope_restrictions: frozenset[str]
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput: ...
+    async def run(self, request: ReviewRequest) -> CaptureOutput: ...
 
 
 @dataclass(frozen=True)

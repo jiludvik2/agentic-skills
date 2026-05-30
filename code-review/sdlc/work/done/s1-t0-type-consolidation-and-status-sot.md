@@ -2,12 +2,25 @@
 id: s1-t0-type-consolidation-and-status-sot
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-migrate-adapters-and-emit-bundle
 sources: [adr-0020-thin-invocation-runner.md, adr-0019-analyzer-unavailable-vs-error.md, s0-contract-inversion-and-bundle.md]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [contract, capture, status, refactor]
+notes: |
+  Verify PASS, Review CLEAN (no findings).
+  - New shared SoT `code_review/status.py` (StrEnum, ADR-0019 four-member taxonomy);
+    `capture.py` + `review_bundle.py` reference it; private `_OK`-style constants removed.
+  - `tests/test_status_sot.py` (3 tests) pins taxonomy exactness, schema<->code anti-drift,
+    and capture-uses-shared-status. Full suite 444 passed; ruff + `mypy code_review` clean.
+  - `Analyzer.run()` protocol annotation -> `CaptureOutput` (imported under TYPE_CHECKING to
+    avoid the contracts->capture->adapters cycle). Legacy `AnalyzerOutput`/`MetricSet` retained
+    for s1-t1/t2/t3 by design.
+  - Carry to s1-t1/t2: protocol/adapter return-type agreement is not yet enforced (structural
+    conformance hides the mismatch until adapter bodies migrate). When migrating, add a check
+    tying concrete adapter returns to the protocol so the consolidation cannot silently
+    regress (Verify non-blocking observation).
 ---
 
 # Task s1-t0 — type consolidation + ADR-0019 status single-source-of-truth
