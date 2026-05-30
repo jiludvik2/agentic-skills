@@ -7,6 +7,8 @@ parent: epic-analyzer-thin-runner
 children:
   - s1-t0-type-consolidation-and-status-sot
   - s1-t1-migrate-python-adapters
+  - s1-t1b-migrate-library-adapters
+  - s1-t1c-migrate-schemathesis
   - s1-t2-migrate-js-adapters
   - s1-t3-cli-bundle-and-delete-sarif-layer
 sources: [epic-analyzer-thin-runner.md, adr-0020-thin-invocation-runner.md, s0-contract-inversion-and-bundle.md]
@@ -71,9 +73,30 @@ intermediate SARIF-bridge scaffolding). **s2 shrinks** to SKILL.md interpretatio
 - **Diff-path resolution** (`resolve_diff_paths` repo-relative vs `cli.py` cwd-abspath) —
   fix opportunistically during s1-t3 if it falls out of the CLI rewrite; else carry to s2.
 
+## Re-split decision (operator-approved 2026-05-30)
+
+Scoping s1-t1 surfaced a planning defect: only **5 of the 9 Python adapters are
+subprocess-based** (bandit, semgrep, gitleaks, trivy, pydeps). The other 4 are **in-process
+library calls** with no subprocess invocation to "keep" — migrating them means choosing a
+CLI invocation contract per tool, and **schemathesis** (in-process, auth- + sandbox-isolated
+~10K adapter) is a major rewrite to a `schemathesis run` subprocess with auth/sandbox
+semantics not dictated by the spec (an autonomy-gate fork). s1-t1 is therefore split into
+three, keeping one-commit granularity and isolating the design fork:
+
+- **s1-t1** — the 5 subprocess Python adapters + add `env=` to `run_and_capture`.
+- **s1-t1b** — radon / vulture / cohesion: library → CLI subprocess conversion.
+- **s1-t1c** — schemathesis: in-process library → `schemathesis run` subprocess (design the
+  auth/sandbox-under-subprocess approach; highest risk).
+
+`s1-t2`/`s1-t3` ids are unchanged (the `-t1b`/`-t1c` suffix inserts after `s1-t1` without
+renumbering). The story-level AC "all 13 adapters return a raw capture" is unchanged — it is
+now satisfied across s1-t1 + s1-t1b + s1-t1c + s1-t2.
+
 ## Tasks
 
-- **s1-t0** — type consolidation + ADR-0019 status single-source-of-truth.
-- **s1-t1** — migrate the 9 Python adapters to invoke-and-capture.
+- **s1-t0** — type consolidation + ADR-0019 status single-source-of-truth. **(done)**
+- **s1-t1** — migrate the 5 subprocess Python adapters + `run_and_capture(env=)`.
+- **s1-t1b** — migrate radon / vulture / cohesion (library → CLI subprocess).
+- **s1-t1c** — migrate schemathesis (library → subprocess; auth/sandbox design).
 - **s1-t2** — migrate the 4 JS adapters (folds in G1: jscpd language scope).
 - **s1-t3** — CLI emits the bundle + delete the SARIF normalisation layer.

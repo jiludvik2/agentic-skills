@@ -10,72 +10,85 @@ updated: 2026-05-30
 tags: [migration, adapters, python, capture]
 ---
 
-# Task s1-t1 — migrate the 9 Python adapters to invoke-and-capture
+# Task s1-t1 — migrate the 5 subprocess Python adapters to invoke-and-capture
 
 ## Outcome
 
-Each Python adapter invokes its tool with the **exact same argv** as today and returns a
-raw `CaptureOutput` via `run_and_capture`, with its ADR-0019 availability pre-flight
-preserved. All output parsing (`_to_sarif`, JSON parsing, `MetricSet` building) is deleted.
+Each of the 5 **subprocess-based** Python adapters (bandit, semgrep, gitleaks, trivy,
+pydeps) invokes its tool with the **same effective argv** as today and returns a raw
+`CaptureOutput` via `run_and_capture`, with its ADR-0019 availability pre-flight preserved.
+All output parsing (`_to_sarif`, JSON parsing, temp-file SARIF reads) is deleted. The
+`run_and_capture` primitive gains an `env=` parameter (semgrep needs it now; the JS adapters
+need it in s1-t2).
+
+The 4 in-process library adapters are **out of scope** here — radon/vulture/cohesion move in
+s1-t1b, schemathesis in s1-t1c (see the story's re-split decision).
 
 ## Design
 
-For each adapter: keep the **invocation half** (argv construction, cwd, tolerated exit
-codes, the empty-target short-circuit, the availability pre-flight) and replace the
-**output half** (`run_subprocess` + parse + `_to_sarif`/metrics) with a single
-`run_and_capture(name, *argv, timeout_s=..., cwd=..., ok_exit_codes=...)` call returning
-the capture verbatim. Adapters that previously returned `unavailable` via the
-`empty_sarif`/`js_unavailable` pattern now return `CaptureOutput.unavailable(name, reason)`.
+**Primitive enhancement (`capture.py`):** add `env: dict[str, str] | None = None` to
+`run_and_capture` and thread it to `run_subprocess` (which already accepts `env`). Covered by
+a new `test_capture` test asserting the env reaches the subprocess.
 
-Adapters (load-bearing invocation detail to PRESERVE and pin by test):
+For each adapter: keep the **invocation half** (argv construction, cwd, tolerated exit codes,
+the empty-target short-circuit, the availability pre-flight) and replace the **output half**
+(`run_subprocess` + parse + `_to_sarif`) with a single `run_and_capture(name, *argv,
+timeout_s=..., env=..., ok_exit_codes=...)` call returning the capture verbatim. Adapters
+that returned `unavailable` via the `empty_sarif` pattern now return
+`CaptureOutput.unavailable(name, reason)`.
 
-- **bandit** — `--quiet`, tolerated exit `(0, 1)`; the F3 progress-bar-on-stdout concern
-  disappears (no parsing). Delete `_bandit_to_sarif`.
+**File-output tools must redirect to stdout** (so the raw capture carries the findings):
+
+- **bandit** — already stdout JSON (`-f json`); `--quiet`, tolerated exit `(0, 1)`. The F3
+  progress-bar-on-stdout concern disappears (no parsing). Delete `_bandit_to_sarif`.
 - **semgrep** — **`--x-ignore` is load-bearing** (without it semgrep silently skips `tests/`
-  and returns zero findings — see memory); Python-only vendored ruleset path from config.
-- **gitleaks** — diff/target scoping; SARIF passthrough becomes raw capture.
-- **trivy** — **offline** (uses the provisioned DB cache, no network egress).
-- **radon** — cc/mi invocation; `MetricSet` building deleted, raw stdout captured.
-- **vulture** — dead-code; delete `_vulture_to_sarif`.
-- **pydeps** — coupling/cycles; delete `_pydeps_to_sarif` + metrics building.
-- **cohesion_** — LCOM4 invocation; metrics building deleted.
-- **schemathesis_** — contract testing (full-scope, largest adapter ~10.4K); delete its
-  SARIF builder; preserve auth/sandbox-isolation invocation and `story-level` scope
-  restriction. **This is the highest-risk migration — do it last and carefully.**
+  and returns zero findings — see memory); Python-only vendored ruleset from config; uses
+  `env=`. Emit SARIF to stdout (`--sarif`) instead of a temp file; tolerated exit `(0, 1)`.
+  Delete `_semgrep_to_sarif`.
+- **gitleaks** — currently `--report-path <tmpfile>`; switch to `--report-path /dev/stdout`
+  (keep `--report-format sarif`, `--no-git`) so the report lands on stdout; drop the
+  temp-dir/file read. Preserve diff/target scoping. Tolerate the leaks-found exit code.
+- **trivy** — **offline** (provisioned DB cache, no network egress); currently temp-file
+  output → redirect to stdout. Preserve the offline invocation. Delete the temp-file read.
+- **pydeps** — coupling/cycles JSON on stdout; delete `_pydeps_to_sarif` + metrics building.
 
 ## Acceptance criteria
 
-- All 9 Python adapters return a `CaptureOutput`; no `_to_sarif` / `MetricSet` building
-  remains in any of them (`grep` clean within `adapters/` for the Python set).
+- All 5 adapters return a `CaptureOutput`; no `_to_sarif` / temp-file SARIF read remains in
+  any of them (`grep` clean within `adapters/` for this set).
+- `run_and_capture` accepts `env=` and threads it to the subprocess (test-asserted).
 - Per adapter, a test asserts the **built argv** contains its load-bearing flags
-  (e.g. bandit `--quiet`; semgrep `--x-ignore`; trivy offline marker) — pinned so a future
-  refactor cannot silently drop them.
+  (bandit `--quiet`; semgrep `--x-ignore` + `--sarif`; gitleaks `/dev/stdout`; trivy offline
+  marker; pydeps invocation) — pinned so a future refactor cannot silently drop them.
 - Per adapter, a **raw-capture** test (stdout captured verbatim, status `ok` on tolerated
-  exit) and an **availability** test (`unavailable` when the pre-flight fails:
+  exit) and an **availability** test (`unavailable` / `error` when the pre-flight fails:
   missing binary / empty targets) pass.
-- `uv run pytest`, `uv run ruff check .`, `uv run mypy code_review` clean. (The SARIF-
-  correctness tests for these adapters are deleted in this task or in s1-t3 — name which.)
+- `uv run pytest`, `uv run ruff check .`, `uv run mypy code_review` clean.
 
 ## Test specification (write first, confirm RED)
 
-Rewrite each `tests/test_adapters/test_<tool>.py` to the new contract (the old SARIF
-assertions are deleted, not adapted):
+`tests/test_capture.py`: add `test_run_and_capture_threads_env` — env passed to
+`run_and_capture` is visible to the child (e.g. echo an env var).
 
-1. `test_<tool>_invocation_pins_flags` — patch `run_and_capture` (or `run_subprocess`),
-   run the adapter, assert the captured argv contains the load-bearing flags for that tool.
+Rewrite each `tests/test_adapters/test_<tool>.py` for bandit/semgrep/gitleaks/trivy/pydeps to
+the new contract (old SARIF assertions deleted, not adapted):
+
+1. `test_<tool>_invocation_pins_flags` — patch `run_and_capture` (or `run_subprocess`), run
+   the adapter, assert the captured argv/env contains the load-bearing flags for that tool.
 2. `test_<tool>_captures_raw_stdout` — feed a known stdout via the patched primitive; assert
    it lands verbatim on the returned `CaptureOutput.stdout`, status `ok`.
-3. `test_<tool>_unavailable_preflight` — missing binary / empty target → `status=="unavailable"`
+3. `test_<tool>_unavailable_preflight` — missing binary / empty target → `unavailable`
    (or `error` per the adapter's pre-flight), no exception.
 4. Keep one **real-invocation** integration test per adapter (marked `integration`) that runs
-   the actual tool on a fixture and asserts a non-empty raw capture — the analyzer-coverage
-   discipline (assert findings/output, not just `status==ok`).
+   the actual tool on a fixture and asserts a non-empty raw capture — assert findings/output,
+   not just `status==ok` (analyzer-coverage discipline).
 
 ## Notes
 
-- Migrate in ascending risk: gitleaks/radon/vulture/cohesion first, then bandit/semgrep/
-  pydeps/trivy, then **schemathesis_ last**.
+- Migrate in ascending risk: pydeps/gitleaks first, then bandit/trivy, then semgrep.
 - Do NOT delete `aggregator`/`severity`/`hotspots`/`sarif_utils` here — the CLI still imports
-  them until s1-t3. This task only empties the adapters' output half.
-- `js_base.js_unavailable` migration is s1-t2 (JS adapters); the Python set uses
-  `required_binary` / library-availability pre-flight.
+  them until s1-t3. This task only empties these adapters' output half. (`sarif_utils`'
+  `collect_python_files` may still be used by radon/vulture/cohesion until s1-t1b — leave it.)
+- The protocol/adapter return-type agreement guard flagged in s1-t0 Verify: once these 5
+  return `CaptureOutput`, add at least one assertion tying a concrete adapter return to the
+  type (so the consolidation can't silently regress).

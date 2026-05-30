@@ -64,9 +64,14 @@ migrate alongside so the green bar holds throughout.
 - **s0 — contract inversion + bundle format.** Redefine `AnalyzerOutput` (raw-capture-
   first); define the bundle schema; retain selection + the ADR-0019 availability
   contract. Tests: bundle shape, availability contract preserved.
-- **s1 — migrate adapters to invoke-and-capture + emit the bundle.** Planned 2026-05-30
-  (4 tasks: s1-t0 type/status SoT; s1-t1 9 Python adapters; s1-t2 4 JS adapters + G1;
-  s1-t3 CLI emits bundle + delete the layer). Delete every `_to_sarif` + `aggregator`/
+- **s1 — migrate adapters to invoke-and-capture + emit the bundle.** Planned 2026-05-30;
+  s1-t1 re-split 2026-05-30 (6 tasks: s1-t0 type/status SoT **(done)**; s1-t1 5 subprocess
+  Python adapters + `run_and_capture(env=)`; s1-t1b radon/vulture/cohesion library→CLI;
+  s1-t1c schemathesis library→subprocess; s1-t2 4 JS adapters + G1; s1-t3 CLI emits bundle +
+  delete the layer). Re-split rationale: 4 of the 9 "Python adapters" are in-process library
+  calls, not subprocesses — migrating them is a library→CLI conversion (radon/vulture/
+  cohesion) and, for schemathesis, a major rewrite with an auth/sandbox-under-subprocess
+  design fork that warranted its own task. Delete every `_to_sarif` + `aggregator`/
   `severity`/`hotspots`/`MetricSet`/SARIF builders; each adapter → invoke + capture +
   exit-code/availability mapping. **CLI bundle-emission pulled in from s2** (operator
   decision 2026-05-30): deleting `aggregator` orphans the CLI's output path, so the switch
