@@ -2,12 +2,16 @@
 id: s0-t1-review-bundle-and-schema
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-contract-inversion-and-bundle
 sources: [adr-0020-thin-invocation-runner.md]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [bundle, schema, serialization, runner]
+notes:
+  - "As-built divergences from spec text (reconciled here per File verb): module is code_review/review_bundle.py (spec allowed implementer's call; avoids collision with the install-manifest bundle.py); schema lives at code_review/schemas/review-bundle.v1.json, NOT _bundle/schemas/ — _bundle/ is wheel-synthesized install-bundle territory outside the wheel include glob, whereas schemas/*.json ships and already hosts SARIF/request/response. Design line below corrected to match."
+  - "Review (MINOR-ONLY) FIXED in-place: schema $id was a bare content-id; changed to house-style URI https://code-review.skill/schemas/review-bundle.v1.json (the emitted `schema` const stays polyreview/review-bundle/v1)."
+  - "Dropped Nits: (1) the content-id string lives in 3 places (schema $id retired, schema.const, Python SCHEMA_ID) — if it ever drifts, add a test asserting SCHEMA_ID == load_bundle_schema()[...]['schema']['const']; (2) read_text(encoding='utf-8') vs sibling SARIF loader omitting it — explicit encoding kept."
 ---
 
 # Task s0-t1 — ReviewBundle type + JSON serialisation + published schema
@@ -48,8 +52,11 @@ def bundle_to_json(bundle: ReviewBundle) -> str: ...    # stable (sorted keys)
     ]
   }
   ```
-- Publish the JSON schema at `code_review/_bundle/schemas/review-bundle.v1.json` (vendored
-  like the SARIF schema was) and validate with `jsonschema` (already a dependency).
+- Publish the JSON schema at `code_review/schemas/review-bundle.v1.json` (vendored
+  like the SARIF schema was — alongside `review-request.json`/`review-response.json`,
+  shipped via the wheel `include` glob) and validate with `jsonschema` (already a
+  dependency). [As-built: corrected from the original `_bundle/schemas/` path, which is
+  install-bundle territory outside the include glob — see notes.]
 - `config`/`MetricSet` are **not** referenced; metrics-bearing tools (radon/cohesion/
   pydeps) are treated as ordinary tools whose raw stdout lands in `outputs` (their
   `MetricSet` special-casing is deleted in s1).
