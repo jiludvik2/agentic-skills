@@ -123,7 +123,9 @@
       "rule_classes": ["dead-code"],
       "taxonomies_tagged": [],
       "default_timeout_s": 120,
-      "scope_restriction": null
+      "scope_restriction": null,
+      "npm_package": "knip",
+      "version": "5.0.0"
     },
     {
       "id": "jscpd",
@@ -135,7 +137,9 @@
       "rule_classes": ["duplication"],
       "taxonomies_tagged": [],
       "default_timeout_s": 60,
-      "scope_restriction": null
+      "scope_restriction": null,
+      "npm_package": "jscpd",
+      "version": "4.0.5"
     },
     {
       "id": "eslint",
@@ -147,7 +151,10 @@
       "rule_classes": ["quality"],
       "taxonomies_tagged": [],
       "default_timeout_s": 90,
-      "scope_restriction": null
+      "scope_restriction": null,
+      "npm_package": "eslint",
+      "version": "9.39.4",
+      "sarif_formatter": {"npm_package": "@microsoft/eslint-formatter-sarif", "version": "3.1.0"}
     },
     {
       "id": "pydeps",
@@ -171,7 +178,9 @@
       "rule_classes": ["coupling"],
       "taxonomies_tagged": [],
       "default_timeout_s": 90,
-      "scope_restriction": null
+      "scope_restriction": null,
+      "npm_package": "dependency-cruiser",
+      "version": "16.0.0"
     },
     {
       "id": "cohesion",

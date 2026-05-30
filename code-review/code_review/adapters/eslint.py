@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, ClassVar
 
 from code_review.adapters.base import run_subprocess
 from code_review.adapters.js_base import node_binary
 from code_review.adapters.sarif_utils import empty_sarif, normalise_sarif
 from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.paths import node_modules_dir
 
 
 class EslintAdapter:
@@ -30,7 +32,16 @@ class EslintAdapter:
             "--format", "@microsoft/eslint-formatter-sarif",
             *request.target_paths,
         )
-        result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
+        # The SARIF formatter is a vendored package; eslint resolves it relative
+        # to the run cwd, which fails when the target lives outside the skill
+        # root. Export NODE_PATH to the vendored node_modules so the formatter
+        # resolves regardless of cwd (replaces the smoke harness's stopgap).
+        env = dict(os.environ)
+        vendored = str(node_modules_dir())
+        existing = env.get("NODE_PATH")
+        # Prepend the vendored dir so it takes precedence over any inherited path.
+        env["NODE_PATH"] = os.pathsep.join([vendored, existing]) if existing else vendored
+        result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s, env=env)
         if result.error is not None:
             return AnalyzerOutput(sarif={}, status="error", error=result.error)
         if result.timed_out:

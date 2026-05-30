@@ -40,9 +40,9 @@ def _env() -> dict[str, str]:
     env = dict(os.environ)
     env["PATH"] = "/opt/homebrew/bin:" + env.get("PATH", "")
     env["POLYREVIEW_CACHE_DIR"] = str(SKILL)
-    # So `node`/eslint can resolve the vendored @microsoft/eslint-formatter-sarif
-    # package no matter which cwd an adapter runs from.
-    env["NODE_PATH"] = str(SKILL / "node_modules")
+    # NODE_PATH is no longer set here: the eslint adapter exports it to the
+    # vendored node_modules itself (s1-t2) so the SARIF formatter resolves
+    # regardless of cwd. POLYREVIEW_CACHE_DIR anchors node_modules_dir().
     return env
 
 

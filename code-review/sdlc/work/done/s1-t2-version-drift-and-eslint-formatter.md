@@ -2,12 +2,21 @@
 id: s1-t2-version-drift-and-eslint-formatter
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-js-toolchain-manifest
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-05-30
 tags: [node, capabilities, drift, eslint, sarif]
+notes: |
+  Closed 2026-05-30. Verify PASS, Review MINOR-ONLY. Both Minor findings folded
+  in rather than deferred: (1) drift guard extended to cover the eslint SARIF
+  formatter (@microsoft/eslint-formatter-sarif, via the eslint entry's
+  sarif_formatter field); (2) the F8/s4 xfail on test_eslint_integration_detects
+  _console_log set strict=True to self-retire when s4 lands (matches ADR-0017 §3
+  depcruiser convention). Nit (NODE_PATH ternary) also addressed. Mechanism
+  chosen for formatter resolution: adapter exports NODE_PATH to node_modules_dir()
+  (verified empirically against vendored eslint 9.39.4 + formatter 3.1.0).
 ---
 
 # s1-t2 — Version-drift guard + eslint SARIF formatter cwd-independence
