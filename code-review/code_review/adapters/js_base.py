@@ -8,7 +8,15 @@ from code_review.paths import node_modules_dir as _node_modules
 
 
 def node_binary(tool: str) -> Path | None:
-    """Return path to vendored Node.js binary, or None if not installed."""
+    """Return path to vendored Node.js binary, or None if not installed.
+
+    Note: only the eslint adapter additionally exports ``NODE_PATH`` (see
+    ``eslint.py``), because it is the only Node analyzer that loads a vendored
+    *package* by name (the ``@microsoft/eslint-formatter-sarif`` formatter) and
+    thus depends on cwd-relative module resolution. knip/jscpd/depcruiser invoke
+    their own ``.bin`` entrypoint and emit JSON natively, so they have no
+    equivalent exposure — the asymmetry is intentional, not an omission.
+    """
     candidate = _node_modules() / ".bin" / tool
     return candidate if candidate.exists() else None
 

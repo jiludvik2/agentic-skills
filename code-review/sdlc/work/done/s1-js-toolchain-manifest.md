@@ -2,13 +2,38 @@
 id: s1-js-toolchain-manifest
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-ga-hardening
 children: [s1-t0-adr-node-range-and-js-pins, s1-t1-package-manifest-and-lockfile, s1-t2-version-drift-and-eslint-formatter, s1-t3-ci-node-integration-and-xfail-gating]
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-05-30
 tags: [javascript, typescript, node, packaging, setup, ga-readiness]
+notes: |
+  Story CLOSED 2026-05-30. All 4 tasks done (t0 ADR-0017+pins, t1 manifest+lock,
+  t2 drift-guard+eslint NODE_PATH, t3 CI Node-integration matrix). Story-level
+  Review verdict MINOR-ONLY (0 Critical/Important) — story closes. Rule #26
+  supply-chain gate: SKIPPED — project defines no audit gate yet (no Makefile/
+  pip-audit/license_audit; the stack-pins reference to scripts/license_audit.py
+  is stale and does not exist — track separately). Full suite 375 passed,
+  3 xfailed; ruff + mypy strict clean.
+
+  Story-level review Minors (opportunistic, not fix tasks):
+  - FOLDED IN: (#3) js_base.node_binary now documents why NODE_PATH is
+    eslint-only; (#4) stack-pins depcruiser cell reworded to "^16 (placeholder)
+    / 16.0.0 (s3 re-validates)" to match the committed lockfile.
+  - FOLLOW-UP (deferred): (#1) adapter SARIF-driver `version` literals in
+    knip/jscpd/depcruiser are a third, un-guarded copy — but this is a
+    project-wide convention (bandit/cohesion/pydeps/vulture/schemathesis all do
+    it), so out of s1 scope; revisit as a cross-adapter cleanup. (#2) the CI
+    fail-loud guard hardcodes the bin list (eslint jscpd depcruise knip) — a
+    5th Node analyzer added later wouldn't be guarded; consider a test asserting
+    the guard list == the set of adapter node_tool ClassVars.
+  - Nits dropped: jscpd /dev/stdout portability (pre-existing, jscpd s2/F2);
+    uv-setup duplication across the two CI jobs (fine for two-job YAML).
+
+  F9 (CI runs Node integration tests) is satisfied at the story boundary; the
+  *full* intent closes as s2/s3/s4 flip jscpd/depcruiser/eslint xfails.
 ---
 
 # s1 — JS toolchain manifest & pins
