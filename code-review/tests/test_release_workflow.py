@@ -131,16 +131,18 @@ def test_tag_prefix_routing_preserved(workflow: dict[str, Any]) -> None:
 
 
 def test_test_dist_smoke_invokes_renamed_binary(workflow: dict[str, Any]) -> None:
-    """s3-t1: after the polyreview rename, the test-dist smoke step must invoke
-    the renamed console binary `polyreview --capabilities`. The old
-    `claude-code-review` binary no longer ships, so a stale reference would fail
-    the job at publish time."""
+    """s3-t1 + s6-fix1: the test-dist smoke step must invoke the renamed console
+    binary under its post-restructure `run` subcommand: `polyreview run
+    --capabilities`. The old `claude-code-review` binary no longer ships, and the
+    bare `polyreview --capabilities` form now exits 2 (Typer requires a subcommand
+    after the install/uninstall restructure), which would fail the pipefail'd job
+    at publish time."""
     steps = workflow["jobs"]["test-dist"].get("steps", [])
     run_blocks = "\n".join(
         s.get("run", "") for s in steps if isinstance(s, dict)
     )
-    assert "polyreview --capabilities" in run_blocks, (
-        "test-dist must smoke-test `polyreview --capabilities`; "
+    assert "polyreview run --capabilities" in run_blocks, (
+        "test-dist must smoke-test `polyreview run --capabilities`; "
         f"got run blocks:\n{run_blocks}"
     )
     assert "claude-code-review" not in run_blocks, (

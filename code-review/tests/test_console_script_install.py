@@ -48,7 +48,7 @@ def test_console_script_install(tmp_path: Path) -> None:
     )
 
     installed = subprocess.run(
-        [str(console_script), "--capabilities"],
+        [str(console_script), "run", "--capabilities"],
         capture_output=True,
         text=True,
     )
@@ -59,7 +59,7 @@ def test_console_script_install(tmp_path: Path) -> None:
     assert "analyzers" in installed_caps, "installed --capabilities missing 'analyzers'"
 
     source = subprocess.run(
-        [sys.executable, "-m", "code_review.cli", "--capabilities"],
+        [sys.executable, "-m", "code_review.cli", "run", "--capabilities"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

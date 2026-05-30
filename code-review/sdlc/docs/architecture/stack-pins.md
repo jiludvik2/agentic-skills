@@ -4,8 +4,8 @@ kind: architecture
 project: code-review
 sources: [architecture-reviewer-subagent.md]
 created: 2026-05-26
-updated: 2026-05-26
-verified-on: 2026-05-26
+updated: 2026-05-29
+verified-on: 2026-05-29
 tags: [pins, stack, security-floor]
 ---
 
@@ -21,7 +21,7 @@ Status: harvested from the architecture's pin sections at first compile. No proj
 |---|---|---|
 | Python | `>=3.11` | `requires-python` |
 | Package manager | uv (preferred) | `pip install -e .` fallback works (PEP 621); never depend on uv-only `pyproject` features — see adr-0003 |
-| Node | via `npm ci` | for JS/TS analyzers; binaries vendored into `node_modules/`, not fetched at runtime |
+| Node | **20 LTS + 22 LTS** (matrix) | per **ADR-0017**; for JS/TS analyzers; binaries vendored into `node_modules/`, not fetched at runtime; CI matrix-tests both majors (s1-t3) |
 | Build backend | hatchling | — |
 
 ## Python dependencies (runtime — spec floor + locked patch)
@@ -63,6 +63,19 @@ or escalate.
 ## Subprocess-only tools (runtime prerequisites, NOT Python deps)
 
 semgrep, gitleaks, trivy, eslint (+ sonarjs), dependency-cruiser, jscpd, knip. Installed by `scripts/setup.sh`; presence verified at runtime via `python -m code_review.cli --capabilities`. Invoked as separate processes (license isolation — see floor below). (Pact was listed here but dropped — ADR-0008.)
+
+## Node/JS toolchain (vendored via npm)
+
+Per **ADR-0017**. Manifest pins are major-version floors in `package.json` at the skill root; exact patches are locked in `package-lock.json` (mirroring the Python spec-floor/lock split, ADR-0013). The lockfile — not `capabilities.json` — is the source of truth for installed versions. Supported Node range: **20 LTS + 22 LTS** (see Runtime table). Not shipped in the wheel.
+
+| Package | Manifest pin | Locked patch | Role |
+|---|---|---|---|
+| eslint | `^9` | `package-lock.json` (s1-t1) | JS/TS linting |
+| @microsoft/eslint-formatter-sarif | `^3` | `package-lock.json` (s1-t1) | eslint → SARIF |
+| knip | `^5` | `package-lock.json` (s1-t1) | unused-export detection |
+| jscpd | `^4` | `package-lock.json` (s1-t1) | copy-paste detection |
+| dependency-cruiser | `^16.10.4` | `16.10.4` (s3-t0) | coupling/cycles; 16.0.0 broke on modern Node (F1, seen on Node 24) — `R_OK` SyntaxError up to 16.10.1, fixed in 16.10.2 (`node:fs/constants`). s3-t0 bumped to 16.10.4 (latest 16.x, inside `^16`); empirical floor 16.10.2 |
+| typescript | `^5` | `5.9.3` (s3-t1) | depcruiser's TS transpiler — must be in `>=2 <6` for depcruise to enumerate `.ts`/`.tsx` in a directory target; knip pulls `typescript@6` (out of range), so 5.x is vendored top-level so the default `.` full-scan sees TS files (F1) |
 
 ## Tooling config pins
 

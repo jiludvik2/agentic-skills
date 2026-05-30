@@ -10,10 +10,14 @@ A deterministic code-analysis layer that runs one or more analyzers against a ta
 ## Invocation
 
 ```
-polyreview [--review <domain|subcategory>] [--depth quick|full]
+polyreview run [--review <domain|subcategory>] [--depth quick|full]
     [--analyzer <name>] [--target <path>] [--diff HEAD~1..HEAD]
     [--output <path inside CWD>] [--scope per-task|story-level]
 ```
+
+`polyreview` has three subcommands: **`run`** (the review, detailed below),
+**`install`** (place the skill bundle in your agent's skills dir), and
+**`uninstall`**. `run` carries all the review flags.
 
 - **`--review`** accepts a domain name or a subcategory name (repeat for multiple). See taxonomy table below.
 - **`--depth quick|full`** selects the depth tier when `--review` names a domain. Ignored when `--review` names a subcategory. Default: `quick`.
@@ -21,11 +25,43 @@ polyreview [--review <domain|subcategory>] [--depth quick|full]
 - Without `--output`, the consolidated JSON is printed to stdout.
 - With `--output`, the JSON is written atomically and stdout carries only a one-line summary: `analyzers: N | findings: M | duration: T s`.
 - `--output` paths must resolve inside the current working directory (sandbox compatibility).
-- `--capabilities` prints the static capability declaration merged with runtime per-analyzer availability checks.
+- `polyreview run --capabilities` prints the static capability declaration merged with runtime per-analyzer availability checks.
 
 The request/response contracts and capability declaration are bundled inside the `code_review` package (`code_review/schemas/*.json`, `code_review/capabilities.json`).
 
-**Developer note.** In a source checkout (e.g. during the SDLC verb cycle on this repo), `python -m code_review.cli …` works as a fallback when the console script binary isn't on `PATH` for the current shell. Under any of the supported install paths (`pip install polyreview`, `pipx install polyreview`, `uv tool install polyreview`) prefer the `polyreview` binary — the module form breaks under isolated-venv installers because the package isn't on the host `python`'s `sys.path`.
+**Developer note.** In a source checkout (e.g. during the SDLC verb cycle on this repo), `python -m code_review.cli run …` works as a fallback when the console script binary isn't on `PATH` for the current shell. Under any of the supported install paths (`pip install polyreview`, `pipx install polyreview`, `uv tool install polyreview`) prefer the `polyreview` binary — the module form breaks under isolated-venv installers because the package isn't on the host `python`'s `sys.path`.
+
+## Install
+
+`polyreview install` copies the skill bundle into the user-level skills directory
+for whatever agent(s) you run — it is agent-independent:
+
+```
+polyreview install                 # neutral ~/.agents/skills/ + every agent home present
+polyreview install --agent claude  # a specific agent (agents|claude|copilot|gemini)
+polyreview install --all           # every registry target
+polyreview install --force         # refresh an already-installed bundle in place
+```
+
+Install places the skill (discovery). It does **not** provision the offline analyzer
+caches (`node_modules/`, Trivy DB) — run the bundle's `setup.sh` afterwards for full
+coverage. The command prints each target written and this follow-up hint.
+
+## Uninstall
+
+`polyreview uninstall` removes the bundle from the same targets, scoped the same way:
+
+```
+polyreview uninstall                 # neutral ~/.agents/skills/ + every agent home present
+polyreview uninstall --agent claude  # a specific agent (agents|claude|copilot|gemini)
+polyreview uninstall --all           # every registry target
+```
+
+Removal is **marker-guarded**: only a `<skills-dir>/code-review/` whose `SKILL.md`
+declares `name: code-review` is deleted. Siblings, an agent's `agents/reviewer.md`,
+the skills dir itself, and the agent homes are never touched. A target with no bundle
+is a clean no-op; a directory that fails the marker check is refused (left intact) and
+the command exits non-zero.
 
 ## Review taxonomy
 
@@ -63,19 +99,19 @@ The taxonomy is data-driven (`capabilities.json`) and enforced at parse time. Us
 
 ```bash
 # Quick security review (semgrep, bandit, gitleaks)
-polyreview --review security --diff HEAD~1..HEAD
+polyreview run --review security --diff HEAD~1..HEAD
 
 # Full security review (adds trivy)
-polyreview --review security --depth full --diff HEAD~1..HEAD
+polyreview run --review security --depth full --diff HEAD~1..HEAD
 
 # Specific subcategory (coupling only; ignores --depth)
-polyreview --review coupling --scope story-level --target .
+polyreview run --review coupling --scope story-level --target .
 
 # Whole quick review (default)
-polyreview --target .
+polyreview run --target .
 
 # Contract testing at story-level
-polyreview --review conformance --scope story-level --target .
+polyreview run --review conformance --scope story-level --target .
 ```
 
 ### Warnings and errors
@@ -98,7 +134,7 @@ Run the setup script once, outside the sandbox (it needs network access):
 ./scripts/setup.sh
 ```
 
-It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches (Trivy DB, Semgrep rule packs) into `cache/`, reports the state of the host project's `.claude/agents/reviewer.md` (read-only — never written), and prints the path of the bundled starter config template. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
+It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches into `cache/` — the Trivy DB, and the **vendored Semgrep security ruleset** (committed in the bundle at `semgrep-rules/`, copied into `cache/semgrep/rules`; ADR-0016) so `--review security` finds issues with no network or manual rule setup — reports the state of the host project's `.claude/agents/reviewer.md` (read-only — never written), and prints the path of the bundled starter config template. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
 
 After install, copy `code-review.toml.example` (next to this `SKILL.md` in the skill bundle) to your project root and uncomment the keys you want to override. See the file's own comments for each tunable.
 

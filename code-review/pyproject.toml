@@ -1,6 +1,6 @@
 [project]
 name = "polyreview"
-version = "0.1.0rc1"
+version = "0.1.0"
 requires-python = ">=3.11"
 description = "AI-native code review skill — deterministic analyzer layer"
 license = { file = "LICENSE" }
@@ -49,6 +49,19 @@ polyreview = "code_review.cli:app"
 packages = ["code_review"]
 include = ["code_review/capabilities.json", "code_review/schemas/*.json"]
 
+# ADR-0018 §2 / s6-t1: mirror the skill-bundle manifest from the canonical on-disk
+# bundle (.claude/skills/code-review/) into the package as code_review/_bundle/ so
+# `polyreview install` can read it via importlib.resources. force-include references
+# the existing files (no committed second copy) and ships only the manifest subset —
+# node_modules/, cache/, runs/ are deliberately excluded. Keep in sync with
+# code_review/bundle.py BUNDLE_MANIFEST.
+[tool.hatch.build.targets.wheel.force-include]
+".claude/skills/code-review/SKILL.md" = "code_review/_bundle/SKILL.md"
+".claude/skills/code-review/code-review.toml.example" = "code_review/_bundle/code-review.toml.example"
+".claude/skills/code-review/package.json" = "code_review/_bundle/package.json"
+".claude/skills/code-review/package-lock.json" = "code_review/_bundle/package-lock.json"
+".claude/skills/code-review/semgrep-rules" = "code_review/_bundle/semgrep-rules"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -64,7 +77,7 @@ markers = [
 target-version = "py311"
 line-length = 100
 # Fixtures hold deliberately bad code for analyzers to flag — do not lint them.
-extend-exclude = ["tests/fixtures"]
+extend-exclude = ["tests/fixtures", "sdlc/docs/qa/analyzer-coverage/fixtures"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]

@@ -59,7 +59,7 @@ def test_scope_per_task_rejects_story_level_only_analyzer() -> None:
     ):
         result = runner.invoke(
             app,
-            ["--analyzer", "schemathesis", "--scope", "per-task"],
+            ["run", "--analyzer", "schemathesis", "--scope", "per-task"],
             catch_exceptions=False,
         )
     assert result.exit_code != 0
@@ -74,7 +74,7 @@ def test_scope_story_level_accepts_story_level_only_analyzer() -> None:
     ):
         result = runner.invoke(
             app,
-            ["--analyzer", "schemathesis", "--scope", "story-level"],
+            ["run", "--analyzer", "schemathesis", "--scope", "story-level"],
             catch_exceptions=False,
         )
     assert result.exit_code == 0
@@ -89,7 +89,7 @@ def test_unrestricted_analyzer_accepted_at_any_scope(scope: str) -> None:
     ):
         result = runner.invoke(
             app,
-            ["--analyzer", "bandit", "--scope", scope],
+            ["run", "--analyzer", "bandit", "--scope", scope],
             catch_exceptions=False,
         )
     assert result.exit_code == 0

@@ -12,7 +12,7 @@ The project venv is uv-managed (Python 3.12; runtime floor 3.11). **Always run t
 - Tests: `uv run pytest`
 - Lint: `uv run ruff check .`
 - Types: `uv run mypy --config-file pyproject.toml code_review/`
-- Run the CLI from a source checkout: `python -m code_review.cli --capabilities` (fallback; the installed binary is `polyreview`)
+- Run the CLI from a source checkout: `python -m code_review.cli run --capabilities` (fallback; the installed binary is `polyreview`)
 
 ## Conventions
 

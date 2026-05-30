@@ -13,12 +13,17 @@ import jsonschema
 from code_review.adapters.base import run_subprocess
 from code_review.adapters.sarif_utils import normalise_sarif as _normalise
 from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.paths import cache_root
 
 _SCHEMA_PATH = importlib.resources.files("code_review").joinpath("schemas", "sarif-2.1.0.json")
 _sarif_schema: dict[str, Any] | None = None
 
+
 def _semgrep_rules_dir() -> Path:
-    return Path.cwd() / ".claude" / "skills" / "code-review" / "cache" / "semgrep" / "rules"
+    # Resolve through cache_root() (ADR-0015) so this consumer honors
+    # $POLYREVIEW_CACHE_DIR exactly like the producer (scripts/prefetch_caches.py)
+    # that provisions the vendored ruleset here.
+    return cache_root() / "cache" / "semgrep" / "rules"
 
 
 def _schema() -> dict[str, Any]:
@@ -39,21 +44,50 @@ class SemgrepAdapter:
         if not request.target_paths:
             return AnalyzerOutput(sarif=_normalise({"runs": []}))
 
-        # Resolve rules: config-supplied → pre-fetched local cache → auto (network)
+        # Resolve rules: explicit config override → provisioned local cache.
+        # No `--config auto` fallback: it is incompatible with `--metrics off`
+        # (semgrep: "Cannot create auto config when metrics are off"), and a
+        # silent empty success on a security analyzer is worse than a loud,
+        # fixable error. (ADR-0016 #3/#4)
         rules_override: str | None = request.config.get("semgrep_rules")
-        default_rules = _semgrep_rules_dir()
-        if rules_override and Path(rules_override).exists():
+        if rules_override:
+            # A configured override that doesn't exist is a typo, not a cue to
+            # silently fall back to the cache — fail loud naming the bad path.
+            if not Path(rules_override).exists():
+                return AnalyzerOutput(
+                    sarif={},
+                    status="error",
+                    error=(
+                        f"semgrep_rules override path not found: {rules_override}. "
+                        "Fix the semgrep_rules value in code-review.toml."
+                    ),
+                )
             config_arg = rules_override
-        elif default_rules.is_dir():
-            config_arg = str(default_rules)
         else:
-            config_arg = "auto"
+            default_rules = _semgrep_rules_dir()
+            if not default_rules.is_dir():
+                return AnalyzerOutput(
+                    sarif={},
+                    status="error",
+                    error=(
+                        f"semgrep rules not found at {default_rules}. Run "
+                        "scripts/setup.sh to provision the vendored ruleset, or set "
+                        "semgrep_rules in code-review.toml."
+                    ),
+                )
+            config_arg = str(default_rules)
 
         cmd = (
             "semgrep", "--sarif",
             "--config", config_arg,
             "--metrics", "off",
-            # Bypass semgrep's built-in default ignore patterns (which exclude tests/)
+            # Load-bearing: disables semgrep's default .semgrepignore patterns,
+            # which otherwise exclude tests/ (and vendor/, etc.) — paths we DO
+            # want scanned when the diff or target points at them. Dropping it
+            # silently loses all test-directory findings (verified: zero results
+            # without it on tests/fixtures/). Experimental "--x-" flag; validated
+            # on the pinned semgrep 1.161.0 — re-confirm on any semgrep bump.
+            # (ADR-0016: kept rather than removed, per its scan-scope caveat.)
             "--x-ignore-semgrepignore-files",
             *request.target_paths,
         )

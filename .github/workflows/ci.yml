@@ -51,3 +51,50 @@ jobs:
 
       - name: Run mypy (strict)
         run: uv run mypy code_review
+
+  node-integration:
+    name: Node analyzer integration (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    defaults:
+      run:
+        working-directory: code-review
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv (with cache)
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "code-review/uv.lock"
+
+      - name: Set up Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Sync dependencies (lockfile-enforced)
+        run: uv sync --frozen
+
+      - name: Vendor Node toolchain (npm ci from skill-root lockfile)
+        working-directory: code-review/.claude/skills/code-review
+        run: npm ci
+
+      - name: Guard — toolchain vendored (fail loud, no silent skip; F9)
+        working-directory: code-review/.claude/skills/code-review
+        run: |
+          for tool in eslint jscpd depcruise knip; do
+            test -x "node_modules/.bin/$tool" || { echo "missing node_modules/.bin/$tool"; exit 1; }
+          done
+
+      - name: Run Node-analyzer integration tests (xfail-gated per story)
+        run: >
+          uv run pytest -m integration
+          tests/test_adapters/test_eslint.py
+          tests/test_adapters/test_jscpd.py
+          tests/test_adapters/test_depcruiser.py
+          tests/test_adapters/test_knip.py

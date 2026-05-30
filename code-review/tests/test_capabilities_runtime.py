@@ -16,7 +16,7 @@ CAPS = REPO_ROOT / "code_review" / "capabilities.json"
 
 def test_capabilities_static_section_matches_file() -> None:
     runner = CliRunner()
-    result = runner.invoke(app, ["--capabilities"])
+    result = runner.invoke(app, ["run", "--capabilities"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     expected = json.loads(CAPS.read_text(encoding="utf-8"))
@@ -28,7 +28,7 @@ def test_capabilities_runtime_marks_missing_binary_unavailable(
 ) -> None:
     monkeypatch.setattr("shutil.which", lambda name: None)
     runner = CliRunner()
-    result = runner.invoke(app, ["--capabilities"])
+    result = runner.invoke(app, ["run", "--capabilities"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["analyzers"]["semgrep"]["status"] == "unavailable"
@@ -42,7 +42,7 @@ def test_capabilities_runtime_marks_present_binary_available(
 ) -> None:
     monkeypatch.setattr("shutil.which", lambda name: f"/usr/local/bin/{name}")
     runner = CliRunner()
-    result = runner.invoke(app, ["--capabilities"])
+    result = runner.invoke(app, ["run", "--capabilities"])
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["analyzers"]["semgrep"]["status"] == "available"
@@ -52,9 +52,9 @@ def test_capabilities_runtime_marks_present_binary_available(
 def test_capabilities_runtime_recomputed_each_invocation(monkeypatch: pytest.MonkeyPatch) -> None:
     runner = CliRunner()
     monkeypatch.setattr("shutil.which", lambda name: None)
-    first = json.loads(runner.invoke(app, ["--capabilities"]).output)
+    first = json.loads(runner.invoke(app, ["run", "--capabilities"]).output)
     monkeypatch.setattr("shutil.which", lambda name: f"/usr/bin/{name}")
-    second = json.loads(runner.invoke(app, ["--capabilities"]).output)
+    second = json.loads(runner.invoke(app, ["run", "--capabilities"]).output)
     assert first["analyzers"]["semgrep"]["status"] == "unavailable"
     assert second["analyzers"]["semgrep"]["status"] == "available"
 
@@ -62,10 +62,10 @@ def test_capabilities_runtime_recomputed_each_invocation(monkeypatch: pytest.Mon
 def test_analyzer_registry_round_trip(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(adapters_mod.REGISTRY, "synthetic", FakeAnalyzer)
     runner = CliRunner()
-    caps = json.loads(runner.invoke(app, ["--capabilities"]).output)
+    caps = json.loads(runner.invoke(app, ["run", "--capabilities"]).output)
     assert "synthetic" in caps["analyzers"], "new registry entry not surfaced in --capabilities"
     # accepted as --analyzer without code change
-    result = runner.invoke(app, ["--analyzer", "synthetic", "--target", "."])
+    result = runner.invoke(app, ["run", "--analyzer", "synthetic", "--target", "."])
     assert result.exit_code == 0, result.output
 
 

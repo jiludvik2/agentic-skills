@@ -1,18 +1,22 @@
-# State — last updated 2026-05-29
+# State — last updated 2026-05-30
 
-**Active focus:** none — `epic-deployment-readiness` **closed** (s0–s3 done, s0-t6 folded in). Between epics; awaiting operator direction on the next one.
-**Last completed:** CI hotfix — **`main` CI is green again** (run 26650975118, `dd6e05e`). Fixed the `test_help_exits_zero` failure (real cause: color-enabled CI splits Typer option dashes into separate ANSI spans, so `--analyzer` is non-contiguous; strip ANSI before asserting) and strict-typed the whole test suite (now type-checked in CI alongside `code_review`).
-**Next:** operator decision on the next epic, plus the two follow-ups below.
+**Active focus:** `epic-analyzer-ga-hardening` (**8 stories, s0–s7**) → **ALL CLOSED**. **s7-uninstall-skill-bundle CLOSED 2026-05-30** (single task s7-t0; Verify PASS, per-task + story-level Review both MINOR-ONLY). **Epic boundary reached** — the epic file is still in `active/` pending **epic close** (Document + File verbs, version bump, GA tag). On branch `ccglass-traffic-analysis` — **16 commits ahead of origin, all UNPUSHED** (operator commits/pushes per AGENTS.md no-push policy). This session = **execution**: built + closed s7 (`polyreview uninstall`).
+**Last completed:** **s7 story CLOSED** (`e4f1371`). `polyreview uninstall` removes `<skills-dir>/code-review/` from the s6 registry targets, **marker-gated** (`is_our_bundle`, reused — never `rmtree` a dir failing the marker), scoped by `--agent`/`--all`, idempotent no-op when absent, refusal reported + non-zero exit, siblings/`reviewer.md`/skills-dir/homes untouched. New `uninstall()` in `install.py` + `uninstall` Typer command mirroring `install`. SKILL.md gained an Uninstall section. Suite **413 passed**; ruff + mypy clean.
+**Next:** **EPIC CLOSE for `epic-analyzer-ga-hardening`** (operator-gated — paused at epic boundary). Steps: (1) **Document** — reconcile `README.md` (currently documents neither the `install` nor `uninstall` subcommand; operator approves README content); (2) **File** — move `adr-0016/0017/0018` → `sdlc/docs/decisions/`, move the epic file → `done/`; (3) bump `pyproject.toml` → **0.1.0** (release-significant, operator call); (4) operator commits + cuts/pushes GA tag **`code-review-v0.1.0`** (standalone push event). Runbook: `sdlc/docs/runbooks/release.md`.
 
 ## Open questions / follow-ups
 
-- **GA release to PyPI.** Only TestPyPI has `0.1.0rc1` so far. To ship for real: bump `pyproject.toml` to `0.1.0` (drop `rc1`), commit, then cut + push the GA tag `code-review-v0.1.0` (no `-rc` → routes to the `pypi` environment). Per SDLC, the GA release tag is operator-created. Runbook: `sdlc/docs/runbooks/release.md`.
-- **`claude-code-review` redirect meta-package.** Deferred follow-up (ADR-0014): publish a thin `claude-code-review` depending only on `polyreview`, once `polyreview` has its first GA publish.
-  _(Resolved 2026-05-29: the long-standing "CI failing on `main`" and the mypy `conftest.py: Source file found twice` items are both fixed — see Recent shipped.)_
+- **GA supply-chain follow-up (open since s3):** no dependency-audit gate defined (SDLC #26 skipped per "no gate ⇒ skip"). `npm audit` reports **5 pre-existing** transitive vulns (picomatch/micromatch ReDoS, smol-toml DoS) — wheel-excluded, offline, local-only. Decide before GA whether to wire an audit gate (ADR) / `npm audit fix`.
+- **Diff-path resolution (open since s4):** `resolve_diff_paths` returns repo-relative paths, orchestrator `abspath`s against `Path.cwd()` (cli.py:142) — a `--diff` review from a subdir mis-resolves; affects all adapters. Resolve against repo root. Own task.
+- **s7 deferred Minors (opportunistic):** install/uninstall refusal-message wording diverges; `cli.py` duplicates comma-split + `resolve_targets` + echo loop (hoist `_resolve_targets_or_exit` helper); all-no-op summary handled asymmetrically vs install.
+- **s6 deferred Minors:** `install --force` is `rmtree`-then-copy (harden to copy-to-temp + atomic rename); mixed `--all` refusal prints cache hint before `Exit(1)`; bundle `code-review.toml.example` cross-refs `python -m code_review.cli --help` (align to `run`).
+- **Stale doc:** `scripts/license_audit.py` referenced by `stack-pins.md` but the file doesn't exist; add the gate (ADR) or correct stack-pins. Open since s1.
+- **`claude-code-review` redirect meta-package** (ADR-0014): publish after first GA publish.
+- **`analyze_ccglass.py`** carries 22 ruff errors on this branch (pre-existing, out of epic scope).
 
-## Recent shipped (2026-05-29)
+## Recent shipped
 
-- **CI hotfix** (`1241624`→`dd6e05e`): green `main` again. `test_help_exits_zero` failed only in color-enabled CI — Rich renders each option's two leading dashes as separate ANSI spans, so `--analyzer` is not a literal substring (passes locally piped, fails in CI; width was a red herring). Fix strips ANSI before the assert (repro via `FORCE_COLOR=1`). Also: added `tests/__init__.py` (fixes mypy "Source file found twice"), excluded `tests/fixtures` from mypy, added `types-PyYAML`, strict-typed all 29 test files; mypy now covers `code_review` **and** `tests`. NB: the ANSI fix also rides on branch `ccglass-traffic-analysis` as `2e94aa7` (cherry-pick dup — prefer `main`'s on merge).
-- **s3-multi-agent-rename** (`7dba060`→`0c63b94`): `claude-code-review` → `polyreview` across packaging/binary/release.yml/docs/tests; AGENTS.md canonical + CLAUDE.md redirect; ADR-0014. Kept: import name `code_review`, skill bundle path, `code-review-v*` tag prefix.
-- **s0-t6** (`4615b0b`): single cache-path resolver `code_review.paths.cache_root()` (`$POLYREVIEW_CACHE_DIR` else CWD-anchored); ADR-0015.
-- **First release** (`code-review-v0.1.0-rc1` → TestPyPI). All work pushed to origin/main (`@{u}..HEAD` empty).
+- **(2026-05-30) s7-uninstall-skill-bundle CLOSED** (`e4f1371`, `4ec9936`) — `polyreview uninstall`, marker-gated agent-independent removal (ADR-0018 §5). 9 tests; 413 passed. **Unpushed. Epic boundary.**
+- **(2026-05-30) s6-install-skill-bundle CLOSED** (`86badb3`) — `bundle.py` SSOT + `install.py` + `polyreview install` + CLI restructure to `polyreview run`. **Unpushed.**
+- **(2026-05-30) s3/s4/s5 CLOSED** — F1 depcruiser, F8 eslint, F10 CLI error branches. **Unpushed.**
+- **s0/s1/s2 CLOSED** (F3 semgrep, F5+F9 JS toolchain, F2 jscpd). **Pushed.** `polyreview 0.1.0rc1` on TestPyPI (`main`, e575b37).

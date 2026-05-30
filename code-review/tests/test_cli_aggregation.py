@@ -77,7 +77,7 @@ def test_output_has_required_top_level_keys(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake_b", _FakeB)
 
     result = runner.invoke(
-        app, ["--analyzer", "fake_a", "--analyzer", "fake_b", "--target", "."]
+        app, ["run", "--analyzer", "fake_a", "--analyzer", "fake_b", "--target", "."]
     )
 
     assert result.exit_code == 0, result.output
@@ -128,7 +128,7 @@ def test_aggregation_deduplicates_overlapping_findings(
     monkeypatch.setitem(adapters_mod.REGISTRY, "dup_b", _DupB)
 
     result = runner.invoke(
-        app, ["--analyzer", "dup_a", "--analyzer", "dup_b", "--target", "."]
+        app, ["run", "--analyzer", "dup_a", "--analyzer", "dup_b", "--target", "."]
     )
 
     assert result.exit_code == 0, result.output
@@ -154,7 +154,7 @@ def test_per_task_hotspots_restricted_to_diff(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr("code_review.cli.resolve_diff_paths", _mock_resolve)
 
     result = runner.invoke(
-        app, ["--analyzer", "fake_a", "--analyzer", "fake_b", "--diff", "HEAD~1..HEAD"]
+        app, ["run", "--analyzer", "fake_a", "--analyzer", "fake_b", "--diff", "HEAD~1..HEAD"]
     )
 
     assert result.exit_code == 0, result.output
@@ -170,7 +170,7 @@ def test_story_level_hotspots_include_all_files(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake_b", _FakeB)
 
     result = runner.invoke(
-        app, ["--analyzer", "fake_a", "--analyzer", "fake_b", "--target", "."]
+        app, ["run", "--analyzer", "fake_a", "--analyzer", "fake_b", "--target", "."]
     )
 
     assert result.exit_code == 0, result.output
@@ -193,7 +193,7 @@ def test_output_validates_against_review_response_schema(
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake_b", _FakeB)
 
     result = runner.invoke(
-        app, ["--analyzer", "fake_a", "--analyzer", "fake_b", "--target", "."]
+        app, ["run", "--analyzer", "fake_a", "--analyzer", "fake_b", "--target", "."]
     )
 
     assert result.exit_code == 0, result.output
@@ -217,7 +217,7 @@ def test_schema_validation_failure_is_non_fatal(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr("code_review.cli.jsonschema.validate", _raise)
 
     # Typer's CliRunner mixes stderr into result.output; the warning lands there.
-    result = runner.invoke(app, ["--analyzer", "fake_a", "--target", "."])
+    result = runner.invoke(app, ["run", "--analyzer", "fake_a", "--target", "."])
 
     assert result.exit_code == 0, f"Schema validation failure must not crash CLI: {result.output}"
     assert "schema" in result.output.lower(), "Expected schema warning in output"
@@ -230,7 +230,7 @@ def test_missing_schema_file_skipped_silently(
     nonexistent = tmp_path / "no-such-schema.json"
     monkeypatch.setattr("code_review.cli._SCHEMA_PATH", nonexistent)
 
-    result = runner.invoke(app, ["--analyzer", "fake_a", "--target", "."])
+    result = runner.invoke(app, ["run", "--analyzer", "fake_a", "--target", "."])
 
     assert result.exit_code == 0, f"Missing schema must not crash CLI: {result.output}"
     data = json.loads(result.output)
@@ -250,7 +250,7 @@ def test_config_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("code_review.cli.load_config", _raise)
 
     # Typer's CliRunner mixes stderr into result.output; error message lands there.
-    result = runner.invoke(app, ["--analyzer", "fake_a", "--target", "."])
+    result = runner.invoke(app, ["run", "--analyzer", "fake_a", "--target", "."])
 
     assert result.exit_code != 0, "ConfigError must produce non-zero exit"
     assert "injected: bad toml" in result.output, "Error message must appear in output"

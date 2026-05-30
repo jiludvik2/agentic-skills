@@ -111,6 +111,44 @@ def test_taxonomy_matches_locked_table() -> None:
         assert a["tier"] == tier, f"{aid}: expected tier={tier!r}, got {a['tier']!r}"
 
 
+def test_capabilities_node_versions_match_lockfile() -> None:
+    """Drift guard: advertised Node-tool versions must equal the locked versions.
+
+    Each vendored Node analyzer carries ``npm_package`` + ``version`` in
+    capabilities.json; ``package-lock.json`` is the source of truth for what
+    ``setup.sh`` installs (ADR-0017). If the lockfile is bumped without updating
+    capabilities (or vice versa) this fails, surfacing the drift the
+    ``--capabilities`` output would otherwise hide.
+    """
+    lockfile = REPO_ROOT / ".claude" / "skills" / "code-review" / "package-lock.json"
+    locked = json.loads(lockfile.read_text(encoding="utf-8"))["packages"]
+    caps = _load_caps()
+    node_analyzers = [a for a in caps["analyzers"] if "npm_package" in a]
+    advertised = {a["id"] for a in node_analyzers}
+    assert {"eslint", "knip", "jscpd", "depcruiser"} <= advertised, (
+        "all four vendored Node analyzers must advertise npm_package for the drift guard"
+    )
+    for a in node_analyzers:
+        assert "version" in a, f"{a['id']}: advertises npm_package but no version"
+        key = f"node_modules/{a['npm_package']}"
+        assert key in locked, f"{a['npm_package']} not found in package-lock.json"
+        assert a["version"] == locked[key]["version"], (
+            f"{a['id']}: capabilities advertises {a['version']!r} but lockfile has "
+            f"{locked[key]['version']!r} for {a['npm_package']}"
+        )
+    # The eslint SARIF formatter is vendored + version-pinned too (ADR-0017) and
+    # is hard-required by the eslint adapter, but has no analyzer row of its own;
+    # guard it against drift via the eslint entry's sarif_formatter.
+    eslint = next(a for a in caps["analyzers"] if a["id"] == "eslint")
+    fmt = eslint["sarif_formatter"]
+    fkey = f"node_modules/{fmt['npm_package']}"
+    assert fkey in locked, f"{fmt['npm_package']} not found in package-lock.json"
+    assert fmt["version"] == locked[fkey]["version"], (
+        f"eslint sarif_formatter advertises {fmt['version']!r} but lockfile has "
+        f"{locked[fkey]['version']!r} for {fmt['npm_package']}"
+    )
+
+
 def test_eslint_is_quality_only_not_security() -> None:
     caps = _load_caps()
     eslint = next(a for a in caps["analyzers"] if a["id"] == "eslint")

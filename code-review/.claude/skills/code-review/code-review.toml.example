@@ -18,6 +18,12 @@
 ## wrong section. Add new root-level scalars here, above the first [...] line.
 # disabled_analyzers = ["trivy"]
 
+## `semgrep_rules` (path string, default unset): override the Semgrep ruleset.
+## Takes precedence over the vendored ruleset that scripts/setup.sh provisions
+## into the runtime cache. Point it at a rules file or directory. When unset and
+## the cache is unprovisioned, the semgrep analyzer errors and names setup.sh.
+# semgrep_rules = "/path/to/semgrep-rules"
+
 ## ----------------------------------------------------------------------
 ## Deduplication
 ## ----------------------------------------------------------------------

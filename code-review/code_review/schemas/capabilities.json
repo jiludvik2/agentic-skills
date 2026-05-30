@@ -77,7 +77,18 @@
           "rule_classes": {"type": "array", "items": {"type": "string"}},
           "taxonomies_tagged": {"type": "array", "items": {"type": "string"}},
           "default_timeout_s": {"type": "number", "minimum": 0},
-          "scope_restriction": {"type": ["string", "null"]}
+          "scope_restriction": {"type": ["string", "null"]},
+          "npm_package": {"type": "string", "minLength": 1},
+          "version": {"type": "string", "minLength": 1},
+          "sarif_formatter": {
+            "type": "object",
+            "required": ["npm_package", "version"],
+            "additionalProperties": false,
+            "properties": {
+              "npm_package": {"type": "string", "minLength": 1},
+              "version": {"type": "string", "minLength": 1}
+            }
+          }
         }
       }
     },

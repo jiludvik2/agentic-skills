@@ -134,6 +134,7 @@ async def _run_analyzers(
     hotspot_weights: dict[str, float] | None = None,
     severity_overrides: dict[str, str] | None = None,
     contract_testing: dict[str, Any] | None = None,
+    semgrep_rules: str | None = None,
 ) -> dict[str, Any]:
     from code_review.adapters import REGISTRY
 
@@ -152,7 +153,10 @@ async def _run_analyzers(
         diff_range=diff,
         target_paths=target_paths,
         languages=frozenset(),
-        config={"contract_testing": contract_testing or {}},
+        config={
+            "contract_testing": contract_testing or {},
+            "semgrep_rules": semgrep_rules,
+        },
     )
 
     task_map: dict[str, asyncio.Task[AnalyzerOutput]] = {}
@@ -221,7 +225,7 @@ def _resolve_depth(
 
 
 @app.command()
-def main(
+def run(
     analyzer: list[str] = typer.Option(
         [], "--analyzer", help="Analyzer to run (repeat for multiple; overrides --review/--depth)"
     ),
@@ -366,6 +370,7 @@ def main(
             hotspot_weights=config.hotspot_weights,
             severity_overrides=config.severity_overrides,
             contract_testing=config.contract_testing,
+            semgrep_rules=config.semgrep_rules,
         )
     )
     analyzers_dict: dict[str, Any] = result["analyzers"]
@@ -399,6 +404,112 @@ def main(
         typer.echo(json_content)
 
     if has_error:
+        raise typer.Exit(1)
+
+
+@app.command()
+def install(
+    agent: list[str] = typer.Option(
+        [],
+        "--agent",
+        help="Install to a specific agent target (repeat/comma for many): "
+        "agents, claude, copilot, gemini. Default: agents + every agent home present.",
+    ),
+    all_targets: bool = typer.Option(
+        False, "--all", help="Install to every registry target (creates each home)."
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Refresh an already-installed bundle in place (remove-then-copy)."
+    ),
+) -> None:
+    """Copy the skill bundle into the user-level skills dir(s) (ADR-0018)."""
+    from code_review.install import TargetResult, resolve_targets
+    from code_review.install import install as do_install
+
+    # Allow comma-separated --agent values (e.g. --agent claude,copilot).
+    agents = [a.strip() for raw in agent for a in raw.split(",") if a.strip()]
+    try:
+        targets = resolve_targets(agents or None, all_targets)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    try:
+        results: list[TargetResult] = do_install(targets, force=force)
+    except FileNotFoundError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    for r in results:
+        typer.echo(f"{r.action:9} {r.dest}")
+
+    refused = [r for r in results if r.action == "refused"]
+    if refused:
+        for r in refused:
+            typer.echo(
+                f"Error: {r.dest} exists but is not a code-review bundle; "
+                "not overwritten (use a clean target or remove it first).",
+                err=True,
+            )
+
+    typer.echo(
+        "\nNext: provision analyzer caches (node_modules, Trivy DB) by running "
+        "the bundle's setup.sh — install places the skill; it does not fetch caches."
+    )
+
+    if refused:
+        raise typer.Exit(1)
+
+
+@app.command()
+def uninstall(
+    agent: list[str] = typer.Option(
+        [],
+        "--agent",
+        help="Uninstall from a specific agent target (repeat/comma for many): "
+        "agents, claude, copilot, gemini. Default: agents + every agent home present.",
+    ),
+    all_targets: bool = typer.Option(
+        False, "--all", help="Uninstall from every registry target."
+    ),
+) -> None:
+    """Remove the skill bundle from the user-level skills dir(s) (ADR-0018 §5).
+
+    Marker-gated: only a directory that is verifiably our bundle is removed. Siblings,
+    the agent's reviewer sub-agent, the skills dir itself, and agent homes are never
+    touched. A target that exists but fails the marker check is refused (left intact)
+    and the run exits non-zero; clean removals and genuine no-ops keep exit 0.
+    """
+    from code_review.install import TargetResult, resolve_targets
+    from code_review.install import uninstall as do_uninstall
+
+    # Allow comma-separated --agent values (e.g. --agent claude,copilot).
+    agents = [a.strip() for raw in agent for a in raw.split(",") if a.strip()]
+    try:
+        targets = resolve_targets(agents or None, all_targets)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    results: list[TargetResult] = do_uninstall(targets)
+
+    for r in results:
+        typer.echo(f"{r.action:9} {r.dest}")
+
+    refused = [r for r in results if r.action == "refused"]
+    removed = [r for r in results if r.action == "removed"]
+
+    if not removed and not refused:
+        typer.echo("nothing to uninstall")
+
+    for r in refused:
+        typer.echo(
+            f"Error: {r.dest} exists but is not a code-review bundle "
+            "(marker check failed); left intact.",
+            err=True,
+        )
+
+    if refused:
         raise typer.Exit(1)
 
 

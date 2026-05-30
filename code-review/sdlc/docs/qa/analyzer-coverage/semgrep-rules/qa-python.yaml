@@ -1,0 +1,22 @@
+# Minimal offline Semgrep ruleset for the analyzer-coverage smoke test.
+# run_smoke.py copies this into <cache_root>/cache/semgrep/rules/ so the semgrep
+# adapter takes its local-rules path (`--config <dir>`) instead of the broken
+# `--config auto` fallback (auto is incompatible with the adapter's `--metrics off`).
+# These rules match the defects planted in fixtures/python/sec_vuln.py.
+rules:
+  - id: qa-dangerous-eval
+    languages: [python]
+    severity: ERROR
+    message: Use of eval() on potentially untrusted input.
+    metadata:
+      cwe: "CWE-95"
+    patterns:
+      - pattern: eval(...)
+  - id: qa-subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: subprocess invoked with shell=True (command injection risk).
+    metadata:
+      cwe: "CWE-78"
+    patterns:
+      - pattern: subprocess.call(..., shell=True, ...)
