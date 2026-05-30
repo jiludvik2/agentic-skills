@@ -2,11 +2,24 @@
 id: s6-t1-package-bundle-in-wheel
 kind: task
 project: code-review
-status: active
+status: done
 parent: s6-install-skill-bundle
 sources: [pyproject.toml, tests/test_wheel_packaging.py, .claude/skills/code-review/SKILL.md]
 created: 2026-05-30
 updated: 2026-05-30
+closed: 2026-05-30
+notes: >
+  New SSOT `code_review/bundle.py` (BUNDLE_FILES/BUNDLE_DIRS/BUNDLE_MANIFEST/
+  BUNDLE_EXCLUDED, ADR-0018 §2). pyproject force-include mirrors
+  .claude/skills/code-review/{SKILL.md,code-review.toml.example,package.json,
+  package-lock.json,semgrep-rules} → code_review/_bundle/ (no committed 2nd copy).
+  3 slow tests added. Verify PASS; Review MINOR-ONLY. In-task hardening applied:
+  wheel⊆manifest drift guard (closes the reverse direction of the force-include vs
+  manifest drift), dir-non-empty assertion replacing the magic security.yaml literal,
+  docstring nit. Test gotcha fixed: importlib probe must run with cwd outside the repo
+  (cwd=tmp_path) or sys.path[0] shadows the installed package with the source tree.
+  DEFERRED Minor (notes only): the slow venv tests use bin/python (POSIX-only); add a
+  Scripts/python.exe branch if Windows CI is ever wired (ADR-0018 §7 Windows note).
 tags: [packaging, wheel, hatch, install]
 ---
 
