@@ -58,7 +58,8 @@ ruleset is present in the cache.
    registry-download license ambiguity. The maintenance commitment is ours:
    refreshing the vendored rules is a deliberate, reviewable change.
 
-2. **Ruleset scope & license.** Security rules for Python and JS/TS. The vendored
+2. **Ruleset scope & license.** Security rules for **Python first; JS/TS is a
+   tracked follow-up** (amended 2026-05-30 — see note). The vendored
    rules must carry a license compatible with the `stack-pins.md` floor
    (LGPL-2.1 acceptable via subprocess invocation; **no AGPL**). The rule source
    and its version/commit are recorded alongside the vendored files. Two rule
@@ -67,6 +68,15 @@ ruleset is present in the cache.
    `sdlc/docs/qa/analyzer-coverage/semgrep-rules/` (smoke-test fixture). s0-t1
    creates the canonical set under `.claude/skills/code-review/semgrep-rules/`,
    seeded from these, and records its provenance; the fixtures stay independent.
+
+   > **Amendment (2026-05-30, operator-approved).** The s0 story-level review
+   > flagged that the shipped `security.yaml` carries Python-only rules while this
+   > decision read "Python and JS/TS". Operator decision: **amend the scope to
+   > Python-first**; JS/TS security rules are a tracked follow-up, not an s0
+   > deliverable. Rationale: keep s0 (F3) closed on the Python coverage that is
+   > built and proven, rather than reopening it to author unvalidated JS/TS rules.
+   > A future ADR/story adds JS/TS rules when there is demand; the vendored-bundle
+   > provisioning path (s0-t1/t2) already supports them with no further plumbing.
 
 3. **Resolution precedence**, with the anchor corrected to `cache_root()`:
    explicit `config["semgrep_rules"]` override → `cache_root()/cache/semgrep/rules`

@@ -23,3 +23,8 @@ node_modules/
 # session artefacts (do not commit local Claude session paths)
 local_*/
 sessions/
+
+# ad-hoc ccglass traffic/token analysis (local-only; not part of the code-review
+# project — kept on disk, never tracked: report output + its generator script)
+*ccglass*
+.cache/

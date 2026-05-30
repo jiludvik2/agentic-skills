@@ -27,11 +27,11 @@ notes: |
     branches are covered, producer degraded path is not.
   - [NIT] _bundled_semgrep_rules docstring says it "copies"; it only locates.
 
-  **OPERATOR DECISION NEEDED:** ADR-0016 §Decision #2 specifies "Security rules
-  for Python AND JS/TS", but the vendored security.yaml ships Python-only (the
-  header frames JS/TS as future work). Either add JS/TS security rules (new
-  task) or amend ADR-0016 #2 to "Python-first, JS/TS tracked follow-up". Not
-  amended unilaterally — ADR content stays human.
+  **OPERATOR DECISION (resolved 2026-05-30):** ADR-0016 §Decision #2 said
+  "Security rules for Python AND JS/TS" but the vendored security.yaml ships
+  Python-only. Operator chose to **amend ADR-0016 #2 to "Python-first; JS/TS a
+  tracked follow-up"** (rather than author JS/TS rules now). Amendment note added
+  to the ADR; s0 stays closed on the proven Python coverage.
 ---
 
 # s0 — Semgrep rule source

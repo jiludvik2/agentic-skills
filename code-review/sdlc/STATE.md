@@ -6,7 +6,7 @@
 
 ## Open questions / follow-ups
 
-- **OPERATOR DECISION — ADR-0016 JS/TS rule scope.** ADR-0016 #2 says "Security rules for Python AND JS/TS", but the vendored `security.yaml` ships Python-only (header frames JS/TS as future work). Story-level review flagged the discrepancy. Decide: add JS/TS security rules (new s0 follow-up task) **or** amend ADR-0016 #2 to "Python-first, JS/TS tracked follow-up". Not amended unilaterally (ADR content stays human). Full deferred-Minor list in `s0-semgrep-rule-source.md` notes.
+- **RESOLVED — ADR-0016 JS/TS rule scope** (2026-05-30): operator chose to **amend** ADR-0016 #2 to "Python-first; JS/TS a tracked follow-up" (not author JS/TS rules now). s0 stays closed on the proven Python coverage. Amendment note in `adr-0016-semgrep-rule-provenance.md` #2.
 - **GA release blocked on `epic-analyzer-ga-hardening`.** ~~F3 semgrep~~ ✅ resolved (s0). Remaining blockers: F1 depcruiser/Node, F2 jscpd, F5 JS toolchain (+ F8 eslint, F10 CLI errors). Fix the rest, then bump `pyproject.toml` → `0.1.0`, commit, cut + push GA tag `code-review-v0.1.0`. Runbook: `sdlc/docs/runbooks/release.md`.
 - **`claude-code-review` redirect meta-package** (ADR-0014): publish after the first GA publish.
 - **`analyze_ccglass.py`** carries 22 ruff errors on this branch (pre-existing, prior session) — would redden CI if this branch merges. Out of epic scope.
