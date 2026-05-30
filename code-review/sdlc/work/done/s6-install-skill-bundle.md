@@ -2,11 +2,22 @@
 id: s6-install-skill-bundle
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-ga-hardening
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md, README.md, .claude/skills/code-review/SKILL.md]
 created: 2026-05-30
 updated: 2026-05-30
+closed: 2026-05-30
+closure: >
+  All tasks done: s6-t0 (ADR-0018 accepted), s6-t1 (wheel bundle packaging), s6-t2
+  (polyreview install + CLI restructure to `polyreview run`). Story-level Review →
+  1 Important (CLI restructure not propagated to release pipeline) remediated via a
+  bounded fix chain: s6-fix1 (release.yml + guard test + AGENTS.md) → its Review
+  found a further live straggler → s6-fix2 (release runbook), Review CLEAN. Round-2
+  bound respected; no round-3. Rule #26 supply-chain gate skipped (project defines
+  no audit gate). ADR-0018 stays co-located in active/ until epic close. Deferred
+  Minors (own follow-ups): --force atomicity, mixed-`--all`-refusal cache hint,
+  toml.example `--help` reference. Suite 404 passed; ruff + mypy clean.
 tags: [install, cli, packaging, agent-skills, cross-agent, ga-readiness]
 ---
 

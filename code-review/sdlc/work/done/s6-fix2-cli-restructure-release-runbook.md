@@ -2,11 +2,20 @@
 id: s6-fix2-cli-restructure-release-runbook
 kind: task
 project: code-review
-status: active
+status: done
 parent: s6-install-skill-bundle
 sources: [s6-fix1-review-2026-05-30, sdlc/docs/runbooks/release.md]
 created: 2026-05-30
 updated: 2026-05-30
+closed: 2026-05-30
+notes: >
+  release.md sites 52/74 (manual smoke) + 110 (test-dist prose) → `polyreview run
+  --capabilities` (replace_all, exactly the 3 grep'd sites). Verify PASS; Review
+  CLEAN (zero findings) — round-2 chain terminates, no round-3 escalation. AC-3
+  sweep independently confirmed: zero live bare forms across code/scripts/CI/
+  README/SKILL.md/AGENTS.md/CLAUDE.md/runbooks; only exempt --help (toml.example,
+  exit 0) and --version (top-level flag) remain. CLI restructure propagation now
+  fully closed across all live, executable surfaces.
 tags: [fix, cli, runbook, release, propagation, round-2]
 ---
 

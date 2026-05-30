@@ -49,7 +49,7 @@ pip install \
   --index-url https://test.pypi.org/simple/ \
   --extra-index-url https://pypi.org/simple/ \
   polyreview==X.Y.Zrc1
-polyreview --capabilities
+polyreview run --capabilities
 ```
 
 `--extra-index-url` is required so runtime deps (`typer`, `jsonschema`, etc.) resolve from real PyPI — TestPyPI doesn't host them. PEP 440 normalises the install spec from `X.Y.Z-rc1` to `X.Y.ZrcN` — note the absent hyphen.
@@ -71,7 +71,7 @@ In a fresh, clean venv:
 
 ```bash
 pip install polyreview==X.Y.Z
-polyreview --capabilities
+polyreview run --capabilities
 ```
 
 ### 7. Announce
@@ -107,7 +107,7 @@ The workflow declares `permissions: id-token: write` scoped to the `publish` job
 `release.yml` is three sequential jobs:
 
 1. **`build`** — `uv sync --frozen` → `uv build` → upload `dist/` as an artifact. No special permissions.
-2. **`test-dist`** (`needs: build`) — download the artifact, create a fresh venv, `pip install` the wheel, run `polyreview --capabilities`, assert the output parses as JSON. This catches packaging defects (missing data files, broken entry points) BEFORE publication, against the installed wheel rather than the source tree. No special permissions.
+2. **`test-dist`** (`needs: build`) — download the artifact, create a fresh venv, `pip install` the wheel, run `polyreview run --capabilities`, assert the output parses as JSON. This catches packaging defects (missing data files, broken entry points) BEFORE publication, against the installed wheel rather than the source tree. No special permissions.
 3. **`publish`** (`needs: test-dist`) — validates the tag matches `code-review-vX.Y.Z[-rcN]` (rejects ambiguous tags like `-rcdraft`), downloads the artifact, calls `pypa/gh-action-pypi-publish@release/v1` with the appropriate registry URL. `permissions: id-token: write` at job level; `environment: pypi` (or `testpypi` for `-rc` tags).
 
 The `environment:` binding is now **mandatory** for the Trusted Publisher configuration — see the per-registry sections below.
