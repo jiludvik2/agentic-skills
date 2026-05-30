@@ -73,9 +73,18 @@ that toolchain must work on the Node versions operators actually run.
    switched to `import { accessSync, constants } from "node:fs"`. Boundary
    confirmed against the npm tarballs on Node 24 (`16.10.1` broken, `16.10.2`
    fixed) — correcting the earlier "≈16.3" estimate in the FINDINGS/story. The
-   pin floors at `16.10.4` (latest 16.x) and stays inside the `^16` caret. The
-   full circular-dependency integration test stays `xfail(strict)` until s3-t1
-   supplies the cruise config; s3-t0 only clears the `R_OK` SyntaxError.
+   pin floors at `16.10.4` (latest 16.x) and stays inside the `^16` caret.
+   **s3-t1** then (a) makes the adapter supply its own cruise config (a temp
+   `cruise-config.cjs` passed via `--config`, using
+   `enhancedResolveOptions.extensions` rather than a target `tsConfig`), so a
+   target without a `.dependency-cruiser.cjs` is still analysed; and (b) vendors
+   **`typescript@^5`** top-level. depcruise only treats `.ts`/`.tsx` as
+   *scannable* when a supported TypeScript (`>=2 <6`) is present; knip drags in
+   `typescript@6` (out of range), which left `.ts` disabled and made depcruise
+   return zero modules for a **directory** target (the CLI's default `.`
+   full-scan) — explicit file args still parsed. Vendoring 5.x top-level enables
+   the transpiler (knip keeps its own nested `@6`). s3-t1 flips the circular-dep
+   integration test from `xfail(strict)` to a real pass.
 
 4. **Lockfile location: the skill root** — `package.json` + `package-lock.json`
    under `.claude/skills/code-review/`. `setup.sh` already copies both into

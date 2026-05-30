@@ -240,18 +240,10 @@ export function computeStatistics(values: number[]): Record<string, number> {
 TS
 done
 
-# dependency-cruiser config (the adapter passes no --config; depcruise requires one)
-cat > "${F}/js/.dependency-cruiser.cjs" <<'CJS'
-module.exports = {
-  forbidden: [
-    { name: "no-circular", severity: "error", from: {}, to: { circular: true } },
-  ],
-  options: {
-    doNotFollow: { path: "node_modules" },
-    tsConfig: { fileName: "tsconfig.json" },
-  },
-};
-CJS
+# No .dependency-cruiser.cjs is scaffolded: as of s3-t1 the DependencyCruiserAdapter
+# supplies its own cruise config (a temp file passed via --config), so the smoke
+# harness exercises the adapter's self-provisioning rather than a hand-placed
+# config in the fixture (the epic's "no harness hacks" gate).
 
 # cycle_a <-> cycle_b: circular dependency -> depcruiser
 cat > "${F}/js/src/cycle_a.ts" <<'TS'

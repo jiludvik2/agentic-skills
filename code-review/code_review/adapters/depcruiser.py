@@ -1,12 +1,34 @@
 from __future__ import annotations
 
 import json
+import tempfile
+from pathlib import Path
 from typing import Any, ClassVar
 
 from code_review.adapters.base import run_subprocess
 from code_review.adapters.js_base import node_binary
 from code_review.adapters.sarif_utils import empty_sarif, make_location, normalise_sarif
 from code_review.contracts import AnalyzerOutput, ReviewRequest
+
+# dependency-cruiser refuses to run without a config (it aborts with "Can't open
+# a config file"), so the adapter supplies its own rather than requiring the host
+# target to ship a .dependency-cruiser.cjs (s3-t1). Two deliberate choices:
+#   - enhancedResolveOptions.extensions (NOT tsConfig): lets depcruise resolve
+#     bare ./foo TS/JS imports so circular edges are seen, without hard-requiring
+#     a tsconfig.json that arbitrary targets won't have.
+#   - no `forbidden` rules: the adapter reads each dependency's `circular` flag
+#     from the JSON output directly; a forbidden rule would make depcruise exit
+#     non-zero on a violation, which this adapter treats as an error.
+_CRUISE_CONFIG = """\
+module.exports = {
+  options: {
+    doNotFollow: { path: "node_modules" },
+    enhancedResolveOptions: {
+      extensions: [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".json"],
+    },
+  },
+};
+"""
 
 
 def _to_sarif(data: dict[str, Any]) -> dict[str, Any]:
@@ -64,12 +86,16 @@ class DependencyCruiserAdapter:
             )
         if not request.target_paths:
             return AnalyzerOutput(sarif=empty_sarif("depcruiser"))
-        cmd = (
-            "node", str(binary),
-            "--output-type", "json",
-            *request.target_paths,
-        )
-        result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "cruise-config.cjs"
+            config_path.write_text(_CRUISE_CONFIG, encoding="utf-8")
+            cmd = (
+                "node", str(binary),
+                "--config", str(config_path),
+                "--output-type", "json",
+                *request.target_paths,
+            )
+            result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
         if result.error is not None:
             return AnalyzerOutput(sarif={}, status="error", error=result.error)
         if result.timed_out:

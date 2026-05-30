@@ -75,6 +75,7 @@ Per **ADR-0017**. Manifest pins are major-version floors in `package.json` at th
 | knip | `^5` | `package-lock.json` (s1-t1) | unused-export detection |
 | jscpd | `^4` | `package-lock.json` (s1-t1) | copy-paste detection |
 | dependency-cruiser | `^16.10.4` | `16.10.4` (s3-t0) | coupling/cycles; 16.0.0 broke on modern Node (F1, seen on Node 24) — `R_OK` SyntaxError up to 16.10.1, fixed in 16.10.2 (`node:fs/constants`). s3-t0 bumped to 16.10.4 (latest 16.x, inside `^16`); empirical floor 16.10.2 |
+| typescript | `^5` | `5.9.3` (s3-t1) | depcruiser's TS transpiler — must be in `>=2 <6` for depcruise to enumerate `.ts`/`.tsx` in a directory target; knip pulls `typescript@6` (out of range), so 5.x is vendored top-level so the default `.` full-scan sees TS files (F1) |
 
 ## Tooling config pins
 

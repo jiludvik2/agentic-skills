@@ -4,11 +4,13 @@
   "private": true,
   "description": "Vendored JS/TS analyzer toolchain for the code-review (polyreview) skill. Versions pinned per ADR-0017 (Node 20 LTS + 22 LTS); installed by scripts/setup.sh via `npm ci`. Not shipped in the PyPI wheel.",
   "//dependency-cruiser": "^16.10.4 — s3-t0 (F1): <=16.10.1 imports R_OK as a named export of node:fs, which Node >=22 rejects (SyntaxError); 16.10.2 moved to node:fs/constants. Floored at the fix and capped to major 16 (ADR-0017 §3).",
+  "//typescript": "^5 — s3-t1 (F1): depcruise enumerates .ts/.tsx in a directory target only when a supported TypeScript transpiler is present; it supports >=2 <6, but knip drags in typescript 6.x (out of range). Vendor 5.x at top level so depcruise's default `.` full-scan sees TS files; knip keeps its own nested copy.",
   "dependencies": {
     "@microsoft/eslint-formatter-sarif": "^3",
     "dependency-cruiser": "^16.10.4",
     "eslint": "^9",
     "jscpd": "^4",
-    "knip": "^5"
+    "knip": "^5",
+    "typescript": "^5"
   }
 }
