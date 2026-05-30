@@ -10,9 +10,11 @@ children:
   - s3-depcruiser-node-compat
   - s4-eslint-adapter-robustness
   - s5-cli-error-branch-coverage
+  - s6-install-into-claude
+  - s7-uninstall-from-claude
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-05-30
 tags: [ga-readiness, analyzers, semgrep, javascript, typescript, qa]
 ---
 
@@ -99,3 +101,19 @@ harness.
   the integration test self-sufficient (F8). Depends on s1.
 - **s5 — CLI error-branch coverage.** Tests for unknown `--analyzer`, disabled
   analyzer, empty selection (F10). Test-only; no dependency.
+- **s6 — `polyreview install` into `.claude`.** First-class install of the skill
+  bundle into the user-level config dir (`${CLAUDE_CONFIG_DIR:-~/.claude}`).
+  Prerequisites owned here: ship the bundle in the wheel, and restructure the CLI
+  to named subcommands. Design in ADR-0018. No dependency on s0–s5.
+- **s7 — `polyreview uninstall` from `.claude`.** Scoped, marker-gated, idempotent
+  removal of the installed bundle. Depends on s6.
+
+## Scope note — install lifecycle (s6/s7, added 2026-05-30)
+
+s6/s7 extend the epic from "every analyzer works on a fresh install" to "the skill
+*installs and uninstalls* cleanly into the user's `.claude`." They are a lifecycle
+concern adjacent to — not part of — the cross-cutting analyzer-coverage smoke-test
+AC above; the 13/13 gate stays defined by s0–s5. s6/s7 carry their own AC gates
+(install places/removes the bundle without touching host-owned files). Operator
+decisions (2026-05-30): build the commands (not just test a manual flow),
+user-level target only, housed under this epic. Design recorded in ADR-0018.
