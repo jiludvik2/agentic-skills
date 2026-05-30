@@ -2,10 +2,10 @@
 id: s3-plan
 kind: plan
 project: code-review
-status: active
+status: done
 parent: s3-remaining-deterministic-adapters
 created: 2026-05-27
-updated: 2026-05-27
+updated: 2026-05-30
 ---
 
 # s3 Remaining Deterministic Adapters — Implementation Plan

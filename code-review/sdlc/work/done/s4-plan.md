@@ -2,10 +2,10 @@
 id: s4-plan
 kind: plan
 project: code-review
-status: active
+status: done
 parent: s4-contract-testing-adapters
 created: 2026-05-27
-updated: 2026-05-27
+updated: 2026-05-30
 ---
 
 # s4 — Contract testing adapter (Schemathesis) — Implementation Plan
