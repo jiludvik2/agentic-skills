@@ -2,11 +2,19 @@
 id: s6-t0-adr-install-uninstall
 kind: task
 project: code-review
-status: active
+status: done
 parent: s6-install-skill-bundle
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md, .claude/skills/code-review/SKILL.md, code_review/paths.py, pyproject.toml, reference-agentskills-cross-agent-discovery]
 created: 2026-05-30
 updated: 2026-05-30
+closed: 2026-05-30
+outputs: [adr-0018-skill-install-uninstall.md]
+notes: >
+  ADR-0018 authored and operator-ratified 2026-05-30. CLI contract (hard-stop)
+  decided: review subcommand = `polyreview run`, bare `polyreview <flags>` dropped
+  (pre-1.0 alpha). All 8 AC decisions (1, 1b, 2–7) recorded with rationale, no TBD.
+  Prose ADR — no automated test; closure = AC checklist + operator sign-off per the
+  task's own test spec. ADR co-locates in active/ until epic close.
 tags: [adr, install, uninstall, packaging, cli]
 ---
 
