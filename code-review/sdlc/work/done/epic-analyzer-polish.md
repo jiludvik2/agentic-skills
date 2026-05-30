@@ -2,7 +2,7 @@
 id: epic-analyzer-polish
 kind: epic
 project: code-review
-status: active
+status: done
 children:
   - s0-analyzer-adapter-robustness
 sources: [post-ga-self-review-findings.md]
@@ -12,6 +12,13 @@ tags: [analyzer, robustness, post-ga, sast]
 ---
 
 # Epic — analyzer polish (post-GA)
+
+> **CLOSED 2026-05-30 (operator-directed pivot).** s0 delivered the
+> `unavailable`-vs-`error` robustness contract (ADR-0019); the bandit/eslint crashes
+> and JS graceful-skip are fixed. The remaining gap-driven scope (semgrep breadth /
+> the coverage-dogfood gaps G1–G8) is **superseded by `epic-analyzer-thin-runner`**
+> (ADR-0020): rather than polish the facade's normalised outputs, that epic deletes the
+> normalisation layer. This epic closes here; its gaps are reframed there, not dropped.
 
 ## Why
 
