@@ -3,6 +3,8 @@ id: epic-analyzer-thin-runner
 kind: epic
 project: code-review
 status: active
+children:
+  - s0-contract-inversion-and-bundle
 sources: [post-coverage-eval-findings.md, vendor-js-semgrep-rules.md, g5-maintainability-oracle-repos.md, g8-js-complexity-cohesion-absent.md]
 created: 2026-05-30
 updated: 2026-05-30
