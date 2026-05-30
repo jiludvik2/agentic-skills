@@ -76,7 +76,7 @@ jobs:
       - name: Verify installed binary runs and emits JSON
         run: |
           set -euo pipefail
-          out=$(.testvenv/bin/polyreview --capabilities)
+          out=$(.testvenv/bin/polyreview run --capabilities)
           echo "$out" | python -c "import json,sys; json.loads(sys.stdin.read())"
           echo "smoke test passed"
 
