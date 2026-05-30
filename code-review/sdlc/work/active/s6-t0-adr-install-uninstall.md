@@ -3,8 +3,8 @@ id: s6-t0-adr-install-uninstall
 kind: task
 project: code-review
 status: active
-parent: s6-install-into-claude
-sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md, .claude/skills/code-review/SKILL.md, code_review/paths.py, pyproject.toml]
+parent: s6-install-skill-bundle
+sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md, .claude/skills/code-review/SKILL.md, code_review/paths.py, pyproject.toml, reference-agentskills-cross-agent-discovery]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [adr, install, uninstall, packaging, cli]
@@ -30,10 +30,32 @@ governs s0 and ADR-0017 governs s1.
 
 The ADR must decide, at minimum:
 
-1. **Target-dir resolution.** Install/uninstall resolve the config dir as
-   `CLAUDE_CONFIG_DIR` if set, else `~/.claude` (`Path.home() / ".claude"`); the
-   bundle lives at `<config>/skills/code-review/`. Rationale: matches Claude Code's
-   own config-dir convention and keeps tests hermetic (point the env at a tmp dir).
+1. **Target registry — agent-independent skills-dir resolution.** The bundle is an
+   Agent Skills bundle consumed by many agents; there is **no single** skills dir.
+   Define a registry mapping a target id → user-level skills dir:
+
+   | id | dir | read by |
+   |----|-----|---------|
+   | `agents` (neutral) | `$HOME/.agents/skills/` | **Codex** (native); **Gemini CLI** (alias) |
+   | `claude` | `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/` | Claude / Claude Code |
+   | `copilot` | `$HOME/.copilot/skills/` | GitHub Copilot |
+   | `gemini` | `$HOME/.gemini/skills/` | Gemini CLI |
+
+   The bundle lives at `<skills-dir>/code-review/` (dir name must match SKILL.md
+   `name:`). Each target honours its agent's own env override where one exists
+   (`CLAUDE_CONFIG_DIR` for `claude`). Decide the **default target policy** (no
+   `--agent`): recommended = neutral `agents` **plus** every agent home already
+   present on the machine (auto-detect), so existing agents get native discovery
+   without conjuring homes for agents the user lacks. `--agent <id[,id…]>` forces an
+   explicit set; `--all` writes every registry target. Record the rationale and the
+   detection rule (a home "is present" iff its base dir — `~/.claude`, `~/.copilot`,
+   `~/.gemini` — exists). Resolution is `$HOME`-relative so tests stay hermetic by
+   monkeypatching `$HOME` / the per-agent env vars to a tmp dir.
+
+1b. **Create-if-missing.** A target skills dir that does not yet exist is the
+   normal first-run case, not an error: install creates the full tree
+   (parents included, `mkdir -p` semantics). Explicitly covers "the `.claude`
+   (or `.agents`) directory does not exist yet."
 2. **Bundle manifest — what is copied.** The wheel-shipped subset:
    `SKILL.md`, `code-review.toml.example`, `semgrep-rules/` (the vendored ruleset,
    ADR-0016), `package.json`, `package-lock.json`. **Not** copied: `node_modules/`,
@@ -52,19 +74,26 @@ The ADR must decide, at minimum:
    "in-place refresh": remove-then-copy vs. overwrite-merge, and what happens to a
    user-edited `code-review.toml` if one sits alongside (it shouldn't — the example
    is `code-review.toml.example`, but state the rule).
-5. **Uninstall safety guards (governs s7).** `uninstall` removes **only**
-   `<config>/skills/code-review/` and only when it looks like our bundle (a marker
-   check — e.g. `SKILL.md` with the expected `name:` frontmatter — so a mistargeted
-   env var can't `rmtree` an arbitrary dir). It must never touch
-   `<config>/agents/reviewer.md`, sibling skills, or `<config>` itself. Decide the
-   marker, whether a confirmation prompt / `--yes` is required, and the no-op
-   message when nothing is installed.
+5. **Uninstall safety guards (governs s7).** `uninstall` mirrors the install
+   registry and, **per target**, removes **only** `<skills-dir>/code-review/` and
+   only when that dir looks like our bundle (a marker check — e.g. `SKILL.md` with
+   the expected `name: code-review` frontmatter — so a mistargeted env var or a name
+   collision can't `rmtree` an arbitrary dir). It must never touch a sibling
+   `<skills-dir>/<other-skill>/`, the agent's `agents/reviewer.md` (Claude's
+   reviewer sub-agent), the skills dir itself, or any agent home. Decide the marker,
+   whether a confirmation prompt / `--yes` is required (tests run non-interactive),
+   the no-op message when nothing is installed, and that a refusal on one target
+   still reports the outcome of the others (no silent partial run).
 6. **The CWD-anchored-cache seam.** `cache_root()` (`code_review/paths.py:15`)
-   resolves CWD-relative `./.claude/skills/code-review`, **not** the user-level
-   install target. Record that a user-level bundle gives agents skill *discovery*
-   but does not relocate the runtime caches; the install command's closing hint
-   points at cache provisioning. Mark full user-level cache relocation as deferred
-   (out of epic scope) with the migration path (`POLYREVIEW_CACHE_DIR`) noted.
+   resolves CWD-relative `./.claude/skills/code-review`, **not** any user-level
+   skills dir. Record that a user-level bundle gives agents skill *discovery* but
+   does not relocate the runtime caches; the install command's closing hint points
+   at cache provisioning. Mark full user-level cache relocation as deferred (out of
+   epic scope) with the migration path (`POLYREVIEW_CACHE_DIR`) noted.
+7. **Copy-per-target vs. symlink.** Default is an independent copy into each
+   resolved skills dir. Record the symlink alternative (one canonical copy + per-agent
+   symlinks; Codex follows symlinks) and why it's deferred — Windows portability and
+   uninstall-guard complexity. State which the implementation uses (copy).
 
 ## Test specification
 

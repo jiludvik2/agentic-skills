@@ -3,7 +3,7 @@ id: s6-t1-package-bundle-in-wheel
 kind: task
 project: code-review
 status: active
-parent: s6-install-into-claude
+parent: s6-install-skill-bundle
 sources: [pyproject.toml, tests/test_wheel_packaging.py, .claude/skills/code-review/SKILL.md]
 created: 2026-05-30
 updated: 2026-05-30

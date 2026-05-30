@@ -3,77 +3,84 @@ id: s7-t0-uninstall-command
 kind: task
 project: code-review
 status: active
-parent: s7-uninstall-from-claude
-sources: [code_review/cli.py, .claude/skills/code-review/SKILL.md]
+parent: s7-uninstall-skill-bundle
+sources: [code_review/cli.py, .claude/skills/code-review/SKILL.md, reference-agentskills-cross-agent-discovery]
 created: 2026-05-30
 updated: 2026-05-30
-tags: [cli, uninstall, safety, typer]
+tags: [cli, uninstall, safety, typer, agent-skills, cross-agent]
 ---
 
-# s7-t0 — `polyreview uninstall` command
+# s7-t0 — `polyreview uninstall` command (agent-independent)
 
 ## Outcome
 
-`polyreview uninstall` removes the installed skill bundle from
-`${CLAUDE_CONFIG_DIR:-~/.claude}/skills/code-review/` — scoped to that directory,
-gated on the bundle marker, idempotent, and provably non-destructive to host-owned
-files. Reuses the config-dir resolver and bundle marker from s6. Implements every
-s7-story scenario. Depends on s6.
+`polyreview uninstall` removes the installed skill bundle from every target the s6
+registry could have written to — `<skills-dir>/code-review/` for the neutral
+`agents` dir plus each agent home — scoped per `--agent`/`--all`, gated on the
+bundle marker, idempotent, and provably non-destructive to host-owned files. Reuses
+the registry, resolver, and marker from s6. Implements every s7-story scenario.
+Depends on s6.
 
 ## Acceptance criteria
 
-(The five s7-story scenarios are the contract; restated as the per-task gate.)
+(The s7-story scenarios are the contract; restated as the per-task gate.)
 
-### Scenario: removes the bundle
-- **Given** an installed bundle (marker present)
+### Scenario: removes the bundle from every installed target
+- **Given** a bundle (marker present) in both `~/.agents/skills/code-review/` and
+  `~/.claude/skills/code-review/`
 - **When** `uninstall` runs
-- **Then** exit 0 and `<config>/skills/code-review/` is gone.
+- **Then** exit 0 and both are gone.
+
+### Scenario: --agent scopes removal
+- **Given** the bundle in `agents` and `claude` targets
+- **When** `uninstall --agent claude` runs
+- **Then** only `~/.claude/skills/code-review/` is removed; the `agents` copy stays.
 
 ### Scenario: no-op when absent
-- **Given** no `skills/code-review/`
+- **Given** no `code-review/` under any registry skills dir
 - **When** `uninstall` runs
 - **Then** exit 0, "nothing to uninstall", no error.
 
-### Scenario: refuses non-bundle dir
-- **Given** `skills/code-review/` without the marker
+### Scenario: refuses a dir without the marker
+- **Given** `<skills-dir>/code-review/` lacking the marker
 - **When** `uninstall` runs
-- **Then** non-zero exit, message names the marker check, directory intact.
+- **Then** non-zero exit, message names the marker check, that dir intact, and the
+  outcome of other targets is still reported (no silent partial run).
 
 ### Scenario: host-owned files & siblings untouched
-- **Given** `agents/reviewer.md` + `skills/other/` present
+- **Given** `agents/reviewer.md` + `skills/other/` alongside an installed bundle
 - **When** `uninstall` runs
-- **Then** both and `<config>` itself are unchanged; only the bundle is removed.
+- **Then** both and the skills dir itself are unchanged; only the bundle is removed.
 
-### Scenario: install→uninstall round-trip clean
-- **Given** a fresh install
+### Scenario: install→uninstall round-trip clean across targets
+- **Given** a fresh multi-target `install`
 - **When** `uninstall` runs
-- **Then** the config dir matches its pre-install state.
+- **Then** every touched skills dir matches its pre-install state (no orphans).
 
 ## Test specification
 
 Write first, confirm red, then implement. New `tests/test_uninstall_command.py`,
-`CliRunner(capture="fd")`, `monkeypatch.setenv("CLAUDE_CONFIG_DIR", tmp_path)`.
-Build the "installed" state by invoking the s6 install command (so the round-trip
-test exercises both), or by seeding the marker file directly for the unit cases:
+`CliRunner(capture="fd")`, hermetic via `$HOME`/`CLAUDE_CONFIG_DIR` monkeypatch as
+in s6-t2. Build "installed" state by invoking the s6 install command (so the
+round-trip exercises both) or by seeding the marker file directly for unit cases:
 
-1. `test_uninstall_removes_bundle`: seed an installed bundle, run `uninstall`,
-   assert the dir is gone, exit 0.
-2. `test_uninstall_noop_when_absent`: no bundle, run `uninstall`, assert exit 0 and
-   a "nothing to uninstall" message.
-3. `test_uninstall_refuses_unmarked_dir`: create `skills/code-review/` without the
-   marker, run `uninstall`, assert non-zero exit, message names the marker check,
-   and the dir still exists.
-4. `test_uninstall_leaves_reviewer_and_siblings`: seed `agents/reviewer.md` +
-   `skills/other/x` + an installed bundle, run `uninstall`, assert only the bundle
-   is removed and the rest is unchanged.
-5. `test_install_uninstall_round_trip`: snapshot the tmp config dir, `install`,
-   `uninstall`, assert the dir matches the snapshot (no orphans).
+1. `test_uninstall_removes_from_all_installed_targets`: seed `agents` + `claude`
+   bundles, run `uninstall`, assert both gone, exit 0.
+2. `test_uninstall_agent_flag_scopes_removal`: seed both, `--agent claude` → only
+   `claude` removed.
+3. `test_uninstall_noop_when_absent`: no bundle → exit 0, "nothing to uninstall".
+4. `test_uninstall_refuses_unmarked_dir`: create `<skills-dir>/code-review/` without
+   the marker → non-zero, marker-check message, dir survives.
+5. `test_uninstall_leaves_reviewer_and_siblings`: seed `agents/reviewer.md` +
+   `skills/other/x` + bundle → only bundle removed.
+6. `test_install_uninstall_round_trip`: snapshot tmp `$HOME`, `install` (default
+   multi-target), `uninstall`, assert it matches the snapshot.
 
 ## Notes
 
-- Import the config-dir resolver and the marker predicate from where s6-t2 placed
-  them — do not re-implement the env→home fallback or the marker logic.
+- Import the registry, resolver, auto-detect predicate, and marker from where s6-t2
+  placed them — do not re-implement.
 - The marker check is the load-bearing safety guard: never `rmtree` a path that
-  fails it. Per ADR-0018 §5, decide whether a `--yes`/confirmation is required for
-  the interactive (non-test) path; tests pass `--yes` (or its equivalent) so they
-  stay non-interactive.
+  fails it, on any target. Per ADR-0018 §5, decide whether `--yes`/confirmation
+  guards the interactive path; tests pass `--yes` (or equivalent) to stay
+  non-interactive.

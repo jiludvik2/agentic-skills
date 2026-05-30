@@ -10,8 +10,8 @@ children:
   - s3-depcruiser-node-compat
   - s4-eslint-adapter-robustness
   - s5-cli-error-branch-coverage
-  - s6-install-into-claude
-  - s7-uninstall-from-claude
+  - s6-install-skill-bundle
+  - s7-uninstall-skill-bundle
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
 updated: 2026-05-30
@@ -101,19 +101,28 @@ harness.
   the integration test self-sufficient (F8). Depends on s1.
 - **s5 — CLI error-branch coverage.** Tests for unknown `--analyzer`, disabled
   analyzer, empty selection (F10). Test-only; no dependency.
-- **s6 — `polyreview install` into `.claude`.** First-class install of the skill
-  bundle into the user-level config dir (`${CLAUDE_CONFIG_DIR:-~/.claude}`).
-  Prerequisites owned here: ship the bundle in the wheel, and restructure the CLI
-  to named subcommands. Design in ADR-0018. No dependency on s0–s5.
-- **s7 — `polyreview uninstall` from `.claude`.** Scoped, marker-gated, idempotent
-  removal of the installed bundle. Depends on s6.
+- **s6 — `polyreview install` the skill bundle (agent-independent).** First-class
+  install into the correct user-level skills dir for whatever agent(s) the user
+  runs — a target registry (neutral `~/.agents/skills/` read by Codex/Gemini,
+  `~/.claude/skills/`, `~/.copilot/skills/`, `~/.gemini/skills/`) with a
+  neutral-plus-auto-detect default and `--agent`/`--all` overrides, creating the
+  dir if absent. Prerequisites owned here: ship the bundle in the wheel, restructure
+  the CLI to named subcommands. Design in ADR-0018. No dependency on s0–s5.
+- **s7 — `polyreview uninstall` the skill bundle (agent-independent).** Registry-based,
+  marker-gated, idempotent removal across every target s6 could have written.
+  Depends on s6.
 
-## Scope note — install lifecycle (s6/s7, added 2026-05-30)
+## Scope note — install lifecycle (s6/s7, added 2026-05-30; agent-independent 2026-05-30)
 
 s6/s7 extend the epic from "every analyzer works on a fresh install" to "the skill
-*installs and uninstalls* cleanly into the user's `.claude`." They are a lifecycle
-concern adjacent to — not part of — the cross-cutting analyzer-coverage smoke-test
-AC above; the 13/13 gate stays defined by s0–s5. s6/s7 carry their own AC gates
-(install places/removes the bundle without touching host-owned files). Operator
-decisions (2026-05-30): build the commands (not just test a manual flow),
-user-level target only, housed under this epic. Design recorded in ADR-0018.
+*installs and uninstalls* cleanly into whatever skills directory the user's agent
+discovers." `code-review` is consumed cross-agent (Claude, Codex, Copilot, Gemini,
+Cursor …) via the Agent Skills standard, so install/uninstall must be
+**agent-independent**, not Claude-only: a target registry resolves the right
+user-level skills dir per agent, defaulting to the vendor-neutral `~/.agents/skills/`
+plus any agent home already present, and creating the directory tree when it does
+not exist. They are a lifecycle concern adjacent to — not part of — the
+cross-cutting analyzer-coverage smoke-test AC; the 13/13 gate stays defined by
+s0–s5. Operator decisions (2026-05-30): build the commands (not just test a manual
+flow), user-level target, agent-independent across all Agent-Skills readers, housed
+under this epic. Design recorded in ADR-0018.
