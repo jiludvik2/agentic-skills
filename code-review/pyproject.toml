@@ -1,6 +1,6 @@
 [project]
 name = "polyreview"
-version = "0.1.0rc1"
+version = "0.1.0"
 requires-python = ">=3.11"
 description = "AI-native code review skill — deterministic analyzer layer"
 license = { file = "LICENSE" }

@@ -2,7 +2,7 @@
 id: epic-analyzer-ga-hardening
 kind: epic
 project: code-review
-status: active
+status: done
 children:
   - s0-semgrep-rule-source
   - s1-js-toolchain-manifest

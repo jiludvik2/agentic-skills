@@ -18,7 +18,7 @@ uv tool install polyreview
 
 The PyPI distribution and console-script binary are both `polyreview`; the Python import name stays `code_review` (PEP-423 allows the distribution name to differ from the import name).
 
-> **Pre-release.** The first GA release to PyPI is pending. A release candidate (`0.1.0rc1`) is published to TestPyPI for staging; see `sdlc/docs/runbooks/release.md`. The `pip install` commands above work once the GA release lands.
+> **`0.1.0` is the first GA release** to PyPI. It was staged as `0.1.0rc1` on TestPyPI first; see `sdlc/docs/runbooks/release.md` for the release process.
 
 ### Analyzer prerequisites
 
@@ -28,6 +28,25 @@ The PyPI distribution and console-script binary are both `polyreview`; the Pytho
 - **Secret & dependency scanning** (gitleaks, Trivy) are standalone binaries that must be on your `PATH`.
 
 Run `polyreview run --capabilities` and read `analyzers[]` to see which are active: each reports `status: available` or `unavailable` with the reason. To provision the full set from a source checkout, run `./scripts/setup.sh` (Node tooling + offline caches) and install gitleaks/Trivy via your package manager. Analyzers that aren't available are skipped silently — so a finding-free run on a stack you expected coverage for may just mean the analyzer wasn't installed.
+
+## Use as an Agent Skill
+
+`polyreview` is also an Agent Skill bundle: agents (Claude Code, Codex, GitHub Copilot, Gemini CLI, …) discover it from their user-level skills directory. After installing the package, place the bundle where your agents look — `polyreview install` is agent-independent, idempotent, and creates missing directories:
+
+```bash
+polyreview install                 # neutral ~/.agents/skills/ + every agent home present
+polyreview install --agent claude  # one target: agents | claude | copilot | gemini
+polyreview install --all           # every known agent location
+polyreview install --force         # refresh an already-installed bundle in place
+```
+
+Install places the skill (`SKILL.md`, the config example, the vendored Semgrep rules) for *discovery*; it does **not** fetch the analyzer caches (`node_modules`, Trivy DB) — run `./scripts/setup.sh` for the full toolchain. Remove it with the same target scoping:
+
+```bash
+polyreview uninstall               # mirrors install's default + --agent/--all scoping
+```
+
+Uninstall is **marker-guarded**: it removes only a directory that is verifiably the polyreview bundle, and never touches a sibling skill, an agent's own files (e.g. Claude's `agents/reviewer.md`), or the skills directory itself.
 
 ## Quick start
 
