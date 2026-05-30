@@ -2,11 +2,11 @@
 id: s4-eslint-adapter-robustness
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-ga-hardening
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-05-30
 tags: [eslint, adapter, sarif-formatter, node, ga-readiness]
 ---
 
@@ -62,3 +62,16 @@ toolchain).
 
 Single task — **s4-t0-eslint-formatter-and-config-discovery** carries the outcome
 and the authoritative test specification. Depends on s1 (vendored toolchain).
+
+## Closure (2026-05-30)
+
+CLOSED via **s4-t0** (see its closure notes for detail). All three scenarios met:
+scenarios 1 (formatter resolution) and 3 (smoke harness drops the NODE_PATH/cwd
+stopgap) were pre-satisfied by s1-t2; scenario 2 (self-sufficient integration test)
+landed here, enabled by adapter cwd-anchoring at the targets' root (child-only via
+`run_subprocess(cwd=…)`, preserving the CWD-anchored `cache_root()` contract).
+Story-level Review verdict HAS-CRITICAL-OR-IMPORTANT — Critical (cwd invariant) and
+Important (single-project assumption) addressed in-task; remaining Minors
+declined/deferred with rationale. F8 cleared. Suite 384 passed, 0 xfailed (last
+Node-integration xfail flipped); ruff + mypy clean. Remaining epic blocker: F10
+CLI errors (s5).

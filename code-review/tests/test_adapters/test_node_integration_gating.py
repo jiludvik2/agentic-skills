@@ -1,8 +1,10 @@
 """Meta-test for s1-t3 / F9: the Node-analyzer integration tests must actually
 RUN in CI (on a vendored toolchain), not be silently skipif-skipped — otherwise
-F1/F2/F8 regressions stay invisible. The three still-broken adapters are
-xfail(strict) referencing their fixing story so CI stays green while the tests
-genuinely run; an unexpected pass fails, forcing each fix-story to flip its xfail.
+F1/F2/F8 regressions stay invisible. Any still-broken adapter is xfail(strict)
+referencing its fixing story so CI stays green while the tests genuinely run; an
+unexpected pass fails, forcing that fix-story to flip its xfail. As of s4 (F8
+eslint) the three F-tracked adapters (jscpd/F2, depcruiser/F1, eslint/F8) are
+fixed and knip was already green, so none is currently expected to xfail.
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ ADAPTERS_DIR = Path(__file__).parent
 _NODE_INTEGRATION = [
     ("test_jscpd.py", "test_jscpd_integration", "jscpd", False),  # F2/s2 fixed
     ("test_depcruiser.py", "test_depcruiser_integration", "depcruise", False),  # F1/s3 fixed
-    ("test_eslint.py", "test_eslint_integration_detects_console_log", "eslint", True),
+    ("test_eslint.py", "test_eslint_integration_detects_console_log", "eslint", False),
     ("test_knip.py", "test_knip_integration", "knip", False),
 ]
 
