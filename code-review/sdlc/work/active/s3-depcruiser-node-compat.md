@@ -69,3 +69,13 @@ manually: circular deps are flagged).
 - **Given** the bumped pin
 - **When** `capabilities.json`'s dependency-cruiser `version` is checked
 - **Then** it matches the version pinned in s1's lockfile.
+
+## Plan
+
+Two tasks (depend on s1 closed):
+
+- **s3-t0-pin-depcruiser-node-compatible** — bump the pin in s1's lockfile to a
+  Node-fs/constants-compatible version + capabilities version match (past the
+  `R_OK` SyntaxError).
+- **s3-t1-cruise-config-and-circular-detection** — adapter supplies the cruise
+  config + circular-dependency detection green. Depends on s3-t0.

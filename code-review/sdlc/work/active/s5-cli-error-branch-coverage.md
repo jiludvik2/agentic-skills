@@ -52,15 +52,7 @@ unless a branch is found to misbehave. No dependency on other epic stories.
 - **When** the CLI runs
 - **Then** exit code is non-zero and stderr says no analyzers were selected.
 
-## Test specification
+## Plan
 
-Write first, confirm red (they should pass immediately if the branches already
-behave correctly — the point is locking the contract), then implement only if a
-branch misbehaves. Add to `tests/test_cli.py` or a new
-`tests/test_cli_error_branches.py`, using `CliRunner(capture="fd")` and the
-`FakeAnalyzer`/registry-patch pattern from `test_review_selection_validation.py`:
-
-1. `test_unknown_analyzer_exits_nonzero_with_message`.
-2. `test_disabled_analyzer_selected_exits_nonzero_with_message` (patch
-   `load_config` to return a Config with `disabled_analyzers=["X"]`).
-3. `test_empty_selection_exits_nonzero_with_message`.
+Single task — **s5-t0-cli-error-branch-tests** carries the outcome and the
+authoritative test specification. Test-only; no dependency on other epic stories.

@@ -58,14 +58,7 @@ toolchain).
 - **Then** `run_smoke.py` no longer needs to set `NODE_PATH` (or special-case
   eslint's cwd) for the eslint case to pass — the adapter is self-sufficient.
 
-## Test specification
+## Plan
 
-Write first, confirm red, then implement (extend `tests/test_adapters/test_eslint.py`):
-
-1. `test_eslint_formatter_resolves_from_arbitrary_cwd`: run the adapter from a
-   cwd that is **not** the fixture dir, with a fixture flat config supplied to
-   the target; assert `status=ok` and SARIF parses (no "problem loading
-   formatter" / "couldn't find eslint.config" error).
-2. Fix `test_eslint_integration_detects_console_log` to run without external
-   `NODE_PATH` and to point eslint at a fixture that has a discoverable flat
-   config; assert it detects the planted rule violation.
+Single task — **s4-t0-eslint-formatter-and-config-discovery** carries the outcome
+and the authoritative test specification. Depends on s1 (vendored toolchain).

@@ -50,3 +50,8 @@ for their file-based reporters.
 - **When** the jscpd adapter is tested
 - **Then** a unit test exercises the temp-dir-write + report-read path (mirroring
   the existing trivy/gitleaks adapter tests).
+
+## Plan
+
+Single task — **s2-t0-jscpd-tempdir-report** carries the outcome and test
+specification. No dependency on other epic stories.
