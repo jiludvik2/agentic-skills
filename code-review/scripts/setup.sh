@@ -70,7 +70,9 @@ else
 fi
 note "cache anchor: ${CACHE_CWD} (export POLYREVIEW_CACHE_DIR to override; the CLI must run from the same anchor)"
 
-# 2. Node dependencies for JS/TS analyzers — guarded; the JS toolchain lands in s3.
+# 2. Node dependencies for JS/TS analyzers — installs the vendored toolchain
+#    pinned in package.json/package-lock.json (s1-t1 / ADR-0017). Still guarded so
+#    a stripped checkout without the manifest degrades gracefully.
 if [[ -f "${SKILL_ROOT}/package.json" && -f "${SKILL_ROOT}/package-lock.json" ]]; then
   step "Node dependencies"
   # Pass SKILL_ROOT via env, not string-interpolated into the Python source, so paths

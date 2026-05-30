@@ -1,0 +1,14 @@
+{
+  "name": "polyreview-js-toolchain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Vendored JS/TS analyzer toolchain for the code-review (polyreview) skill. Versions pinned per ADR-0017 (Node 20 LTS + 22 LTS); installed by scripts/setup.sh via `npm ci`. Not shipped in the PyPI wheel. dependency-cruiser's pin is a candidate validated cross-Node by s3.",
+  "//dependency-cruiser": "^16 is the F1-broken-on-modern-Node candidate; s3 confirms a Node 20+22 version and bumps this pin (ADR-0017 §3). Its integration test is xfail(strict) until then.",
+  "dependencies": {
+    "@microsoft/eslint-formatter-sarif": "^3",
+    "dependency-cruiser": "^16",
+    "eslint": "^9",
+    "jscpd": "^4",
+    "knip": "^5"
+  }
+}

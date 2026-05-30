@@ -2,12 +2,32 @@
 id: s1-t1-package-manifest-and-lockfile
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-js-toolchain-manifest
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-05-30
 tags: [node, npm, packaging, setup]
+notes: |
+  Committed package.json + package-lock.json (npm-generated, 5318 lines) at the
+  skill root pinning eslint^9 (9.39.4), knip^5 (5.0.0), jscpd^4 (4.0.5),
+  dependency-cruiser^16 (16.0.0, F1 candidate — s3 bumps), @microsoft/
+  eslint-formatter-sarif^3 (3.1.0). node_modules gitignored. New
+  tests/test_js_toolchain_manifest.py (manifest + manifest↔lock drift guard).
+
+  Manual verification (AC scenario 2/3): `npm install` populated node_modules;
+  `npm ci --dry-run` passes (lockfile↔manifest consistent); `cli --capabilities`
+  shows eslint/knip/jscpd/depcruiser all status=available. setup.sh:74 guard now
+  satisfied → takes the npm ci branch (skip message gone).
+
+  Verify PASS. Review MINOR-ONLY:
+  - [APPLIED] Minor x2: drift-guard test hardened — anchored the pin regex and
+    made unrecognised pin forms fail loudly (no silent no-op), so a later s3
+    depcruiser range/tag rewrite can't slip the guard. Docstring corrected to
+    "shares the locked major".
+  - [APPLIED] Minor: added a `//dependency-cruiser` tracking marker in
+    package.json flagging ^16 as the F1-broken candidate s3 must bump.
+  - [APPLIED] (verifier smell) fixed stale setup.sh comment ("toolchain lands in s3").
 ---
 
 # s1-t1 — Commit package.json + lockfile; setup.sh vendors the toolchain
