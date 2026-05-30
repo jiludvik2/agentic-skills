@@ -281,3 +281,34 @@ def test_ruleid_cwe_moved_to_taxa() -> None:
     assert any(t.get("id", "").startswith("CWE") for t in taxa), (
         f"Expected CWE in taxa after ruleId normalisation: {taxa}"
     )
+
+
+# ---------------------------------------------------------------------------
+# ADR-0019: `unavailable` is a clean skip, distinct from `error` (s0-fix2)
+# ---------------------------------------------------------------------------
+
+
+def test_unavailable_output_is_clean_skip_distinct_from_error() -> None:
+    """An `unavailable` analyzer output (a clean "nothing to run here" skip) must
+    contribute zero findings AND be excluded from analyzer_errors, while a real
+    `error` output is still recorded. Guards the story's load-bearing invariant
+    against a future gate broadening (e.g. `status != "ok"`) that would silently
+    re-pollute reviews with green-skip noise."""
+    ok = _output([_result("a.py", 10)], tool_name="bandit")
+    unavailable = _output(
+        [], tool_name="eslint", status="unavailable",
+        error="no JavaScript/TypeScript files in target",
+    )
+    errored = AnalyzerOutput(sarif={}, status="error", error="boom")
+
+    consolidated = aggregate([ok, unavailable, errored])
+
+    results = consolidated["runs"][0]["results"]
+    assert len(results) == 1, "only the ok analyzer's finding should survive"
+
+    errors = consolidated.get("properties", {}).get("analyzer_errors", [])
+    assert len(errors) == 1, f"only the real error should be recorded, got {errors}"
+    assert errors[0]["status"] == "error"
+    assert all(e["status"] != "unavailable" for e in errors), (
+        "an unavailable output must never appear in analyzer_errors"
+    )

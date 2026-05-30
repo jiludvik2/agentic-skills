@@ -2,7 +2,7 @@
 id: s0-analyzer-adapter-robustness
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-polish
 children:
   - s0-t0-bandit-stdout-progress-bar
