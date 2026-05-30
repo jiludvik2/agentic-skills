@@ -38,7 +38,27 @@ ground-truth quality catalogue). To assess them we need a dedicated benchmark: a
 documented complexity hotspots, real dead code, and known coupling — or synthetic fixtures with a
 labelled expected-findings set (the analyzer-coverage QA harness could be extended for this).
 
-## Validated (no action) — s0 fixes confirmed on a real repo
+## G6 (Important / strategic) — no working first-party JS SAST [NodeGoat]
+On OWASP NodeGoat, polyreview found 0 first-party JS code vulnerabilities despite the app planting
+the full OWASP Top 10 (injection/XSS/CSRF/SSRF/access-control/deserialization, documented in
+`app/views/tutorial/a*.html`). Root cause: semgrep ships no JS rules (Python-first ruleset, ADR-0016);
+eslint is `unavailable` on flat-config-less projects and is a style — not security — linter anyway;
+there is no bandit-equivalent for JS. Net JS security signal = trivy (76 dep CVEs) + gitleaks (3
+secrets) only. This is the single biggest coverage gap found. Extends F5 from "semgrep thin" to
+"JS first-party SAST absent". Options: vendor a JS semgrep ruleset (p/javascript, p/nodejs-scan-style),
+and/or add a JS security linter. Full assessment: `results/2026-05-30-nodegoat-js-coverage.md`.
+
+## G7 (Important) — knip false-positives without project config [NodeGoat]
+knip reported 31 unused-file findings, flagging `Gruntfile.js`, `config/env/*.js`, `artifacts/db-reset.js`
+and other entrypoint/build/config files as unused — it can't infer entrypoints without a knip config.
+JS analog to G2 (vulture/Django). Needs a knip config story or entrypoint heuristics before the
+dead-code signal is trustworthy on real projects.
+
+(G1 reconfirmed on NodeGoat: jscpd's 74 findings were 68 `.html` tutorial pages + only 5 real `.js`.)
+
+## Validated (no action) — s0 fixes confirmed on real repos
 - bandit: 58 SAST findings on PyGoat (pre-s0-t0: crash → 0). s0-t0 ✓
-- eslint → `unavailable` ("no ESLint config"); knip → `unavailable` ("no package.json"). s0-t1/t2 ✓
-- Security coverage strong for code-pattern OWASP categories + deps (trivy 102 CVEs) + secrets.
+- eslint → `unavailable` ("no ESLint config") on both PyGoat and NodeGoat; knip → `unavailable`
+  ("no package.json") on PyGoat. s0-t1/t2 ✓ — graceful skips, no spurious red on either repo.
+- Security coverage strong for Python code-pattern OWASP categories + deps (trivy 102/76 CVEs) + secrets;
+  weak-to-absent for JS first-party code (see G6).
