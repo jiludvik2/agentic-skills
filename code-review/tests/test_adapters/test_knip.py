@@ -108,6 +108,7 @@ async def test_knip_exit_1_is_ok() -> None:
     assert output.status == "ok"
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     node_binary("knip") is None,
     reason="knip not in node_modules (run scripts/setup.sh)",

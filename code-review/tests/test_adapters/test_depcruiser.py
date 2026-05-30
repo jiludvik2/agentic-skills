@@ -126,9 +126,16 @@ async def test_depcruiser_no_circular_deps() -> None:
     assert output.sarif["runs"][0]["results"] == []
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     node_binary("depcruise") is None,
     reason="depcruise not in node_modules (run scripts/setup.sh)",
+)
+@pytest.mark.xfail(
+    reason="dependency-cruiser 16 is F1-broken on modern Node; a Node 20+22 "
+    "compatible version is pinned in s3 (F1/s3). CI runs the test (F9) and s3 "
+    "flips this xfail to a real pass.",
+    strict=True,
 )
 async def test_depcruiser_integration() -> None:
     from code_review.adapters.depcruiser import DependencyCruiserAdapter

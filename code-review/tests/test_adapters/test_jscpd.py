@@ -111,9 +111,16 @@ async def test_jscpd_handles_empty_duplicates() -> None:
     assert output.sarif["runs"][0]["results"] == []
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     node_binary("jscpd") is None,
     reason="jscpd not in node_modules (run scripts/setup.sh)",
+)
+@pytest.mark.xfail(
+    reason="jscpd duplication report/tempdir handling is F2/s2; the adapter "
+    "errors on this fixture until s2 fixes it. CI runs the test (F9) and s2 "
+    "flips this xfail to a real pass.",
+    strict=True,
 )
 async def test_jscpd_integration() -> None:
     from code_review.adapters.jscpd import JscpdAdapter

@@ -53,10 +53,54 @@ def test_path_filter_covers_code_review(workflow: dict[str, Any]) -> None:
             )
 
 
-def test_single_test_job(workflow: dict[str, Any]) -> None:
+def test_jobs_are_test_and_node_integration(workflow: dict[str, Any]) -> None:
+    """The green-bar `test` job, plus the s1-t3 `node-integration` job that
+    vendors the Node toolchain and runs the Node-analyzer integration tests
+    (F9 — so F1/F2/F8 regressions surface instead of being skip-masked)."""
     jobs = workflow.get("jobs", {})
-    assert set(jobs.keys()) == {"test"}, (
-        f"expected exactly one job named 'test'; got {sorted(jobs.keys())}"
+    assert set(jobs.keys()) == {"test", "node-integration"}, (
+        f"expected jobs 'test' and 'node-integration'; got {sorted(jobs.keys())}"
+    )
+
+
+def test_node_integration_job_matrix_and_steps(workflow: dict[str, Any]) -> None:
+    """s1-t3: the node-integration job runs a Node 20+22 matrix, vendors the
+    toolchain via `npm ci`, guards that it installed (no silent skip), and runs
+    the Node-analyzer integration tests by marker + file (xfail-gated per story)."""
+    job = workflow["jobs"]["node-integration"]
+    node_versions = job["strategy"]["matrix"]["node"]
+    assert {str(v) for v in node_versions} == {"20", "22"}, (
+        f"node-integration must matrix over Node 20 and 22; got {node_versions!r}"
+    )
+
+    run_strings = [
+        s.get("run", "") for s in job.get("steps", []) if isinstance(s, dict) and "run" in s
+    ]
+    blob = "\n".join(run_strings)
+    assert "npm ci" in blob, f"node-integration must `npm ci` the toolchain; got {run_strings}"
+    # Fail-loud guard must cover every vendored Node binary, not just one, so a
+    # dropped tool can't silently re-skip its integration test (F9).
+    assert ".bin/" in blob, (
+        f"node-integration must guard that the toolchain vendored (fail loud); got {run_strings}"
+    )
+    for tool_bin in ("eslint", "jscpd", "depcruise", "knip"):
+        assert tool_bin in blob, (
+            f"toolchain guard must check {tool_bin}; got {run_strings}"
+        )
+    pytest_run = next((r for r in run_strings if "uv run pytest" in r), "")
+    assert "-m integration" in pytest_run, (
+        f"node-integration pytest step must select `-m integration`; got {pytest_run!r}"
+    )
+    for tool_file in (
+        "test_eslint.py", "test_jscpd.py", "test_depcruiser.py", "test_knip.py",
+    ):
+        assert tool_file in pytest_run, (
+            f"node-integration pytest step must target {tool_file}; got {pytest_run!r}"
+        )
+
+    uses = [s.get("uses", "") for s in job.get("steps", []) if isinstance(s, dict)]
+    assert any(str(u).startswith("actions/setup-node@") for u in uses), (
+        f"node-integration must set up Node; got uses={uses!r}"
     )
 
 

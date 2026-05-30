@@ -102,9 +102,10 @@ async def test_eslint_sets_node_path_to_vendored_modules() -> None:
     assert str(node_modules_dir()) in env["NODE_PATH"]
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
-    not (SKILL_ROOT / "node_modules" / ".bin" / "eslint").exists(),
-    reason="eslint not vendored (run scripts/setup.sh)",
+    node_binary("eslint") is None,
+    reason="eslint not in node_modules (run scripts/setup.sh)",
 )
 async def test_eslint_formatter_resolves_from_foreign_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -136,6 +137,7 @@ async def test_eslint_formatter_resolves_from_foreign_cwd(
     assert output.status == "ok", output.error
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     node_binary("eslint") is None,
     reason="eslint not in node_modules (run scripts/setup.sh)",

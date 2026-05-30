@@ -2,12 +2,27 @@
 id: s1-t3-ci-node-integration-and-xfail-gating
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-js-toolchain-manifest
 sources: [sdlc/docs/qa/analyzer-coverage/FINDINGS.md]
 created: 2026-05-29
-updated: 2026-05-29
+updated: 2026-05-30
 tags: [ci, node, integration-tests, f9, xfail]
+notes: |
+  Closed 2026-05-30. Verify PASS, Review MINOR-ONLY (all Minors folded in).
+  Mechanism: new ci.yml `node-integration` job (Node 20+22 matrix) runs `npm ci`
+  from the skill-root lockfile, a fail-loud guard over all four vendored bins
+  (eslint/jscpd/depcruise/knip), then `pytest -m integration` over the four Node
+  adapter files. skipif(node_binary) kept as the toolchain-vendored gate (AC's
+  "or gated" option); npm ci inactivates it in CI. jscpd/depcruiser/eslint are
+  xfail(strict) referencing F2/s2, F1/s3, F8/s4; knip passes. Meta-test
+  test_node_integration_tests_run_when_vendored enforces the skip->xfail
+  conversion. Folded-in review fixes: guard covers all four bins (not just
+  eslint); foreign-cwd skipif switched to node_binary (cache-dir-aware,
+  consistent); meta-test asserts exactly one xfail per tracked test.
+  NOTE: the YAML's real execution is CI-verified (AC #3, not unit-testable
+  locally) — the node-integration job's first GitHub Actions run validates it.
+  F9 fully closes as s2/s3/s4 flip their xfails (cross-story, not an s1 blocker).
 ---
 
 # s1-t3 — CI runs the Node-analyzer integration tests (F9), xfail-gated per story
