@@ -47,6 +47,22 @@ Install places the skill (discovery). It does **not** provision the offline anal
 caches (`node_modules/`, Trivy DB) — run the bundle's `setup.sh` afterwards for full
 coverage. The command prints each target written and this follow-up hint.
 
+## Uninstall
+
+`polyreview uninstall` removes the bundle from the same targets, scoped the same way:
+
+```
+polyreview uninstall                 # neutral ~/.agents/skills/ + every agent home present
+polyreview uninstall --agent claude  # a specific agent (agents|claude|copilot|gemini)
+polyreview uninstall --all           # every registry target
+```
+
+Removal is **marker-guarded**: only a `<skills-dir>/code-review/` whose `SKILL.md`
+declares `name: code-review` is deleted. Siblings, an agent's `agents/reviewer.md`,
+the skills dir itself, and the agent homes are never touched. A target with no bundle
+is a clean no-op; a directory that fails the marker check is refused (left intact) and
+the command exits non-zero.
+
 ## Review taxonomy
 
 ### Domains and subcategories

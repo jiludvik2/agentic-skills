@@ -2,12 +2,26 @@
 id: s7-t0-uninstall-command
 kind: task
 project: code-review
-status: active
+status: done
 parent: s7-uninstall-skill-bundle
 sources: [code_review/cli.py, .claude/skills/code-review/SKILL.md, reference-agentskills-cross-agent-discovery]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [cli, uninstall, safety, typer, agent-skills, cross-agent]
+notes: |
+  Closed 2026-05-30. Verify PASS (6/6 AC scenarios covered), Review MINOR-ONLY.
+  Impl: `uninstall(targets)` in code_review/install.py reuses the s6 registry/
+  resolver/marker (is_our_bundle); `uninstall` Typer command in cli.py mirrors
+  install (no --force). 9 tests, suite 413 passed, ruff+mypy clean.
+  In-green-bar cleanup applied: added recursive-nested-tree removal test and
+  mixed present+absent message-suppression test (2 of the reviewer's coverage Minors).
+  Deferred Minors (opportunistic):
+  - cli.py install/uninstall duplicate the comma-split + resolve_targets + ValueError
+    →Exit(1) + per-result echo loop; hoist into a shared _resolve_targets_or_exit helper.
+  - uninstall calls do_uninstall bare (no FileNotFoundError guard) by design (reads no
+    bundle source); add a one-line comment marking the asymmetry intentional.
+  - round-trip test asserts no `code-review` dir survives via rglob but does not snapshot
+    full pre-install home parity (fidelity nit).
 ---
 
 # s7-t0 — `polyreview uninstall` command (agent-independent)

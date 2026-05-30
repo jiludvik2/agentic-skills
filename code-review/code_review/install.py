@@ -127,7 +127,7 @@ class TargetResult:
 
     target: str
     dest: Path
-    action: str  # written | refreshed | skipped | refused
+    action: str  # written | refreshed | skipped | refused | removed | absent
 
 
 def install(targets: list[str], force: bool) -> list[TargetResult]:
@@ -153,4 +153,26 @@ def install(targets: list[str], force: bool) -> list[TargetResult]:
         else:
             _copy_bundle(src, dest)
             results.append(TargetResult(target, dest, "written"))
+    return results
+
+
+def uninstall(targets: list[str]) -> list[TargetResult]:
+    """Remove ``<skills-dir>/code-review/`` per target, marker-gated (ADR-0018 §5).
+
+    Per target: an absent dir is a reported no-op (``absent``); a dir that passes the
+    marker check is removed (``removed``); a dir that exists but fails the marker check
+    is left intact and reported (``refused``) — never silently skipped. Only the bundle
+    dir is ever removed: siblings, ``agents/reviewer.md``, the skills dir itself, and
+    every agent home are untouched.
+    """
+    results: list[TargetResult] = []
+    for target in targets:
+        dest = skills_dir(target) / SKILL_DIR_NAME
+        if not dest.exists():
+            results.append(TargetResult(target, dest, "absent"))
+        elif not is_our_bundle(dest):
+            results.append(TargetResult(target, dest, "refused"))
+        else:
+            shutil.rmtree(dest)
+            results.append(TargetResult(target, dest, "removed"))
     return results

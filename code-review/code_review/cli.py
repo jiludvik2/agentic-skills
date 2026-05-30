@@ -461,5 +461,57 @@ def install(
         raise typer.Exit(1)
 
 
+@app.command()
+def uninstall(
+    agent: list[str] = typer.Option(
+        [],
+        "--agent",
+        help="Uninstall from a specific agent target (repeat/comma for many): "
+        "agents, claude, copilot, gemini. Default: agents + every agent home present.",
+    ),
+    all_targets: bool = typer.Option(
+        False, "--all", help="Uninstall from every registry target."
+    ),
+) -> None:
+    """Remove the skill bundle from the user-level skills dir(s) (ADR-0018 §5).
+
+    Marker-gated: only a directory that is verifiably our bundle is removed. Siblings,
+    the agent's reviewer sub-agent, the skills dir itself, and agent homes are never
+    touched. A target that exists but fails the marker check is refused (left intact)
+    and the run exits non-zero; clean removals and genuine no-ops keep exit 0.
+    """
+    from code_review.install import TargetResult, resolve_targets
+    from code_review.install import uninstall as do_uninstall
+
+    # Allow comma-separated --agent values (e.g. --agent claude,copilot).
+    agents = [a.strip() for raw in agent for a in raw.split(",") if a.strip()]
+    try:
+        targets = resolve_targets(agents or None, all_targets)
+    except ValueError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    results: list[TargetResult] = do_uninstall(targets)
+
+    for r in results:
+        typer.echo(f"{r.action:9} {r.dest}")
+
+    refused = [r for r in results if r.action == "refused"]
+    removed = [r for r in results if r.action == "removed"]
+
+    if not removed and not refused:
+        typer.echo("nothing to uninstall")
+
+    for r in refused:
+        typer.echo(
+            f"Error: {r.dest} exists but is not a code-review bundle "
+            "(marker check failed); left intact.",
+            err=True,
+        )
+
+    if refused:
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
