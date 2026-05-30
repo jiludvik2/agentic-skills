@@ -5,6 +5,7 @@ project: code-review
 status: active
 children:
   - s0-contract-inversion-and-bundle
+  - s1-migrate-adapters-and-emit-bundle
 sources: [post-coverage-eval-findings.md, vendor-js-semgrep-rules.md, g5-maintainability-oracle-repos.md, g8-js-complexity-cohesion-absent.md]
 created: 2026-05-30
 updated: 2026-05-30
@@ -63,16 +64,19 @@ migrate alongside so the green bar holds throughout.
 - **s0 — contract inversion + bundle format.** Redefine `AnalyzerOutput` (raw-capture-
   first); define the bundle schema; retain selection + the ADR-0019 availability
   contract. Tests: bundle shape, availability contract preserved.
-- **s1 — migrate adapters to invoke-and-capture.** Delete every `_to_sarif`; each adapter
-  → invoke + capture + exit-code/availability mapping. Delete `aggregator`/`severity`/
-  `hotspots`/`MetricSet`/SARIF builders. Tests: per-adapter **invocation** correctness
-  (bandit `--quiet`, semgrep `--x-ignore`, eslint `NODE_PATH`, trivy offline), raw
-  capture, availability. **Folds in G1** (settle jscpd's intended language scope —
-  invocation `--format` vs. accepted multi-language).
-- **s2 — CLI emits bundle + SKILL.md interpretation.** CLI outputs the bundle; SKILL.md
-  teaches the agent to read each tool's native output and judge severity/dedup. Tests:
-  bundle emission, golden bundle on a fixture. **Folds in G2/G7** (vulture/knip FP
-  handling → invocation flag or agent-interpretation guidance — decide at Plan).
+- **s1 — migrate adapters to invoke-and-capture + emit the bundle.** Planned 2026-05-30
+  (4 tasks: s1-t0 type/status SoT; s1-t1 9 Python adapters; s1-t2 4 JS adapters + G1;
+  s1-t3 CLI emits bundle + delete the layer). Delete every `_to_sarif` + `aggregator`/
+  `severity`/`hotspots`/`MetricSet`/SARIF builders; each adapter → invoke + capture +
+  exit-code/availability mapping. **CLI bundle-emission pulled in from s2** (operator
+  decision 2026-05-30): deleting `aggregator` orphans the CLI's output path, so the switch
+  and the teardown land atomically in s1-t3. Tests: per-adapter **invocation** correctness
+  (bandit `--quiet`, semgrep `--x-ignore`, eslint `NODE_PATH`, trivy offline), raw capture,
+  availability, golden bundle. **Folds in G1** (jscpd scope).
+- **s2 — SKILL.md interpretation + golden-bundle hardening (re-scoped).** CLI emission now
+  ships in s1; s2 teaches the agent (SKILL.md) to read each tool's native output and judge
+  severity/dedup, and hardens the golden-bundle fixtures. **Folds in G2/G7** (vulture/knip
+  FP handling → agent-interpretation guidance — decide at Plan).
 - **s3 — G6: vendor JS semgrep rules.** Orthogonal coverage win, now cheap; closes the
   no-JS-SAST gap. (Already decided: vendor JS/TS rules into the ruleset, not a new tool.)
 - **s4 — G8: JS complexity analyzer.** Add a JS complexity analyzer (parity with radon);
