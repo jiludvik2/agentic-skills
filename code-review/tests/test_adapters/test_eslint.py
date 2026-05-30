@@ -61,6 +61,7 @@ async def test_eslint_parses_sarif_stdout() -> None:
                             target_paths=("src/",), languages=frozenset(), config={})
     with (
         patch("code_review.adapters.eslint.node_binary", return_value=Path("/fake/eslint")),
+        patch("code_review.adapters.eslint.has_js_files", return_value=True),
         patch("code_review.adapters.eslint._has_eslint_config", return_value=True),
         patch("code_review.adapters.eslint.run_subprocess",
               new=AsyncMock(return_value=SubprocessResult(fake_sarif, b"", 0))),
@@ -94,6 +95,7 @@ async def test_eslint_sets_node_path_to_vendored_modules() -> None:
                             target_paths=("src/",), languages=frozenset(), config={})
     with (
         patch("code_review.adapters.eslint.node_binary", return_value=Path("/fake/eslint")),
+        patch("code_review.adapters.eslint.has_js_files", return_value=True),
         patch("code_review.adapters.eslint._has_eslint_config", return_value=True),
         patch("code_review.adapters.eslint.run_subprocess", new=fake_run),
     ):
@@ -209,6 +211,34 @@ async def test_eslint_unexpected_failure_is_error(tmp_path: Path) -> None:
         output = await EslintAdapter().run(request)
     assert output.status == "error", output.error
     assert "exited 2" in (output.error or "")
+
+
+async def test_eslint_unavailable_without_js(tmp_path: Path) -> None:
+    """A target tree with no JS/TS files at all is 'nothing to run' — reported as
+    unavailable (distinct reason from the no-flat-config case) and eslint is never
+    invoked (ADR-0019, s0-t2)."""
+    from code_review.adapters.base import SubprocessResult
+    from code_review.adapters.eslint import EslintAdapter
+    from code_review.contracts import ReviewRequest
+
+    (tmp_path / "app.py").write_text("x = 1\n")
+    invoked = False
+
+    async def fake_run(*cmd: str, **kwargs: object) -> SubprocessResult:
+        nonlocal invoked
+        invoked = True
+        return SubprocessResult(b"", b"", 0)
+
+    request = ReviewRequest(scope="per-task", diff_range=None,
+                            target_paths=(str(tmp_path),), languages=frozenset(), config={})
+    with (
+        patch("code_review.adapters.eslint.node_binary", return_value=Path("/fake/eslint")),
+        patch("code_review.adapters.eslint.run_subprocess", new=fake_run),
+    ):
+        output = await EslintAdapter().run(request)
+    assert output.status == "unavailable", output.error
+    assert "javascript" in (output.error or "").lower()
+    assert not invoked, "eslint must not be invoked when there is no JS to analyse"
 
 
 @pytest.mark.integration

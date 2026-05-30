@@ -5,7 +5,7 @@ import os
 from typing import Any, ClassVar
 
 from code_review.adapters.base import run_subprocess
-from code_review.adapters.js_base import node_binary
+from code_review.adapters.js_base import has_js_files, js_unavailable, node_binary
 from code_review.adapters.sarif_utils import empty_sarif, normalise_sarif
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 from code_review.paths import node_modules_dir
@@ -55,6 +55,11 @@ class EslintAdapter:
             )
         if not request.target_paths:
             return AnalyzerOutput(sarif=empty_sarif("eslint"))
+        # No JS/TS anywhere in the target → nothing for eslint to do (e.g. a
+        # pure-Python review). A clean skip, not the spurious red of `eslint
+        # exited 2` (ADR-0019, s0-t2). Distinct from the no-flat-config skip below.
+        if not has_js_files(request.target_paths):
+            return js_unavailable("eslint", "no JavaScript/TypeScript files in target")
         # eslint v9 flat config is discovered by searching UPWARD from the process
         # cwd (never into child dirs), and its "base path" is that cwd — targets
         # outside it are silently ignored ("File ignored because outside of base
@@ -79,12 +84,9 @@ class EslintAdapter:
         # not the bare `eslint exited 2` that pollutes an otherwise-green review
         # (ADR-0019). A genuine eslint failure with a config present still → error.
         if not _has_eslint_config(anchor):
-            return AnalyzerOutput(
-                sarif=empty_sarif("eslint"), status="unavailable",
-                error=(
-                    "no ESLint config (eslint.config.* or .eslintrc*) "
-                    f"found under {anchor}"
-                ),
+            return js_unavailable(
+                "eslint",
+                f"no ESLint config (eslint.config.* or .eslintrc*) found under {anchor}",
             )
         rel_targets = tuple(os.path.relpath(p, anchor) for p in abs_targets)
         cmd = (

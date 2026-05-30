@@ -50,7 +50,36 @@ async def test_knip_empty_target_paths() -> None:
     assert output.status == "ok"
 
 
-async def test_knip_parses_json_to_sarif() -> None:
+async def test_knip_unavailable_without_package_json(tmp_path: Path) -> None:
+    """A Python-only target (no package.json) is 'nothing knip can run' — reported
+    as unavailable not error, and knip is never invoked (ADR-0019, s0-t2)."""
+    from code_review.adapters.base import SubprocessResult
+    from code_review.adapters.knip import KnipAdapter
+    from code_review.contracts import ReviewRequest
+
+    (tmp_path / "app.py").write_text("x = 1\n")
+    invoked = False
+
+    async def fake_run(*cmd: str, **kwargs: object) -> SubprocessResult:
+        nonlocal invoked
+        invoked = True
+        return SubprocessResult(b"", b"", 0)
+
+    request = ReviewRequest(
+        scope="per-task", diff_range=None,
+        target_paths=(str(tmp_path),), languages=frozenset(), config={},
+    )
+    with (
+        patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")),
+        patch("code_review.adapters.knip.run_subprocess", new=fake_run),
+    ):
+        output = await KnipAdapter().run(request)
+    assert output.status == "unavailable", output.error
+    assert "package.json" in (output.error or "").lower()
+    assert not invoked, "knip must not be invoked when there is no package.json"
+
+
+async def test_knip_parses_json_to_sarif(tmp_path: Path) -> None:
     from code_review.adapters.base import SubprocessResult
     from code_review.adapters.knip import KnipAdapter
     from code_review.contracts import ReviewRequest
@@ -61,9 +90,10 @@ async def test_knip_parses_json_to_sarif() -> None:
         "dependencies": [],
     }).encode()
 
+    (tmp_path / "package.json").write_text("{}")
     request = ReviewRequest(
         scope="per-task", diff_range=None,
-        target_paths=("src/",), languages=frozenset(), config={},
+        target_paths=(str(tmp_path),), languages=frozenset(), config={},
     )
     with (
         patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")),
@@ -85,16 +115,17 @@ async def test_knip_parses_json_to_sarif() -> None:
     jsonschema.validate(output.sarif, schema)
 
 
-async def test_knip_exit_1_is_ok() -> None:
+async def test_knip_exit_1_is_ok(tmp_path: Path) -> None:
     from code_review.adapters.base import SubprocessResult
     from code_review.adapters.knip import KnipAdapter
     from code_review.contracts import ReviewRequest
 
     fake_json = json.dumps({"files": [], "exports": [], "dependencies": []}).encode()
 
+    (tmp_path / "package.json").write_text("{}")
     request = ReviewRequest(
         scope="per-task", diff_range=None,
-        target_paths=("src/",), languages=frozenset(), config={},
+        target_paths=(str(tmp_path),), languages=frozenset(), config={},
     )
     with (
         patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")),
@@ -125,7 +156,7 @@ async def test_knip_integration() -> None:
         config={},
     )
     output = await KnipAdapter().run(request)
-    assert output.status in ("ok", "error")  # knip needs package.json in cwd
-    if output.status == "ok":
-        schema = json.loads(SARIF_SCHEMA.read_text())
-        jsonschema.validate(output.sarif, schema)
+    # The fixture ships no top-level package.json, so the s0-t2 guard returns
+    # `unavailable` (a clean skip) deterministically — before knip is invoked.
+    assert output.status == "unavailable", output.error
+    assert "package.json" in (output.error or "").lower()

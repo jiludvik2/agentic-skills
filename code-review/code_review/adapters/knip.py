@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, ClassVar
 
 from code_review.adapters.base import run_subprocess
-from code_review.adapters.js_base import node_binary
+from code_review.adapters.js_base import js_unavailable, node_binary
 from code_review.adapters.sarif_utils import empty_sarif, make_location, normalise_sarif
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 
@@ -61,9 +62,16 @@ class KnipAdapter:
             )
         if not request.target_paths:
             return AnalyzerOutput(sarif=empty_sarif("knip"))
+        # knip is a whole-project tool: it reads ./package.json from its cwd. With
+        # none present (e.g. a pure-Python review) it errors "Unable to find
+        # package.json" — report that as a clean skip, not a failure (ADR-0019).
+        target = request.target_paths[0]
+        project_dir = target if os.path.isdir(target) else os.path.dirname(target)
+        if not os.path.isfile(os.path.join(project_dir, "package.json")):
+            return js_unavailable("knip", f"no package.json under {project_dir}")
         cmd = ("node", str(binary), "--reporter", "json")
         result = await run_subprocess(
-            *cmd, timeout_s=self.default_timeout_s, cwd=request.target_paths[0]
+            *cmd, timeout_s=self.default_timeout_s, cwd=project_dir
         )
         if result.error is not None:
             return AnalyzerOutput(sarif={}, status="error", error=result.error)

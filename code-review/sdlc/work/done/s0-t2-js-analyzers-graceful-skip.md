@@ -5,9 +5,16 @@ project: code-review
 status: active
 parent: s0-analyzer-adapter-robustness
 sources: [post-ga-self-review-findings.md, code_review/adapters/eslint.py, code_review/adapters/knip.py, adr-0019-analyzer-unavailable-vs-error.md]
+status: done
 created: 2026-05-30
 updated: 2026-05-30
 tags: [eslint, knip, adapter, graceful-skip, minor]
+notes:
+  - "Verify Minor (applied in-green-bar): knip integration assertion tightened from a 3-way disjunction to `== unavailable` (fixture deterministically lacks top-level package.json; guard returns before invoking knip)."
+  - "Review MINOR (deferred): knip and eslint compute 'containing project dir' by different idioms (knip: dirname; eslint: commonpath+dirname fallback). Consider a shared js_base `target_dir(path)` helper."
+  - "Review MINOR (deferred): knip inspects only target_paths[0]; eslint's has_js_files scans all target_paths — multi-target disagreement. Pre-existing (cwd was already target_paths[0]); knip is whole-project by nature. Document single-root or scan for first package.json dir."
+  - "Review MINOR (pre-existing, not introduced here): empty_sarif(tool) vs sarif={} convention across non-ok statuses is inconsistent project-wide. Pick one and document on AnalyzerOutput.sarif."
+  - "Review FORWARD-LOOKING (out of scope for t2): ADR-0019 §Decision names jscpd as a third JS-only tool that should report `unavailable` on no-JS targets; jscpd.py does not yet use has_js_files. Surface at story s0 boundary as a candidate follow-up task (the shared has_js_files helper makes it a small change)."
 ---
 
 # s0-t2 — JS analyzers: graceful `unavailable` on no-JS targets (F2)
