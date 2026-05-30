@@ -61,6 +61,7 @@ async def test_eslint_parses_sarif_stdout() -> None:
                             target_paths=("src/",), languages=frozenset(), config={})
     with (
         patch("code_review.adapters.eslint.node_binary", return_value=Path("/fake/eslint")),
+        patch("code_review.adapters.eslint._has_eslint_config", return_value=True),
         patch("code_review.adapters.eslint.run_subprocess",
               new=AsyncMock(return_value=SubprocessResult(fake_sarif, b"", 0))),
     ):
@@ -93,6 +94,7 @@ async def test_eslint_sets_node_path_to_vendored_modules() -> None:
                             target_paths=("src/",), languages=frozenset(), config={})
     with (
         patch("code_review.adapters.eslint.node_binary", return_value=Path("/fake/eslint")),
+        patch("code_review.adapters.eslint._has_eslint_config", return_value=True),
         patch("code_review.adapters.eslint.run_subprocess", new=fake_run),
     ):
         output = await EslintAdapter().run(request)
@@ -134,6 +136,79 @@ async def test_eslint_anchors_cwd_at_existing_directory_for_missing_file() -> No
 
     cwd = captured["cwd"]
     assert isinstance(cwd, str) and Path(cwd).is_dir(), f"cwd must be an existing dir, got {cwd!r}"
+
+
+async def test_eslint_no_flat_config_is_unavailable(tmp_path: Path) -> None:
+    """A JS target with no eslint.config.* (and no .eslintrc) anywhere upward is
+    'nothing to run here', not a failure: status unavailable, the reason names the
+    missing flat config, and eslint is never invoked (ADR-0019)."""
+    from code_review.adapters.base import SubprocessResult
+    from code_review.adapters.eslint import EslintAdapter
+    from code_review.contracts import ReviewRequest
+
+    (tmp_path / "app.js").write_text("const x = 1;\n")
+    invoked = False
+
+    async def fake_run(*cmd: str, **kwargs: object) -> SubprocessResult:
+        nonlocal invoked
+        invoked = True
+        return SubprocessResult(b"", b"", 0)
+
+    request = ReviewRequest(scope="per-task", diff_range=None,
+                            target_paths=(str(tmp_path),), languages=frozenset(), config={})
+    with (
+        patch("code_review.adapters.eslint.node_binary", return_value=Path("/fake/eslint")),
+        patch("code_review.adapters.eslint.run_subprocess", new=fake_run),
+    ):
+        output = await EslintAdapter().run(request)
+    assert output.status == "unavailable", output.error
+    assert "config" in (output.error or "").lower()
+    assert not invoked, "eslint must not be invoked when there is no config to run"
+
+
+async def test_eslint_with_flat_config_lints(tmp_path: Path) -> None:
+    """Regression: a target that DOES carry a flat config still lints — the
+    no-config skip must not short-circuit the normal path."""
+    from code_review.adapters.base import SubprocessResult
+    from code_review.adapters.eslint import EslintAdapter
+    from code_review.contracts import ReviewRequest
+
+    (tmp_path / "eslint.config.js").write_text("export default [];\n")
+    (tmp_path / "app.js").write_text("const x = 1;\n")
+    fake_sarif = json.dumps(
+        {"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "ESLint"}}, "results": []}]}
+    ).encode()
+    request = ReviewRequest(scope="per-task", diff_range=None,
+                            target_paths=(str(tmp_path),), languages=frozenset(), config={})
+    with (
+        patch("code_review.adapters.eslint.node_binary", return_value=Path("/fake/eslint")),
+        patch("code_review.adapters.eslint.run_subprocess",
+              new=AsyncMock(return_value=SubprocessResult(fake_sarif, b"", 1))),
+    ):
+        output = await EslintAdapter().run(request)
+    assert output.status == "ok", output.error
+    assert output.sarif["runs"][0]["tool"]["driver"]["name"] == "ESLint"
+
+
+async def test_eslint_unexpected_failure_is_error(tmp_path: Path) -> None:
+    """With a config present, a genuine non-zero eslint exit is still surfaced as
+    error — unavailable is reserved for 'nothing to run', never a real crash."""
+    from code_review.adapters.base import SubprocessResult
+    from code_review.adapters.eslint import EslintAdapter
+    from code_review.contracts import ReviewRequest
+
+    (tmp_path / "eslint.config.js").write_text("export default [];\n")
+    (tmp_path / "app.js").write_text("const x = 1;\n")
+    request = ReviewRequest(scope="per-task", diff_range=None,
+                            target_paths=(str(tmp_path),), languages=frozenset(), config={})
+    with (
+        patch("code_review.adapters.eslint.node_binary", return_value=Path("/fake/eslint")),
+        patch("code_review.adapters.eslint.run_subprocess",
+              new=AsyncMock(return_value=SubprocessResult(b"", b"Oops: real eslint crash\n", 2))),
+    ):
+        output = await EslintAdapter().run(request)
+    assert output.status == "error", output.error
+    assert "exited 2" in (output.error or "")
 
 
 @pytest.mark.integration

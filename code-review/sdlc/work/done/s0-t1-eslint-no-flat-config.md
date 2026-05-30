@@ -2,12 +2,16 @@
 id: s0-t1-eslint-no-flat-config
 kind: task
 project: code-review
-status: active
+status: done
 parent: s0-analyzer-adapter-robustness
 sources: [post-ga-self-review-findings.md, code_review/adapters/eslint.py, adr-0019-analyzer-unavailable-vs-error.md]
 created: 2026-05-30
 updated: 2026-05-30
 tags: [eslint, adapter, flat-config, important]
+notes:
+  - "Review MINOR (applied in-green-bar): reason string now names both eslint.config.* and .eslintrc* (was flat-config-only, misleading vs what _has_eslint_config searches)."
+  - "Review MINOR (deferred): the `unavailable` AnalyzerOutput shape is constructed inline here; js_base/cli centralise the JS-availability `unavailable` dict. If s0-t2 (JS-on-no-JS) adds a third producer, hoist a `_unavailable(reason)` helper for a uniform contract shape."
+  - "Review MINOR (by design, not changed): `_has_eslint_config` walks to filesystem root, mirroring ESLint v9's own upward search — a stray eslint.config.* in an ancestor (e.g. CI container global) could flip the result. Optional future de-risk: cap the walk at the target's VCS root (.git). Left as-is to avoid missing legitimate monorepo configs above the package."
 ---
 
 # s0-t1 — eslint: handle a JS project with no flat config (F4)

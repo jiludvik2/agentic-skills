@@ -10,6 +10,34 @@ from code_review.adapters.sarif_utils import empty_sarif, normalise_sarif
 from code_review.contracts import AnalyzerOutput, ReviewRequest
 from code_review.paths import node_modules_dir
 
+# ESLint v9 discovers a flat config by searching UPWARD from cwd; a project with
+# none (and no legacy .eslintrc) exits 2 with "couldn't find an eslint.config file".
+# We mirror that upward walk so "nothing to lint here" is reported as `unavailable`
+# (a clean skip, ADR-0019) rather than a bare `eslint exited 2` error.
+_FLAT_CONFIG_NAMES = (
+    "eslint.config.js", "eslint.config.mjs", "eslint.config.cjs",
+    "eslint.config.ts", "eslint.config.mts", "eslint.config.cts",
+)
+_LEGACY_CONFIG_NAMES = (
+    ".eslintrc", ".eslintrc.js", ".eslintrc.cjs",
+    ".eslintrc.json", ".eslintrc.yml", ".eslintrc.yaml",
+)
+
+
+def _has_eslint_config(anchor: str) -> bool:
+    """True if any eslint config (flat or legacy) is discoverable on the upward
+    path from ``anchor`` to the filesystem root — the same search ESLint itself
+    performs from its cwd."""
+    current = os.path.abspath(anchor)
+    while True:
+        for name in (*_FLAT_CONFIG_NAMES, *_LEGACY_CONFIG_NAMES):
+            if os.path.isfile(os.path.join(current, name)):
+                return True
+        parent = os.path.dirname(current)
+        if parent == current:
+            return False
+        current = parent
+
 
 class EslintAdapter:
     name: ClassVar[str] = "eslint"
@@ -46,6 +74,18 @@ class EslintAdapter:
         anchor = os.path.commonpath(abs_targets)
         if not os.path.isdir(anchor):
             anchor = os.path.dirname(anchor)
+        # No flat config (and no legacy .eslintrc) discoverable from the anchor
+        # upward → eslint has nothing it can lint here. Report it as a clean skip,
+        # not the bare `eslint exited 2` that pollutes an otherwise-green review
+        # (ADR-0019). A genuine eslint failure with a config present still → error.
+        if not _has_eslint_config(anchor):
+            return AnalyzerOutput(
+                sarif=empty_sarif("eslint"), status="unavailable",
+                error=(
+                    "no ESLint config (eslint.config.* or .eslintrc*) "
+                    f"found under {anchor}"
+                ),
+            )
         rel_targets = tuple(os.path.relpath(p, anchor) for p in abs_targets)
         cmd = (
             "node", str(binary),
