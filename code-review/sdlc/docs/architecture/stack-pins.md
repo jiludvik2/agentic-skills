@@ -74,7 +74,7 @@ Per **ADR-0017**. Manifest pins are major-version floors in `package.json` at th
 | @microsoft/eslint-formatter-sarif | `^3` | `package-lock.json` (s1-t1) | eslint → SARIF |
 | knip | `^5` | `package-lock.json` (s1-t1) | unused-export detection |
 | jscpd | `^4` | `package-lock.json` (s1-t1) | copy-paste detection |
-| dependency-cruiser | `^16` (placeholder) | `16.0.0` (s3 re-validates) | coupling/cycles; v16 breaks on modern Node (F1, seen on Node 24) — `^16`/`16.0.0` are committed as a placeholder; s3 confirms/bumps to a version working on both 20 and 22 |
+| dependency-cruiser | `^16.10.4` | `16.10.4` (s3-t0) | coupling/cycles; 16.0.0 broke on modern Node (F1, seen on Node 24) — `R_OK` SyntaxError up to 16.10.1, fixed in 16.10.2 (`node:fs/constants`). s3-t0 bumped to 16.10.4 (latest 16.x, inside `^16`); empirical floor 16.10.2 |
 
 ## Tooling config pins
 

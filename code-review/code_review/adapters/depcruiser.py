@@ -34,7 +34,10 @@ def _to_sarif(data: dict[str, Any]) -> dict[str, Any]:
                     "tool": {
                         "driver": {
                             "name": "dependency-cruiser",
-                            "version": "16.0.0",
+                            # Keep in sync with the dependency-cruiser pin in
+                            # capabilities.json / package-lock.json (no drift
+                            # guard reaches this SARIF literal — see s3-t0 notes).
+                            "version": "16.10.4",
                             "rules": [],
                         }
                     },

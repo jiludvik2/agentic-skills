@@ -152,3 +152,33 @@ async def test_depcruiser_integration() -> None:
     assert output.status == "ok"
     schema = json.loads(SARIF_SCHEMA.read_text())
     jsonschema.validate(output.sarif, schema)
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    node_binary("depcruise") is None,
+    reason="depcruise not in node_modules (run scripts/setup.sh)",
+)
+async def test_depcruiser_loads_without_r_ok_syntaxerror() -> None:
+    """s3-t0 (F1): after the pin bump, dependency-cruiser must load and run on the
+    supported Node range — it no longer dies with the ``node:fs`` ``R_OK``
+    SyntaxError at ``assert-file-existence.mjs``. It may still fail here (the
+    adapter supplies no ``--config`` until s3-t1, so depcruise aborts on the
+    missing config), but the failure mode must be the *config* error, never the
+    ``R_OK`` SyntaxError."""
+    from code_review.adapters.depcruiser import DependencyCruiserAdapter
+    from code_review.contracts import ReviewRequest
+
+    request = ReviewRequest(
+        scope="per-task",
+        diff_range=None,
+        target_paths=(str(FIXTURE),),
+        languages=frozenset({"javascript", "typescript"}),
+        config={},
+    )
+    output = await DependencyCruiserAdapter().run(request)
+    err = output.error or ""
+    assert "R_OK" not in err, f"R_OK SyntaxError still present (pin not bumped?): {err}"
+    assert "does not provide an export named" not in err, (
+        f"node:fs named-export SyntaxError still present: {err}"
+    )

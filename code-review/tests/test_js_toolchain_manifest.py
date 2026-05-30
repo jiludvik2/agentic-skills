@@ -22,6 +22,38 @@ EXPECTED_PINS = {
 }
 MUST_BE_PRESENT = set(EXPECTED_PINS) | {"dependency-cruiser"}
 
+# s3-t0: the lowest dependency-cruiser release that runs on the supported Node
+# range (ADR-0017: Node 20 + 22, and modern Node generally). Up to and including
+# 16.10.1, ``src/cli/utl/assert-file-existence.mjs`` does
+# ``import { accessSync, R_OK } from "node:fs"`` — and Node ≥22 rejects ``R_OK``
+# as a named export of ``node:fs`` (it lives on ``fs.constants``), so the CLI
+# dies with a SyntaxError before doing any work (FINDINGS F1). 16.10.2 switched
+# to ``import { accessSync, constants } from "node:fs"`` and loads cleanly.
+# Boundary confirmed empirically against the npm tarballs on Node 24:
+# 16.10.1 broken, 16.10.2 fixed (the story's "~16.3" estimate was wrong).
+DEPCRUISER_NODE_FS_CONSTANTS_FLOOR = (16, 10, 2)
+
+
+def _version_tuple(v: str) -> tuple[int, ...]:
+    # Drop any pre-release/build suffix (e.g. "16.10.2-beta-1") before comparing.
+    core = re.split(r"[-+]", v, maxsplit=1)[0]
+    return tuple(int(part) for part in core.split("."))
+
+
+def test_depcruiser_pin_is_node_compatible() -> None:
+    """s3-t0 (F1): the locked dependency-cruiser must be a version that imports
+    ``R_OK`` from ``node:fs/constants`` rather than as a named export of
+    ``node:fs`` — i.e. ``>= 16.10.2`` — so the coupling analyzer survives the
+    supported Node range instead of dying on the ``R_OK`` SyntaxError."""
+    lock = json.loads(LOCKFILE.read_text(encoding="utf-8"))
+    entry = lock["packages"]["node_modules/dependency-cruiser"]
+    locked = _version_tuple(entry["version"])
+    assert locked >= DEPCRUISER_NODE_FS_CONSTANTS_FLOOR, (
+        f"dependency-cruiser locked at {entry['version']} is below the "
+        f"Node-fs/constants floor {'.'.join(map(str, DEPCRUISER_NODE_FS_CONSTANTS_FLOOR))} "
+        "(F1: R_OK SyntaxError on Node >=22)"
+    )
+
 
 def _all_deps(manifest: dict[str, Any]) -> dict[str, str]:
     return {**manifest.get("dependencies", {}), **manifest.get("devDependencies", {})}

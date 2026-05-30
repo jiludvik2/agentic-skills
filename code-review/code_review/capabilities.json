@@ -180,7 +180,7 @@
       "default_timeout_s": 90,
       "scope_restriction": null,
       "npm_package": "dependency-cruiser",
-      "version": "16.0.0"
+      "version": "16.10.4"
     },
     {
       "id": "cohesion",

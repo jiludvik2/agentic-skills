@@ -55,7 +55,7 @@ that toolchain must work on the Node versions operators actually run.
    | `eslint` | `^9` | resolved in s1-t1 | flat-config era; supports Node 20+22 |
    | `knip` | `^5` | resolved in s1-t1 | JSON output schema the adapter targets (F4) |
    | `jscpd` | `^4` | resolved in s1-t1 | output plumbing fix is s2 (F2) |
-   | `dependency-cruiser` | **TBD in s3** | resolved in s3 | 16 breaks on modern Node (F1, seen on Node 24); s3 confirms the working version on **both** 20 and 22 and bumps this pin in-place |
+   | `dependency-cruiser` | `^16.10.4` | `16.10.4` (s3-t0) | 16.0.0 broke on modern Node (F1, seen on Node 24); s3-t0 bumped to 16.10.4 in-place — stays in major 16 (caret intent) and floors at the fix |
    | `@microsoft/eslint-formatter-sarif` | `^3` | resolved in s1-t1 | SARIF formatter compatible with eslint 9 |
 
    The exact patch versions are whatever `npm install` resolves into the
@@ -63,11 +63,19 @@ that toolchain must work on the Node versions operators actually run.
    — is the single source of truth for installed versions (s1-t2 adds a
    drift guard between the two).
 
-3. **depcruiser cross-Node validation is delegated to s3.** s1-t1 pins a
-   candidate `dependency-cruiser` so `npm ci` resolves a complete lockfile, but
-   the version that provably works on **both** Node 20 and 22 is s3's
-   responsibility (F1); s3 may bump the pin within this same lockfile. Its
-   integration test stays `xfail(strict)` until s3 lands (s1-t3).
+3. **depcruiser cross-Node validation, resolved in s3-t0.** s1-t1 pinned a
+   candidate (`16.0.0`) so `npm ci` resolved a complete lockfile; s3-t0 bumped it
+   to **`16.10.4`** within the same lockfile (F1). **Empirical Node-fs/constants
+   floor = `16.10.2`:** up to and including `16.10.1`,
+   `src/cli/utl/assert-file-existence.mjs` does
+   `import { accessSync, R_OK } from "node:fs"`, which Node ≥22 rejects (`R_OK`
+   lives on `fs.constants`, not as a named export of `node:fs`); `16.10.2`
+   switched to `import { accessSync, constants } from "node:fs"`. Boundary
+   confirmed against the npm tarballs on Node 24 (`16.10.1` broken, `16.10.2`
+   fixed) — correcting the earlier "≈16.3" estimate in the FINDINGS/story. The
+   pin floors at `16.10.4` (latest 16.x) and stays inside the `^16` caret. The
+   full circular-dependency integration test stays `xfail(strict)` until s3-t1
+   supplies the cruise config; s3-t0 only clears the `R_OK` SyntaxError.
 
 4. **Lockfile location: the skill root** — `package.json` + `package-lock.json`
    under `.claude/skills/code-review/`. `setup.sh` already copies both into
@@ -84,8 +92,8 @@ that toolchain must work on the Node versions operators actually run.
   analyzers probe `available` (s1-t1), closing F5's manifest/lockfile gap.
 - CI gains a Node 20+22 matrix that runs the Node-analyzer integration tests
   rather than skipping them (s1-t3 / F9); F1/F2/F8 regressions become visible.
-- `dependency-cruiser` remains a known gap until s3 — its pin here is a
-  placeholder validated cross-Node by s3, not a final answer.
+- `dependency-cruiser` is pinned to `^16.10.4` (s3-t0) — past the F1 `R_OK`
+  break on modern Node. The cruise-config + circular-detection work is s3-t1.
 - Node-tool version freshness is a deliberate, reviewed lockfile bump (like
   `uv.lock`), reconciled into `stack-pins.md` in the same commit (SDLC rule #1b).
 - All five packages must clear the `stack-pins.md` license floor (no AGPL); the
