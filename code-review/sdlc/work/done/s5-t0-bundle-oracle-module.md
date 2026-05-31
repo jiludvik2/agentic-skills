@@ -2,11 +2,22 @@
 id: s5-t0-bundle-oracle-module
 kind: task
 project: code-review
-status: active
+status: done
 parent: s5-maintainability-oracle
 sources: [s5-maintainability-oracle.md, adr-0020-thin-invocation-runner.md, qa-analyzer-coverage.md]
 created: 2026-05-31
 updated: 2026-05-31
+closed: 2026-05-31
+notes: |
+  Verifier PASS / reviewer MINOR-ONLY. `bundle_oracle.py` (pure, stdlib-only, in the QA
+  dir) + `tests/test_qa_bundle_oracle.py` (23 tests). All 13 harness analyzers have an
+  extractor; both precision oracles (pydeps mutual back-edge; depcruiser prod→__mocks__
+  segment-matched edge) tested in BOTH failure directions plus the substring-guard
+  (x__mocks__y) and from_outside=False branch — minors raised by review folded in during
+  the task rather than deferred. mypy correctly does not cover bundle_oracle.py (outside the
+  code_review package by design). knip/jscpd/schemathesis native shapes authored to
+  documented form, reconciled against real captures in s5-t2 (per plan, not a gap). Gates:
+  23 oracle tests + 385 full suite green, ruff clean, mypy clean.
 tags: [qa, oracle, bundle, coupling, test-first]
 ---
 
