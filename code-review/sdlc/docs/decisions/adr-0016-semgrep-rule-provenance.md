@@ -58,8 +58,8 @@ ruleset is present in the cache.
    registry-download license ambiguity. The maintenance commitment is ours:
    refreshing the vendored rules is a deliberate, reviewable change.
 
-2. **Ruleset scope & license.** Security rules for **Python first; JS/TS is a
-   tracked follow-up** (amended 2026-05-30 — see note). The vendored
+2. **Ruleset scope & license.** Security rules for **Python and JS/TS** (JS/TS
+   covered as of s3, 2026-05-31 — see amendment below). The vendored
    rules must carry a license compatible with the `stack-pins.md` floor
    (LGPL-2.1 acceptable via subprocess invocation; **no AGPL**). The rule source
    and its version/commit are recorded alongside the vendored files. Two rule
@@ -77,6 +77,14 @@ ruleset is present in the cache.
    > built and proven, rather than reopening it to author unvalidated JS/TS rules.
    > A future ADR/story adds JS/TS rules when there is demand; the vendored-bundle
    > provisioning path (s0-t1/t2) already supports them with no further plumbing.
+
+   > **Amendment (2026-05-31, s3).** The JS/TS follow-up tracked since the
+   > 2026-05-30 amendment is delivered: `security-js.yaml` (MIT, hand-authored)
+   > adds `js-eval` (CWE-95, ERROR) and `js-innerhtml-xss` (CWE-79, WARNING) for
+   > `[javascript, typescript]`. Provisioning unchanged — `provision_semgrep_rules()`
+   > globs `*.y*ml` and copies all files idempotently, so the new file required no
+   > plumbing change (the epic's architecture-validation criterion). Validated
+   > end-to-end via `test_semgrep_js_rules_fire_on_js_fixture` (integration).
 
 3. **Resolution precedence**, with the anchor corrected to `cache_root()`:
    explicit `config["semgrep_rules"]` override → `cache_root()/cache/semgrep/rules`

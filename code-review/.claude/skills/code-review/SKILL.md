@@ -128,7 +128,7 @@ Run the setup script once, outside the sandbox (it needs network access):
 ./scripts/setup.sh
 ```
 
-It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches into `cache/` — the Trivy DB, and the **vendored Semgrep security ruleset** (committed in the bundle at `semgrep-rules/`, copied into `cache/semgrep/rules`; ADR-0016) so `--review security` finds issues with no network or manual rule setup — reports the state of the host project's `.claude/agents/reviewer.md` (read-only — never written), and prints the path of the bundled starter config template. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
+It installs Python deps (`uv sync --frozen`), Node deps for JS analyzers (`npm ci`, guarded on `package.json`/`package-lock.json` being present), prefetches offline caches into `cache/` — the Trivy DB, and the **vendored Semgrep security ruleset** (Python and JS/TS; committed in the bundle at `semgrep-rules/`, copied into `cache/semgrep/rules`; ADR-0016) so `--review security` finds issues with no network or manual rule setup — reports the state of the host project's `.claude/agents/reviewer.md` (read-only — never written), and prints the path of the bundled starter config template. The script is idempotent — re-running refreshes caches without redundant downloads and exits non-zero with a clear message if any step fails. After it has run, the skill is fully self-contained and runs inside the sandbox with no network egress.
 
 After install, copy `code-review.toml.example` (next to this `SKILL.md` in the skill bundle) to your project root and uncomment the keys you want to override. See the file's own comments for each tunable.
 
@@ -176,7 +176,7 @@ The CLI emits a single `review-bundle.v1.json` whose structure is:
 | Tool | Format | What to read | Severity cues |
 |---|---|---|---|
 | **bandit** | JSON | `results[]` array; each entry has `issue_severity` (`LOW`/`MEDIUM`/`HIGH`) and `issue_confidence` (`LOW`/`MEDIUM`/`HIGH`) | HIGH severity + HIGH confidence → likely Important/Critical; LOW + LOW → Minor/Nit |
-| **semgrep** | SARIF | `runs[].results[]`; each entry has `level` (`error`/`warning`/`note`) and `ruleId` | `error`-level rule for injection/auth/crypto → likely Critical/Important; `warning` → Important/Minor |
+| **semgrep** | SARIF | `runs[].results[]`; each entry has `level` (`error`/`warning`/`note`) and `ruleId`; vendored ruleset covers Python and JS/TS security patterns | `error`-level rule for injection/auth/crypto → likely Critical/Important; `warning` → Important/Minor |
 | **trivy** | SARIF | `runs[].results[]`; each entry has `ruleId` (CVE) and `level`; `properties.severity` carries NVD score | CRITICAL/HIGH CVEs in direct deps → Important; MEDIUM/LOW or transitive → Minor |
 | **eslint** | SARIF | `runs[].results[]`; `level` maps from eslint severity (2=error, 1=warning) | `error`-level → Important; `warning` → Minor/Nit |
 | **vulture** | plain text | `path:line: unused <kind> '<name>' (NN% confidence)` | Weight by confidence %; < 60% is high FP risk (see note below) |

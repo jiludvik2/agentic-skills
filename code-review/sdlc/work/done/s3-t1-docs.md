@@ -2,7 +2,7 @@
 id: s3-t1-docs
 kind: task
 project: code-review
-status: active
+status: done
 parent: s3-js-semgrep-rules
 sources: [adr-0016-semgrep-rule-provenance.md, s3-t0-js-rules-fixture-test.md]
 created: 2026-05-31
