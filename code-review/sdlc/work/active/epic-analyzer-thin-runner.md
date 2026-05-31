@@ -91,7 +91,8 @@ migrate alongside so the green bar holds throughout.
   the architecture-validation criterion ("near-trivial") proven. (Vendored JS/TS rules into
   the ruleset, not a new tool.)
 - **s4 — G8: JS complexity analyzer.** Add a JS complexity analyzer (parity with radon);
-  document JS cohesion as a limitation (thin tooling).
+  document JS cohesion as a limitation (thin tooling). Tool choice recorded in **ADR-0022**
+  (reuse vendored ESLint `complexity` rule; zero new dependency; cc-only parity).
 - **s5 — G5: maintainability oracle.** Extend the analyzer-coverage QA harness with
   labelled coupling fixtures (pydeps `test_cycles`, depcruiser `__mocks__`) asserted
   against the **new raw output**.

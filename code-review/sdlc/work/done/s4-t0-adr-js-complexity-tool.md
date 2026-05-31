@@ -2,11 +2,20 @@
 id: s4-t0-adr-js-complexity-tool
 kind: task
 project: code-review
-status: active
+status: done
 parent: s4-js-complexity-analyzer
 sources: [epic-analyzer-thin-runner.md, g8-js-complexity-cohesion-absent.md]
 created: 2026-05-31
 updated: 2026-05-31
+notes: |
+  ADR-0022 written, status accepted, recording operator-approved option 1 (reuse
+  vendored ESLint complexity rule, zero new dependency). Verifier PASS, reviewer
+  MINOR-ONLY. All 3 Minors applied (not just noted): added ADR-0019 to sources +
+  an explicit "no-flat-config unavailable path does not apply" interaction
+  paragraph (the adapter ships its own config); restated the threshold-0
+  full-coverage mechanism at the decision point; deferred the unavailable/error
+  mapping to s4-t1 explicitly. ADR stays co-located in work/active/ until epic
+  close. No code/test changes.
 tags: [adr, complexity, javascript, tool-selection, cohesion]
 ---
 
