@@ -1,8 +1,8 @@
 # State — last updated 2026-05-31
 
-**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). **s0–s4 DONE.** s0–s3 pushed to origin/main @ 3be3eeb; **s4 is local (commits 20a9a2d, 07d38aa, 85bba09, 8073866 + this close — unpushed).**
+**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). **s0–s4 DONE and pushed to origin/main @ 6a59eba.** Working tree clean.
 **Last completed:** **Story s4** (`s4-js-complexity-analyzer`, G8) — shipped `jscomplexity`, a JS cyclomatic-complexity analyzer reusing the vendored ESLint `complexity` rule (zero new dependency; radon-`cc` parity). JS-only (ADR-0022 + gate-escalation amendment: ESLint can't parse TS without the unvendored `@typescript-eslint/parser`); TS complexity + JS cohesion documented as limitations. New analyzer with no existing-adapter change — G8 architecture-validation confirmed. 393 tests green.
-**Next:** **Push s4** (operator-driven, no push policy in AGENTS.md), then **plan story s5** (unplanned) — story-boundary pause.
+**Next:** **Plan story s5** (unplanned) — story-boundary pause. s5 is the last story of the epic; closing it cleanly hits the epic boundary.
 
 ## Story-boundary pause (s4 → s5)
 s5 has no operator-approved plan, so auto-cross does not apply — paused for s5 planning per the Execute verb.
