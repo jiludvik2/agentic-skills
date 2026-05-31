@@ -1,4 +1,3 @@
-import json
 import tomllib
 from pathlib import Path
 
@@ -21,11 +20,10 @@ def test_pyproject_valid() -> None:
     assert scripts.get("polyreview") == "code_review.cli:app"
 
 
-def test_sarif_schema_present_and_valid() -> None:
+def test_sarif_schema_absent() -> None:
+    """sarif-2.1.0.json was removed in s2-t1; it must not be re-added without a loader."""
     schema_path = REPO_ROOT / "code_review" / "schemas" / "sarif-2.1.0.json"
-    assert schema_path.exists(), f"SARIF schema not found at {schema_path}"
-    schema = json.loads(schema_path.read_text())
-    assert "$schema" in schema or "title" in schema
+    assert not schema_path.exists()
 
 
 def test_readme_exists() -> None:

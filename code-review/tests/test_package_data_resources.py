@@ -13,7 +13,6 @@ _BUNDLED_JSON = [
     "schemas/capabilities.json",
     "schemas/review-request.json",
     "schemas/review-bundle.v1.json",
-    "schemas/sarif-2.1.0.json",
 ]
 
 _SCHEMA_JSON = [p for p in _BUNDLED_JSON if p.startswith("schemas/")]
@@ -44,3 +43,8 @@ def test_schema_is_valid_json_schema(rel_path: str) -> None:
     resource = _traverse(rel_path)
     schema = json.loads(resource.read_text(encoding="utf-8"))
     jsonschema.Draft202012Validator.check_schema(schema)
+
+
+def test_no_dead_sarif_schema() -> None:
+    """sarif-2.1.0.json was deleted in s2-t1; guard against re-adding without a loader."""
+    assert not _traverse("schemas/sarif-2.1.0.json").is_file()
