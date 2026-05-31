@@ -71,6 +71,8 @@ async def test_trivy_cache_absent_error_is_layout_agnostic(
     """Wheel-installed-no-producer layout: the cache is simply absent and no
     setup.sh ships. The error must offer the env-override path, not only tell the
     operator to run a script that may not exist."""
+    from unittest.mock import patch
+
     from code_review.adapters.trivy import TrivyAdapter
     from code_review.contracts import ReviewRequest
 
@@ -79,8 +81,11 @@ async def test_trivy_cache_absent_error_is_layout_agnostic(
         scope="per-task", diff_range=None, target_paths=(".",),
         languages=frozenset(), config={},
     )
-    output = await TrivyAdapter().run(request)
-    assert output.status == "error"
+    # trivy on PATH so the pre-flight reaches the DB check (a provisioning gap → unavailable
+    # per ADR-0019, not error); the reason must still offer the env-override path.
+    with patch("code_review.adapters.trivy.shutil.which", return_value="/usr/bin/trivy"):
+        output = await TrivyAdapter().run(request)
+    assert output.status == "unavailable"
     assert output.error is not None
     assert "POLYREVIEW_CACHE_DIR" in output.error
     assert str(trivy_cache_dir()) in output.error

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import json
-import tempfile
-from pathlib import Path
-from typing import Any, ClassVar
+import shutil
+from typing import ClassVar
 
-from code_review.adapters.base import run_subprocess
-from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.capture import CaptureOutput, run_and_capture
+from code_review.contracts import ReviewRequest
 
 
 class GitleaksAdapter:
@@ -16,31 +14,21 @@ class GitleaksAdapter:
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
     required_binary: ClassVar[str] = "gitleaks"
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
+        if shutil.which(self.required_binary) is None:
+            return CaptureOutput.unavailable("gitleaks", "gitleaks not found on PATH")
         source = request.target_paths[0] if request.target_paths else "."
-        with tempfile.TemporaryDirectory(prefix="code-review-gitleaks-") as _tmp:
-            tmp_path = Path(_tmp) / "report.sarif"
-            cmd = (
-                "gitleaks", "detect",
-                "--source", source,
-                "--report-format", "sarif",
-                "--report-path", str(tmp_path),
-                "--no-git",
-                "--exit-code", "0",
-            )
-            result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
-            if result.error is not None:
-                return AnalyzerOutput(sarif={}, status="error", error=result.error)
-            if result.timed_out:
-                return AnalyzerOutput(sarif={}, status="timeout", error="gitleaks timed out")
-            if result.returncode != 0:
-                stderr = result.stderr.decode(errors="replace")
-                return AnalyzerOutput(
-                    sarif={}, status="error",
-                    error=f"gitleaks exited {result.returncode}: {stderr}",
-                )
-            if not tmp_path.exists():
-                return AnalyzerOutput(sarif={}, status="error",
-                                      error="gitleaks produced no report file")
-            sarif: dict[str, Any] = json.loads(tmp_path.read_text())
-            return AnalyzerOutput(sarif=sarif)
+        # Capture gitleaks' native finding output (no --report-path: a /dev/stdout redirect
+        # is unreliable under sandboxed/containerised environments, and a temp file would
+        # reintroduce the parse-from-file the thin runner deletes). The bundle carries both
+        # stdout and stderr, so the agent reads whichever stream gitleaks reports findings on
+        # (ADR-0020). gitleaks exits 1 when leaks are present → tolerate (0, 1). --no-git
+        # scans the working tree, not history.
+        return await run_and_capture(
+            "gitleaks",
+            "gitleaks", "detect",
+            "--source", source,
+            "--no-git",
+            timeout_s=self.default_timeout_s,
+            ok_exit_codes=(0, 1),
+        )

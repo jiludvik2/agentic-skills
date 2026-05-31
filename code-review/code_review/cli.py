@@ -14,6 +14,7 @@ import jsonschema
 import typer
 
 from code_review.aggregator import aggregate
+from code_review.capture import CaptureOutput
 from code_review.config import ConfigError, load_config
 from code_review.contracts import AnalyzerOutput, MetricSet, ReviewRequest
 from code_review.diff import resolve_diff_paths
@@ -100,11 +101,29 @@ def _output_to_dict(output: AnalyzerOutput) -> dict[str, Any]:
     }
 
 
+def _capture_to_legacy(cap: CaptureOutput) -> AnalyzerOutput:
+    """Transitional shim (s1): adapters migrate to ``CaptureOutput`` (ADR-0020) while the
+    CLI still aggregates SARIF until s1-t3. Wrap a raw capture as an empty-SARIF
+    ``AnalyzerOutput`` so the legacy aggregate/metrics path holds green — migrated tools
+    contribute no findings here. Deleted in s1-t3 when the CLI emits the bundle directly.
+    """
+    return AnalyzerOutput(
+        sarif={},
+        metrics=None,
+        status=str(cap.status),
+        error=cap.error,
+        duration_s=cap.duration_s,
+    )
+
+
 async def _safe_run(adapter: Any, request: ReviewRequest) -> AnalyzerOutput:
     try:
-        return await adapter.run(request)  # type: ignore[no-any-return]
+        out = await adapter.run(request)
     except Exception as exc:
         return AnalyzerOutput(sarif={}, status="error", error=str(exc))
+    if isinstance(out, CaptureOutput):
+        return _capture_to_legacy(out)
+    return out  # type: ignore[no-any-return]
 
 
 def _merge_metrics(outputs: list[AnalyzerOutput]) -> MetricSet | None:

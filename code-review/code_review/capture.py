@@ -15,7 +15,6 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
-from code_review.adapters.base import run_subprocess
 from code_review.status import Status
 
 
@@ -51,17 +50,25 @@ async def run_and_capture(
     *cmd: str,
     timeout_s: float = 60.0,
     cwd: str | None = None,
+    env: dict[str, str] | None = None,
     ok_exit_codes: tuple[int, ...] = (0,),
 ) -> CaptureOutput:
     """Run ``cmd`` and return a ``CaptureOutput`` — verbatim, never raising.
 
-    Status mapping: spawn failure → ``error``; timeout → ``timeout``; exit code in
-    ``ok_exit_codes`` → ``ok``; any other exit code → ``error`` (the code and stderr
-    are summarised into ``error``). stdout/stderr are decoded with ``errors="replace"``
-    and otherwise left untouched — no parsing or normalisation.
+    ``env``, when given, is the full environment for the child (adapters that need it,
+    e.g. semgrep's settings-file redirect or the JS adapters' ``NODE_PATH``, pass a
+    merged ``{**os.environ, ...}``). Status mapping: spawn failure → ``error``; timeout →
+    ``timeout``; exit code in ``ok_exit_codes`` → ``ok``; any other exit code → ``error``
+    (the code and stderr are summarised into ``error``). stdout/stderr are decoded with
+    ``errors="replace"`` and otherwise left untouched — no parsing or normalisation.
     """
+    # Imported lazily: adapters import this module, and ``adapters.base`` lives behind the
+    # ``code_review.adapters`` package init (which imports every adapter) — a top-level
+    # import here would close that cycle. By call time the package is fully initialised.
+    from code_review.adapters.base import run_subprocess
+
     started = time.monotonic()
-    result = await run_subprocess(*cmd, timeout_s=timeout_s, cwd=cwd)
+    result = await run_subprocess(*cmd, timeout_s=timeout_s, cwd=cwd, env=env)
     duration_s = time.monotonic() - started
 
     stdout = result.stdout.decode(errors="replace")

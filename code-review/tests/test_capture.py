@@ -89,6 +89,38 @@ async def test_run_and_capture_missing_binary() -> None:
     assert cap.error is not None
 
 
+async def test_run_and_capture_threads_env() -> None:
+    # the env dict must reach the child process (semgrep + the JS adapters rely on this)
+    code = "import os; print(os.environ.get('POLYREVIEW_ENV_PROBE', 'MISSING'))"
+    cap = await run_and_capture(
+        "py", sys.executable, "-c", code, env={"POLYREVIEW_ENV_PROBE": "reached"}
+    )
+    assert cap.status == "ok", cap.error
+    assert "reached" in cap.stdout
+
+
+async def test_run_and_capture_merged_env_preserves_inherited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Adapters pass the documented adapter-style merged env ({**os.environ, ...}); both the
+    # injected key and an inherited var must survive (the real semgrep/JS usage shape).
+    import os
+
+    monkeypatch.setenv("POLYREVIEW_INHERITED", "from-parent")
+    code = (
+        "import os; "
+        "print(os.environ.get('POLYREVIEW_INHERITED', 'MISSING'), "
+        "os.environ.get('POLYREVIEW_INJECTED', 'MISSING'))"
+    )
+    cap = await run_and_capture(
+        "py", sys.executable, "-c", code,
+        env={**os.environ, "POLYREVIEW_INJECTED": "added"},
+    )
+    assert cap.status == "ok", cap.error
+    assert "from-parent" in cap.stdout
+    assert "added" in cap.stdout
+
+
 async def test_stdout_preserved_verbatim() -> None:
     # Braces, non-JSON and Unicode must survive untouched — no accidental parsing.
     payload = '{not: "valid json"} ☃ <tag> end'

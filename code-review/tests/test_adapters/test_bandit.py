@@ -1,128 +1,59 @@
-import json
+"""s1-t1 — bandit invoke-and-capture contract (ADR-0020).
+
+Pins --quiet (F3) and the JSON-on-stdout invocation, the raw passthrough, the
+tolerated-issue exit code, and the empty-target availability pre-flight.
+"""
+
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
-import jsonschema
+import pytest
 
-FIXTURE = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
-SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
-
-# A minimal but valid bandit --format json document (one shell-injection finding).
-_BANDIT_JSON = json.dumps(
-    {
-        "errors": [],
-        "results": [
-            {
-                "test_id": "B602",
-                "issue_text": "subprocess call with shell=True identified",
-                "filename": "app.py",
-                "line_number": 3,
-                "issue_cwe": {"id": 78},
-            }
-        ],
-    }
-).encode()
-
-# Newer bandit renders a Rich progress bar to STDOUT before the JSON (s0-t0 / F3).
-_PROGRESS_BAR = "Working... ━━━━━━ 100% 0:00:00\n".encode()
+from code_review.adapters.bandit import BanditAdapter
+from code_review.capture import CaptureOutput
+from code_review.contracts import Analyzer, ReviewRequest
 
 
-def _result(stdout: bytes, returncode: int = 1):
-    from code_review.adapters.base import SubprocessResult
-
-    return SubprocessResult(stdout, b"", returncode)
-
-
-def _py_request():
-    from code_review.contracts import ReviewRequest
-
-    return ReviewRequest(
-        scope="per-task", diff_range=None, target_paths=("app.py",),
-        languages=frozenset({"python"}), config={},
-    )
-
-
-async def test_bandit_parses_stdout_with_progress_bar_prefix() -> None:
-    # F3: a progress bar ahead of the JSON must not break parsing.
-    from code_review.adapters.bandit import BanditAdapter
-
-    with patch(
-        "code_review.adapters.bandit.run_subprocess",
-        return_value=_result(_PROGRESS_BAR + _BANDIT_JSON),
-    ):
-        output = await BanditAdapter().run(_py_request())
-    assert output.status == "ok", output.error
-    rule_ids = [r["ruleId"] for r in output.sarif["runs"][0]["results"]]
-    assert "bandit.B602" in rule_ids
-
-
-async def test_bandit_parses_plain_json_stdout() -> None:
-    # Regression: pure-JSON stdout (no progress bar) still parses.
-    from code_review.adapters.bandit import BanditAdapter
-
-    with patch(
-        "code_review.adapters.bandit.run_subprocess",
-        return_value=_result(_BANDIT_JSON),
-    ):
-        output = await BanditAdapter().run(_py_request())
-    assert output.status == "ok", output.error
-    assert output.sarif["runs"][0]["results"][0]["ruleId"] == "bandit.B602"
-
-
-async def test_bandit_reports_error_on_garbage_stdout() -> None:
-    # No JSON object at all → a clear error, never a silent empty success.
-    from code_review.adapters.bandit import BanditAdapter
-
-    with patch(
-        "code_review.adapters.bandit.run_subprocess",
-        return_value=_result(b"Working... totally not json"),
-    ):
-        output = await BanditAdapter().run(_py_request())
-    assert output.status == "error"
-    assert "no JSON object" in (output.error or "")
+def _req(paths: tuple[str, ...]) -> ReviewRequest:
+    return ReviewRequest(scope="per-task", diff_range=None, target_paths=paths,
+                         languages=frozenset(), config={})
 
 
 def test_bandit_protocol_conformance() -> None:
-    from code_review.adapters.bandit import BanditAdapter
-    from code_review.contracts import Analyzer
-
     assert isinstance(BanditAdapter(), Analyzer)
     assert BanditAdapter.name == "bandit"
 
 
-async def test_bandit_empty_target_paths_returns_empty_sarif() -> None:
-    from code_review.adapters.bandit import BanditAdapter
-    from code_review.contracts import ReviewRequest
-
-    request = ReviewRequest(scope="per-task", diff_range=None,
-                            target_paths=(), languages=frozenset(), config={})
-    output = await BanditAdapter().run(request)
-    assert output.status == "ok"
-    assert output.sarif.get("runs") == []
-
-
-async def test_bandit_finds_subprocess_issue() -> None:
-    from code_review.adapters.bandit import BanditAdapter
-    from code_review.contracts import ReviewRequest
-
-    request = ReviewRequest(scope="per-task", diff_range=None,
-                            target_paths=(str(FIXTURE),),
-                            languages=frozenset({"python"}), config={})
-    output = await BanditAdapter().run(request)
-    assert output.status == "ok"
-    results = output.sarif["runs"][0]["results"]
-    rule_ids = [r["ruleId"] for r in results]
-    assert any("B404" in rid or "B603" in rid or "B602" in rid for rid in rule_ids), \
-        f"Expected subprocess-related finding; got: {rule_ids}"
+async def test_bandit_invocation_pins_flags() -> None:
+    mock = AsyncMock(return_value=CaptureOutput(tool="bandit"))
+    with patch("code_review.adapters.bandit.run_and_capture", new=mock):
+        await BanditAdapter().run(_req(("a.py", "b.py")))
+    args = mock.call_args.args
+    assert args[0] == "bandit"
+    assert "--quiet" in args  # F3: suppress the progress bar at source
+    assert "json" in args
+    assert "a.py" in args and "b.py" in args
+    # bandit exits 1 when it reports issues — that must be tolerated as success
+    assert mock.call_args.kwargs["ok_exit_codes"] == (0, 1)
 
 
-async def test_bandit_sarif_schema_valid() -> None:
-    from code_review.adapters.bandit import BanditAdapter
-    from code_review.contracts import ReviewRequest
+async def test_bandit_captures_raw_stdout() -> None:
+    cap = CaptureOutput(tool="bandit", stdout='{"results": []}', exit_code=1)
+    with patch("code_review.adapters.bandit.run_and_capture", new=AsyncMock(return_value=cap)):
+        out = await BanditAdapter().run(_req(("x.py",)))
+    assert out is cap
+    assert out.stdout == '{"results": []}'
 
-    request = ReviewRequest(scope="per-task", diff_range=None,
-                            target_paths=(str(FIXTURE),),
-                            languages=frozenset({"python"}), config={})
-    output = await BanditAdapter().run(request)
-    schema = json.loads(SARIF_SCHEMA.read_text())
-    jsonschema.validate(output.sarif, schema)
+
+async def test_bandit_unavailable_on_empty_targets() -> None:
+    out = await BanditAdapter().run(_req(()))
+    assert out.status == "unavailable"
+
+
+@pytest.mark.integration
+async def test_bandit_integration_flags_insecure_eval(tmp_path: Path) -> None:
+    (tmp_path / "insecure.py").write_text("def f(x):\n    return eval(x)\n")
+    out = await BanditAdapter().run(_req((str(tmp_path),)))
+    assert out.status == "ok", out.error
+    # B307 is bandit's eval rule — the raw report must carry the finding
+    assert "B307" in out.stdout

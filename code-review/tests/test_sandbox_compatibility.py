@@ -1,42 +1,38 @@
 """
 Verify adapters do not litter the working directory with temp files.
-Binary adapters (gitleaks, trivy, semgrep) use tempfile.TemporaryDirectory
-so their scratch files land in $TMPDIR and are auto-cleaned — never in CWD.
+
+After the thin-runner migration (ADR-0020) gitleaks captures native output and trivy
+writes SARIF to stdout — neither creates any scratch file. semgrep still redirects its
+log/settings into a ``tempfile.TemporaryDirectory`` under ``$TMPDIR``, never the CWD. The
+adapters invoke through ``run_and_capture`` (patched here), so the CWD must stay untouched.
 """
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+
+from code_review.capture import CaptureOutput
 
 
 @pytest.mark.asyncio
 async def test_gitleaks_no_temp_files_in_cwd(tmp_path: Path) -> None:
     """GitleaksAdapter must not create any files in CWD."""
-    from code_review.adapters.base import SubprocessResult
     from code_review.adapters.gitleaks import GitleaksAdapter
     from code_review.contracts import ReviewRequest
 
-    async def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
-        for arg in args:
-            s = str(arg)
-            if s.endswith(".sarif"):
-                Path(s).write_text('{"version":"2.1.0","$schema":"x","runs":[]}')
-                break
-        return SubprocessResult(b"", b"", 0)
-
+    cap = CaptureOutput(tool="gitleaks", stdout="", exit_code=0)
     before = set(tmp_path.iterdir())
     with (
-        patch("code_review.adapters.gitleaks.run_subprocess", side_effect=fake_run),
+        patch("code_review.adapters.gitleaks.shutil.which", return_value="/x"),
+        patch("code_review.adapters.gitleaks.run_and_capture",
+              new=AsyncMock(return_value=cap)),
         patch("os.getcwd", return_value=str(tmp_path)),
     ):
         request = ReviewRequest(
-            scope="per-task",
-            diff_range=None,
-            target_paths=(".",),
-            languages=frozenset(),
-            config={},
+            scope="per-task", diff_range=None, target_paths=(".",),
+            languages=frozenset(), config={},
         )
         output = await GitleaksAdapter().run(request)
 
@@ -48,34 +44,23 @@ async def test_gitleaks_no_temp_files_in_cwd(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_trivy_no_temp_files_in_cwd(tmp_path: Path) -> None:
     """TrivyAdapter must not create any files in CWD."""
-    from code_review.adapters.base import SubprocessResult
     from code_review.adapters.trivy import TrivyAdapter
     from code_review.contracts import ReviewRequest
 
     cache_dir = tmp_path / "trivy-db"
     cache_dir.mkdir()
-
-    async def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
-        for i, arg in enumerate(args):
-            if str(arg) == "--output" and i + 1 < len(args):
-                Path(str(args[i + 1])).write_text(
-                    '{"version":"2.1.0","$schema":"x","runs":[]}'
-                )
-                break
-        return SubprocessResult(b"", b"", 0)
-
+    cap = CaptureOutput(tool="trivy", stdout='{"runs":[]}', exit_code=0)
     before = set(tmp_path.iterdir())
     with (
+        patch("code_review.adapters.trivy.shutil.which", return_value="/x"),
         patch("code_review.adapters.trivy._trivy_cache_dir", return_value=cache_dir),
-        patch("code_review.adapters.trivy.run_subprocess", side_effect=fake_run),
+        patch("code_review.adapters.trivy.run_and_capture",
+              new=AsyncMock(return_value=cap)),
         patch("os.getcwd", return_value=str(tmp_path)),
     ):
         request = ReviewRequest(
-            scope="per-task",
-            diff_range=None,
-            target_paths=(str(tmp_path),),
-            languages=frozenset(),
-            config={},
+            scope="per-task", diff_range=None, target_paths=(str(tmp_path),),
+            languages=frozenset(), config={},
         )
         output = await TrivyAdapter().run(request)
 
@@ -123,20 +108,13 @@ async def test_schemathesis_sandbox_blocked_network_names_allowed_domains() -> N
 @pytest.mark.asyncio
 async def test_semgrep_no_temp_files_in_cwd(tmp_path: Path) -> None:
     """SemgrepAdapter must not create any files in CWD."""
-    from code_review.adapters.base import SubprocessResult
     from code_review.adapters.semgrep import SemgrepAdapter
     from code_review.contracts import ReviewRequest
 
-    fake_sarif = (
-        '{"version":"2.1.0","$schema":"x","runs":[{"tool":{"driver":{"name":"semgrep"}},"results":[]}]}'
-    )
+    cap = CaptureOutput(tool="semgrep", stdout='{"runs":[]}', exit_code=0)
 
-    def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
-        return SubprocessResult(fake_sarif.encode(), b"", 0)
-
-    # A real rules dir so the adapter proceeds to run_subprocess (fail-loud
-    # otherwise, per ADR-0016); kept outside `before`/`after` by living in a
-    # sibling dir, not the CWD under inspection.
+    # A real rules dir so the adapter proceeds past its pre-flight to run_and_capture
+    # (fail-loud otherwise, per ADR-0016); kept in a sibling dir, not the CWD under test.
     rules_dir = tmp_path / "rules"
     rules_dir.mkdir()
     cwd = tmp_path / "cwd"
@@ -144,7 +122,9 @@ async def test_semgrep_no_temp_files_in_cwd(tmp_path: Path) -> None:
 
     before = set(cwd.iterdir())
     with (
-        patch("code_review.adapters.semgrep.run_subprocess", side_effect=fake_run),
+        patch("code_review.adapters.semgrep.shutil.which", return_value="/x"),
+        patch("code_review.adapters.semgrep.run_and_capture",
+              new=AsyncMock(return_value=cap)),
         patch("os.getcwd", return_value=str(cwd)),
     ):
         request = ReviewRequest(
