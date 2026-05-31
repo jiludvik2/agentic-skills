@@ -144,6 +144,24 @@ done
     echo ')'
 } > "${F}/python/couplingpkg/hub.py"
 
+# ── Python: import cycle (pydeps precision oracle) ───────────────────────────
+# Labelled a -> b -> a cycle. The mutual back-edge (a imports b AND b imports a)
+# is the planted defect bundle_oracle.pydeps_has_cycle asserts.
+mkdir -p "${F}/python/cyclepkg"
+: > "${F}/python/cyclepkg/__init__.py"
+cat > "${F}/python/cyclepkg/a.py" <<'PY'
+# pydeps: labelled import cycle a -> b -> a (back-edge for the precision oracle)
+from cyclepkg import b
+
+__all__ = ["b"]
+PY
+cat > "${F}/python/cyclepkg/b.py" <<'PY'
+# pydeps: labelled import cycle b -> a -> b (back-edge for the precision oracle)
+from cyclepkg import a
+
+__all__ = ["a"]
+PY
+
 # ── Python deps: vulnerable dependencies (trivy) ─────────────────────────────
 cat > "${F}/deps/requirements.txt" <<'REQ'
 PyYAML==5.1
@@ -259,6 +277,23 @@ import { apple } from "./cycle_a";
 export function banana(): number {
   return (apple ? 1 : 0) + 2;
 }
+TS
+
+# __mocks__ coupling (depcruiser precision oracle): a production module
+# (src/app.ts) reaching into test-scaffolding (__mocks__/service.ts). The planted
+# smell is the prod -> __mocks__ edge bundle_oracle.depcruiser_has_edge_into
+# asserts — distinct from the cycle_a/cycle_b circular case above.
+mkdir -p "${F}/js/__mocks__"
+cat > "${F}/js/src/app.ts" <<'TS'
+// depcruiser __mocks__ coupling: a production module reaching into test-scaffolding.
+// The planted smell: src/app.ts (non-mock source) depends on __mocks__/service.ts.
+import { svc } from "../__mocks__/service";
+
+export const useApp = (): number => svc();
+TS
+cat > "${F}/js/__mocks__/service.ts" <<'TS'
+// __mocks__ test-double that production code should NOT import (the coupling smell).
+export const svc = (): number => 42;
 TS
 
 # ── API for contract testing (schemathesis) ──────────────────────────────────

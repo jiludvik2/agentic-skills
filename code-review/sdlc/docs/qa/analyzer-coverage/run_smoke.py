@@ -3,9 +3,12 @@
 
 Runs every analyzer in the polyreview registry against a synthetic fixture that
 plants exactly the defect the analyzer should surface, then asserts the analyzer
-(a) ran without error and (b) produced the expected signal (a SARIF finding, or
-populated metrics for the metrics-only analyzers). Writes a Markdown results
-report and the raw consolidated JSON for each analyzer.
+(a) ran (bundle status ``ok``) and (b) produced the expected signal in its **raw
+native output**. As of the thin-runner re-architecture (ADR-0020) the CLI emits a
+``review-bundle.v1.json`` — one raw ``CaptureOutput`` per tool — so this harness
+reads that bundle and routes each tool's raw stdout through ``bundle_oracle`` (no
+consolidated SARIF/metrics schema any more). Writes a Markdown results report and
+the raw per-analyzer bundle JSON.
 
 Run from the repo root (code-review/), under the project venv:
 
@@ -13,7 +16,7 @@ Run from the repo root (code-review/), under the project venv:
 
 Prerequisites (see README.md): scripts/setup.sh has run (Node tooling vendored),
 the Trivy DB is pre-fetched, gitleaks+trivy are on PATH, fastapi+uvicorn are
-installed, and network is available for semgrep's `--config auto`.
+installed, and the vendored semgrep ruleset is provisioned.
 """
 from __future__ import annotations
 
@@ -32,6 +35,10 @@ SKILL = REPO / ".claude" / "skills" / "code-review"
 FIX = HERE / "fixtures"
 RESULTS = HERE / "results"
 RAW = RESULTS / "raw"
+
+# bundle_oracle is a sibling module in this QA dir (outside the code_review package).
+sys.path.insert(0, str(HERE))
+import bundle_oracle as bo  # noqa: E402
 
 API_PORT = 8099
 
@@ -57,55 +64,75 @@ def _run_cli(args: list[str], cwd: Path) -> tuple[int, str, str]:
     return proc.returncode, proc.stdout, proc.stderr
 
 
-def _count_findings(consolidated: dict) -> int:
-    return sum(
-        len(run.get("results", []))
-        for run in consolidated.get("sarif", {}).get("runs", [])
-    )
-
-
-# (analyzer, [extra cli args], target (relative to repo), cwd, expectation-fn, note)
-# expectation-fn(consolidated_dict) -> (ok: bool, detail: str)
-def _expect_findings(minimum: int):
-    def check(c: dict) -> tuple[bool, str]:
-        n = _count_findings(c)
+# Each check takes a tool's raw native stdout (str) and returns (ok, detail).
+def _count_check(counter, minimum: int = 1):
+    def check(stdout: str) -> tuple[bool, str]:
+        n = counter(stdout)
         return n >= minimum, f"{n} finding(s)"
     return check
 
 
-def _expect_radon(c: dict) -> tuple[bool, str]:
-    pf = (c.get("metrics") or {}).get("per_file", {})
-    max_cc = max((v.get("max_cc", 0) for v in pf.values()), default=0)
-    return bool(pf) and max_cc >= 10, f"{len(pf)} file(s), max_cc={max_cc}"
+def _radon_check(stdout: str) -> tuple[bool, str]:
+    cc = bo.max_cc(stdout)
+    return cc >= 10, f"max_cc={cc}"
 
 
-def _expect_pydeps_metrics(c: dict) -> tuple[bool, str]:
-    # pydeps' primary output is the coupling graph (metrics.coupling). The
-    # high-fan-out *finding* only fires at fan_out >= 10; pydeps' import
-    # resolution under-counts re-exported leaf imports, so we assert the graph
-    # was computed (its capability) rather than the threshold finding.
-    coupling = (c.get("metrics") or {}).get("coupling", {})
-    max_fo = max((v.get("fan_out", 0) for v in coupling.values()), default=0)
-    return (bool(coupling) and max_fo >= 1), f"{len(coupling)} module(s), max_fan_out={max_fo}"
+def _pydeps_fanout_check(stdout: str) -> tuple[bool, str]:
+    # Loose: the coupling graph was computed (the high-fan-out fixture). pydeps under-counts
+    # re-exported leaf imports, so we assert the graph exists rather than a fan-out threshold.
+    fo = bo.pydeps_max_fanout(stdout)
+    return fo >= 1, f"max_fan_out={fo}"
+
+
+def _pydeps_cycle_check(stdout: str) -> tuple[bool, str]:
+    ok = bo.pydeps_has_cycle(stdout, "cyclepkg.a", "cyclepkg.b")
+    return ok, "a↔b back-edge present" if ok else "cycle NOT detected"
+
+
+def _depcruiser_circular_check(stdout: str) -> tuple[bool, str]:
+    ok = bo.depcruiser_has_circular(stdout)
+    return ok, "circular edge present" if ok else "no circular edge"
+
+
+def _depcruiser_mocks_check(stdout: str) -> tuple[bool, str]:
+    ok = bo.depcruiser_has_edge_into(stdout, "__mocks__")
+    return ok, "prod→__mocks__ edge present" if ok else "no prod→__mocks__ edge"
 
 
 PY = FIX / "python"
 JS = FIX / "js"
 
-# (name, cwd, target (passed to --target), check, note)
+# (label, analyzer, cwd, target (passed to --target), check, note)
+# label names the harness row + raw file; analyzer is the --analyzer id invoked.
 CASES = [
-    ("bandit", REPO, str(PY), _expect_findings(1), "shell=True, md5, eval, pickle"),
-    ("semgrep", REPO, str(PY), _expect_findings(1), "eval + shell=True (local rules)"),
-    ("gitleaks", REPO, str(PY), _expect_findings(1), "hardcoded AWS/GitHub/Slack creds"),
-    ("trivy", REPO, str(FIX / "deps"), _expect_findings(1), "PyYAML 5.1 / requests 2.19.0 CVEs"),
-    ("radon", REPO, str(PY), _expect_radon, "cyclomatic complexity (metrics-only)"),
-    ("vulture", REPO, str(PY), _expect_findings(1), "unused import/func/class/var"),
-    ("cohesion", REPO, str(PY), _expect_findings(1), "GrabBag low-cohesion class"),
-    ("pydeps", PY, "couplingpkg", _expect_pydeps_metrics, "hub.py coupling graph"),
-    ("eslint", JS, ".", _expect_findings(1), "lint_me.js: no-unused-vars + no-debugger"),
-    ("knip", REPO, str(JS), _expect_findings(1), "unused files (entry=src/index.ts)"),
-    ("jscpd", REPO, str(JS / "src"), _expect_findings(1), "clone_a/clone_b duplication"),
-    ("depcruiser", JS, "src", _expect_findings(1), "cycle_a <-> cycle_b circular"),
+    ("bandit", "bandit", REPO, str(PY),
+     _count_check(bo.count_bandit), "shell=True, md5, eval, pickle"),
+    ("semgrep", "semgrep", REPO, str(PY),
+     _count_check(bo.count_sarif_results), "eval + shell=True (local rules)"),
+    ("gitleaks", "gitleaks", REPO, str(PY),
+     _count_check(bo.count_gitleaks), "hardcoded AWS/GitHub/Slack creds"),
+    ("trivy", "trivy", REPO, str(FIX / "deps"),
+     _count_check(bo.count_trivy), "PyYAML 5.1 / requests 2.19.0 CVEs"),
+    ("radon", "radon", REPO, str(PY),
+     _radon_check, "cyclomatic complexity (metrics-only)"),
+    ("vulture", "vulture", REPO, str(PY),
+     _count_check(bo.count_text_lines), "unused import/func/class/var"),
+    ("cohesion", "cohesion", REPO, str(PY),
+     _count_check(bo.count_text_lines), "GrabBag low-cohesion class"),
+    ("pydeps", "pydeps", PY, "couplingpkg",
+     _pydeps_fanout_check, "hub.py coupling graph"),
+    ("pydeps-cycles", "pydeps", PY, "cyclepkg",
+     _pydeps_cycle_check, "labelled a→b→a import cycle"),
+    ("eslint", "eslint", JS, ".",
+     _count_check(bo.count_sarif_results), "lint_me.js: no-unused-vars + no-debugger"),
+    ("knip", "knip", REPO, str(JS),
+     _count_check(bo.count_knip), "unused files (entry=src/index.ts)"),
+    ("jscpd", "jscpd", REPO, str(JS / "src"),
+     _count_check(bo.count_jscpd), "clone_a/clone_b duplication"),
+    ("depcruiser", "depcruiser", JS, "src",
+     _depcruiser_circular_check, "cycle_a <-> cycle_b circular"),
+    ("depcruiser-mocks", "depcruiser", JS, "src",
+     _depcruiser_mocks_check, "src/app.ts → __mocks__/service.ts"),
 ]
 
 
@@ -124,23 +151,23 @@ def _require_provisioned_semgrep_rules() -> None:
 
 def run_standard() -> list[dict]:
     rows = []
-    for name, cwd, target, check, note in CASES:
-        rel_out = f".qa_{name}.json"  # written within cwd to satisfy the --output guard
+    for label, analyzer, cwd, target, check, note in CASES:
+        rel_out = f".qa_{label}.json"  # written within cwd to satisfy the --output guard
         tmp_out = cwd / rel_out
         rc, stdout, stderr = _run_cli(
-            ["--analyzer", name, "--target", target, "--output", rel_out],
+            ["--analyzer", analyzer, "--target", target, "--output", rel_out],
             cwd=cwd,
         )
-        final = RAW / f"{name}.json"
+        final = RAW / f"{label}.json"
         if tmp_out.exists():
             tmp_out.replace(final)
-        rows.append(_evaluate(name, final, rc, stderr, check, note))
+        rows.append(_evaluate(label, analyzer, final, rc, stderr, check, note))
     return rows
 
 
 def run_schemathesis() -> dict:
-    name = "schemathesis"
-    out = RAW / f"{name}.json"
+    label = analyzer = "schemathesis"
+    out = RAW / f"{label}.json"
     server = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "app:app",
          "--host", "127.0.0.1", "--port", str(API_PORT), "--log-level", "warning"],
@@ -163,16 +190,17 @@ def run_schemathesis() -> dict:
             except Exception:
                 time.sleep(0.2)
         if not ready:
-            return {"analyzer": name, "status": "error", "ok": False,
+            return {"label": label, "analyzer": analyzer, "status": "error", "ok": False,
                     "detail": "API server did not become ready", "note": ""}
         rc, stdout, stderr = _run_cli(
-            ["--analyzer", name, "--scope", "story-level",
+            ["--analyzer", analyzer, "--scope", "story-level",
              "--config", str(HERE / "contract-testing.toml"),
              "--target", str(FIX / "api"),
              "--output", str(out.relative_to(REPO))],
             cwd=REPO,
         )
-        return _evaluate(name, out, rc, stderr, _expect_findings(1),
+        return _evaluate(label, analyzer, out, rc, stderr,
+                         _count_check(bo.count_schemathesis),
                          "200 body violates advertised User schema")
     finally:
         server.terminate()
@@ -182,18 +210,25 @@ def run_schemathesis() -> dict:
             server.kill()
 
 
-def _evaluate(name, out_path, rc, stderr, check, note) -> dict:
+def _evaluate(label, analyzer, out_path, rc, stderr, check, note) -> dict:
     if not out_path.exists():
-        return {"analyzer": name, "status": "error", "ok": False,
+        return {"label": label, "analyzer": analyzer, "status": "error", "ok": False,
                 "detail": f"no output (rc={rc}): {stderr.strip()[:200]}", "note": note}
-    consolidated = json.loads(out_path.read_text())
-    astatus = consolidated.get("analyzers", {}).get(name, {})
-    status = astatus.get("status", "?")
-    if status == "error":
-        return {"analyzer": name, "status": status, "ok": False,
-                "detail": f"adapter error: {astatus.get('error', '')[:200]}", "note": note}
-    ok, detail = check(consolidated)
-    return {"analyzer": name, "status": status, "ok": ok, "detail": detail, "note": note}
+    try:
+        bundle = json.loads(out_path.read_text())
+    except ValueError as exc:
+        return {"label": label, "analyzer": analyzer, "status": "error", "ok": False,
+                "detail": f"bundle not JSON: {exc}", "note": note}
+    status = bo.status_of(bundle, analyzer)
+    if status != "ok":
+        out = bo.output_for(bundle, analyzer) or {}
+        detail = (out.get("error") or out.get("stderr") or "")[:200]
+        return {"label": label, "analyzer": analyzer, "status": status, "ok": False,
+                "detail": f"status={status}: {detail}".rstrip(": "), "note": note}
+    out = bo.output_for(bundle, analyzer) or {}
+    ok, detail = check(out.get("stdout", ""))
+    return {"label": label, "analyzer": analyzer, "status": status, "ok": ok,
+            "detail": detail, "note": note}
 
 
 def main() -> int:
@@ -209,28 +244,30 @@ def main() -> int:
     lines = [
         f"# Analyzer-coverage smoke results — {date.today().isoformat()}",
         "",
-        f"**{passed}/{total} analyzers produced their expected signal.** "
-        "Generated by `run_smoke.py`. Raw consolidated JSON per analyzer in `raw/`.",
+        f"**{passed}/{total} analyzer cases produced their expected signal.** "
+        "Generated by `run_smoke.py`. Raw per-analyzer review bundle in `raw/`.",
         "",
-        "| Analyzer | Result | Adapter status | Observed | Planted defect |",
-        "|----------|--------|----------------|----------|----------------|",
+        "| Case | Result | Bundle status | Observed | Planted defect |",
+        "|------|--------|---------------|----------|----------------|",
     ]
-    for r in sorted(rows, key=lambda x: x["analyzer"]):
+    for r in sorted(rows, key=lambda x: x["label"]):
         mark = "✅ pass" if r["ok"] else "❌ FAIL"
         lines.append(
-            f"| `{r['analyzer']}` | {mark} | {r['status']} | {r['detail']} | {r['note']} |"
+            f"| `{r['label']}` | {mark} | {r['status']} | {r['detail']} | {r['note']} |"
         )
     lines += [
         "",
         "## Notes",
         "",
-        "- **radon** and **pydeps** are (partly) metrics analyzers: radon emits no "
-        "SARIF findings, only `metrics.per_file` complexity; the check asserts "
-        "`max_cc >= 10`. pydeps emits both a high-fan-out finding and coupling metrics.",
+        "- Each case reads the tool's **raw native** stdout from the review bundle "
+        "(ADR-0020) via `bundle_oracle` — no consolidated SARIF/metrics layer.",
+        "- **radon** asserts `max_cc >= 10` from `radon cc --json`; **pydeps** "
+        "(`couplingpkg`) asserts the coupling graph was computed.",
+        "- **pydeps-cycles** and **depcruiser-mocks** are *precision* oracles: they "
+        "assert the *specific* planted coupling defect (the a↔b import back-edge / the "
+        "prod→`__mocks__` edge), so a tool that runs but stops detecting fails loudly.",
         "- **semgrep** runs against the vendored ruleset that `setup.sh` provisions "
-        "into `cache/semgrep/rules` (ADR-0016); offline and deterministic, no "
-        "`--config auto` network fallback. The harness asserts the cache is "
-        "populated rather than provisioning it itself.",
+        "into `cache/semgrep/rules` (ADR-0016); offline and deterministic.",
         "- Fixtures live in `fixtures/` and are regenerable via `scaffold_fixtures.sh`.",
         "",
     ]
@@ -238,10 +275,10 @@ def main() -> int:
     report.write_text("\n".join(lines))
 
     # ---- console summary ----
-    print(f"\n=== {passed}/{total} analyzers passed ===")
-    for r in sorted(rows, key=lambda x: x["analyzer"]):
+    print(f"\n=== {passed}/{total} analyzer cases passed ===")
+    for r in sorted(rows, key=lambda x: x["label"]):
         mark = "PASS" if r["ok"] else "FAIL"
-        print(f"  [{mark}] {r['analyzer']:<13} {r['status']:<8} {r['detail']}")
+        print(f"  [{mark}] {r['label']:<17} {r['status']:<8} {r['detail']}")
     print(f"\nReport: {report}")
     return 0 if passed == total else 1
 

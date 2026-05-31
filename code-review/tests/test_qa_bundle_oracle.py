@@ -233,6 +233,19 @@ def test_pydeps_has_cycle_garbage(oracle: ModuleType) -> None:
     assert oracle.pydeps_has_cycle("not json", "a", "b") is False
 
 
+def test_pydeps_max_fanout(oracle: ModuleType) -> None:
+    graph = json.dumps(
+        {
+            "hub": {"imports": ["m0", "m1", "m2"]},
+            "leaf": {"imports": []},
+            "pkg": {"imported_by": ["hub"]},  # no imports key
+        }
+    )
+    assert oracle.pydeps_max_fanout(graph) == 3
+    assert oracle.pydeps_max_fanout(json.dumps({})) == 0
+    assert oracle.pydeps_max_fanout("") == 0
+
+
 # --------------------------------------------------------------------------- #
 # depcruiser edge-into / circular (precision oracle)
 # --------------------------------------------------------------------------- #

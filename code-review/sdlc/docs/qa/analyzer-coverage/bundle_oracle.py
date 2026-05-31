@@ -193,6 +193,16 @@ def pydeps_has_cycle(stdout: str, a: str, b: str) -> bool:
     return b in _pydeps_imports(graph, a) and a in _pydeps_imports(graph, b)
 
 
+def pydeps_max_fanout(stdout: str) -> int:
+    """Max fan-out (number of ``imports``) across all modules in pydeps' graph — the loose
+    "coupling graph was computed" signal for the high-fan-out fixture (not a precision
+    oracle; the cycle fixture has the precision oracle above)."""
+    graph = _loads(stdout)
+    if not isinstance(graph, dict):
+        return 0
+    return max((len(_pydeps_imports(graph, m)) for m in graph), default=0)
+
+
 # --------------------------------------------------------------------------- #
 # depcruiser — coupling precision oracles
 # --------------------------------------------------------------------------- #

@@ -2,11 +2,26 @@
 id: s5-t1-coupling-fixtures-and-harness-migration
 kind: task
 project: code-review
-status: active
+status: done
 parent: s5-maintainability-oracle
 sources: [s5-maintainability-oracle.md, s5-t0-bundle-oracle-module.md, adr-0020-thin-invocation-runner.md, qa-analyzer-coverage.md]
 created: 2026-05-31
 updated: 2026-05-31
+closed: 2026-05-31
+notes: |
+  Verifier PASS / reviewer MINOR-ONLY (no Critical/Important; no fix tasks). Two labelled
+  coupling fixtures added (python/cyclepkg a↔b import cycle; js/__mocks__ prod→mock edge),
+  regenerable via scaffold_fixtures.sh (verified idempotent, zero drift to the 13 existing
+  fixtures). run_smoke.py fully migrated off the deleted consolidated schema to the review
+  bundle via bundle_oracle (status_of + output_for(...).stdout → extractor); dead readers
+  (_count_findings/_expect_radon/_expect_pydeps_metrics) removed; CASES now 14 with a
+  label≠analyzer split (pydeps/pydeps-cycles and depcruiser/depcruiser-mocks share one
+  --analyzer id, distinct .qa_<label>.json files — no collision). Added pydeps_max_fanout
+  helper. In-sandbox pydeps integration test (real tool → pydeps_has_cycle True; RED before
+  the fixture existed) + a fixture-contract guard. Gates: 26 QA tests + 391 full suite green,
+  ruff + mypy clean. Carry-forward to s5-t2 (per spec, not a defect): confirm depcruiser
+  scanning `src` actually resolves the ../__mocks__ cross-dir edge against the real binary;
+  adjust the fixture root if not (fixture-only). Full real-toolchain run is s5-t2.
 tags: [qa, fixtures, coupling, harness, bundle, test-first]
 ---
 
