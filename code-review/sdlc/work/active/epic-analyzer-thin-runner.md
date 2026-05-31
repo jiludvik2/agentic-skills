@@ -7,6 +7,7 @@ children:
   - s0-contract-inversion-and-bundle
   - s1-migrate-adapters-and-emit-bundle
   - s2-skill-interpretation-and-golden-bundle
+  - s3-js-semgrep-rules
 sources: [post-coverage-eval-findings.md, vendor-js-semgrep-rules.md, g5-maintainability-oracle-repos.md, g8-js-complexity-cohesion-absent.md]
 created: 2026-05-30
 updated: 2026-05-30
