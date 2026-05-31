@@ -1,31 +1,11 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
-from code_review.adapters.sarif_utils import (
-    collect_python_files,
-    empty_sarif,
-    make_location,
-    normalise_sarif,
-    rel_uri,
-)
-from code_review.contracts import AnalyzerOutput, MetricSet, ReviewRequest
-
-_LOW_COHESION_THRESHOLD = 50.0
-
-
-def _analyse_file(path: Path) -> dict[str, dict[str, Any]]:
-    try:
-        from cohesion.module import Module  # type: ignore[import-untyped]
-
-        m = Module.from_file(str(path))
-        return {
-            cls_name: {"cohesion": data["cohesion"], "lineno": data["lineno"]}
-            for cls_name, data in m.structure.items()
-        }
-    except Exception:
-        return {}
+from code_review.capture import CaptureOutput, run_and_capture
+from code_review.contracts import ReviewRequest
 
 
 class CohesionAdapter:
@@ -34,49 +14,24 @@ class CohesionAdapter:
     default_timeout_s: ClassVar[int] = 60
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
         if not request.target_paths:
-            return AnalyzerOutput(
-                sarif=empty_sarif("cohesion", "1.1.0"),
-                metrics=MetricSet(per_file={}, per_class={}, coupling={}),
-            )
-        cwd = str(Path.cwd())
-        files = collect_python_files(request.target_paths)
-        per_class: dict[str, dict[str, Any]] = {}
-        results = []
-
-        for f in files:
-            for cls_name, info in _analyse_file(f).items():
-                key = f"{rel_uri(f, cwd)}::{cls_name}"
-                per_class[key] = info
-                if info["cohesion"] < _LOW_COHESION_THRESHOLD:
-                    results.append(
-                        {
-                            "ruleId": "cohesion.low-cohesion",
-                            "message": {
-                                "text": (
-                                    f"class '{cls_name}' has cohesion "
-                                    f"{info['cohesion']:.1f}% "
-                                    f"(threshold {_LOW_COHESION_THRESHOLD:.0f}%)"
-                                )
-                            },
-                            "locations": [make_location(rel_uri(f, cwd), info["lineno"])],
-                        }
-                    )
-
-        sarif = normalise_sarif(
-            {
-                "runs": [
-                    {
-                        "tool": {
-                            "driver": {"name": "cohesion", "version": "1.1.0", "rules": []}
-                        },
-                        "results": results,
-                    }
-                ]
-            }
-        )
-        return AnalyzerOutput(
-            sarif=sarif,
-            metrics=MetricSet(per_file={}, per_class=per_class, coupling={}),
+            return CaptureOutput.unavailable("cohesion", "no target paths to analyse")
+        # cohesion's CLI is `-d <dir>` XOR `-f <files...>` (it errors on `-f <dir>`). A
+        # single directory target → -d; otherwise treat the targets as a file list → -f.
+        # (Mixed file+dir targets fall to -f and surface cohesion's own error as a non-ok
+        # status — a rare shape for this Python-scoped tool.) Invoked via `python -m
+        # cohesion` (pinned dep, always present like bandit/pydeps — no PATH-binary gating).
+        # Raw capture, no parsing (ADR-0020); cohesion writes its per-class report to
+        # stdout, exit 0.
+        paths = request.target_paths
+        tool_args: tuple[str, ...]
+        if len(paths) == 1 and Path(paths[0]).is_dir():
+            tool_args = ("-d", paths[0])
+        else:
+            tool_args = ("-f", *paths)
+        return await run_and_capture(
+            "cohesion",
+            sys.executable, "-m", "cohesion", *tool_args,
+            timeout_s=self.default_timeout_s,
         )

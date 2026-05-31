@@ -1,32 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, ClassVar
+import sys
+from typing import ClassVar
 
-from radon.complexity import cc_visit  # type: ignore[import-untyped]
-
-from code_review.adapters.sarif_utils import collect_python_files as _collect_python_files
-from code_review.adapters.sarif_utils import empty_sarif
-from code_review.contracts import AnalyzerOutput, MetricSet, ReviewRequest
-
-
-def _analyse_file(path: Path) -> dict[str, Any] | None:
-    try:
-        code = path.read_text(encoding="utf-8", errors="replace")
-        results = cc_visit(code)
-    except Exception:
-        return None
-    if not results:
-        return None
-    functions = [
-        {"name": r.name, "cc": r.complexity, "lineno": r.lineno, "rank": r.letter}
-        for r in results
-    ]
-    return {
-        "functions": functions,
-        "max_cc": max(f["cc"] for f in functions),
-        "average_cc": sum(f["cc"] for f in functions) / len(functions),
-    }
+from code_review.capture import CaptureOutput, run_and_capture
+from code_review.contracts import ReviewRequest
 
 
 class RadonAdapter:
@@ -35,18 +13,15 @@ class RadonAdapter:
     default_timeout_s: ClassVar[int] = 60
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
         if not request.target_paths:
-            return AnalyzerOutput(
-                sarif=empty_sarif("radon", "6.0.1"),
-                metrics=MetricSet(per_file={}, per_class={}, coupling={}),
-            )
-        files = _collect_python_files(request.target_paths)
-        per_file: dict[str, dict[str, Any]] = {}
-        for f in files:
-            entry = _analyse_file(f)
-            if entry is not None:
-                per_file[str(f)] = entry
-
-        metrics = MetricSet(per_file=per_file, per_class={}, coupling={})
-        return AnalyzerOutput(sarif=empty_sarif("radon", "6.0.1"), metrics=metrics)
+            return CaptureOutput.unavailable("radon", "no target paths to analyse")
+        # `cc --json` emits per-file cyclomatic complexity as JSON on stdout — the
+        # load-bearing scan default. Invoked via `python -m radon` (radon is a pinned dep,
+        # always present like bandit/pydeps — no PATH-binary gating, stays capability-
+        # available). Raw capture, no parsing (ADR-0020); radon exits 0 on success.
+        return await run_and_capture(
+            "radon",
+            sys.executable, "-m", "radon", "cc", "--json", *request.target_paths,
+            timeout_s=self.default_timeout_s,
+        )

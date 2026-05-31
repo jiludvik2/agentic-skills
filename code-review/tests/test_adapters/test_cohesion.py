@@ -1,68 +1,72 @@
-import json
-from pathlib import Path
+"""s1-t1b — cohesion invoke-and-capture contract (ADR-0020).
 
-import jsonschema
+cohesion migrates from an in-process ``Module.from_file``/``MetricSet`` adapter to a thin
+subprocess invocation. cohesion's CLI is ``-d <dir>`` XOR ``-f <files...>`` — these tests
+pin the path-shape dispatch, the raw passthrough, and the empty-targets availability
+pre-flight.
+"""
+
+import sys
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from code_review.adapters.cohesion_ import CohesionAdapter
+from code_review.capture import CaptureOutput
+from code_review.contracts import Analyzer, ReviewRequest
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
-SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
+
+
+def _req(paths: tuple[str, ...]) -> ReviewRequest:
+    return ReviewRequest(scope="per-task", diff_range=None, target_paths=paths,
+                         languages=frozenset(), config={})
 
 
 def test_cohesion_protocol_conformance() -> None:
-    from code_review.adapters.cohesion_ import CohesionAdapter
-    from code_review.contracts import Analyzer
-
     assert isinstance(CohesionAdapter(), Analyzer)
     assert CohesionAdapter.name == "cohesion"
 
 
-async def test_cohesion_empty_target_paths() -> None:
-    from code_review.adapters.cohesion_ import CohesionAdapter
-    from code_review.contracts import ReviewRequest
-
-    request = ReviewRequest(scope="per-task", diff_range=None,
-                            target_paths=(), languages=frozenset(), config={})
-    output = await CohesionAdapter().run(request)
-    assert output.status == "ok"
-    assert output.metrics is not None
-    assert output.metrics.per_class == {}
-
-
-async def test_cohesion_detects_low_cohesion_class() -> None:
-    from code_review.adapters.cohesion_ import CohesionAdapter
-    from code_review.contracts import ReviewRequest
-
-    request = ReviewRequest(scope="per-task", diff_range=None,
-                            target_paths=(str(FIXTURE / "cohesive.py"),),
-                            languages=frozenset({"python"}), config={})
-    output = await CohesionAdapter().run(request)
-    assert output.status == "ok"
-    results = output.sarif["runs"][0]["results"]
-    assert any(r["ruleId"] == "cohesion.low-cohesion" for r in results), \
-        f"Expected low-cohesion finding; got: {[r['ruleId'] for r in results]}"
+async def test_cohesion_invocation_uses_f_for_files() -> None:
+    mock = AsyncMock(return_value=CaptureOutput(tool="cohesion"))
+    with patch("code_review.adapters.cohesion_.run_and_capture", new=mock):
+        await CohesionAdapter().run(_req(("a.py", "b.py")))
+    args = mock.call_args.args
+    assert args[0] == "cohesion"                       # capture label
+    assert args[1:4] == (sys.executable, "-m", "cohesion")  # pinned-dep module invocation
+    # cohesion errors on `-f <dir>`; a file list dispatches to -f
+    assert "-f" in args
+    assert "a.py" in args and "b.py" in args
 
 
-async def test_cohesion_populates_per_class_metrics() -> None:
-    from code_review.adapters.cohesion_ import CohesionAdapter
-    from code_review.contracts import ReviewRequest
-
-    request = ReviewRequest(scope="per-task", diff_range=None,
-                            target_paths=(str(FIXTURE / "cohesive.py"),),
-                            languages=frozenset({"python"}), config={})
-    output = await CohesionAdapter().run(request)
-    assert output.metrics is not None
-    assert len(output.metrics.per_class) > 0
-    for entry in output.metrics.per_class.values():
-        assert "cohesion" in entry
-        assert "lineno" in entry
+async def test_cohesion_invocation_uses_d_for_directory(tmp_path: Path) -> None:
+    mock = AsyncMock(return_value=CaptureOutput(tool="cohesion"))
+    with patch("code_review.adapters.cohesion_.run_and_capture", new=mock):
+        await CohesionAdapter().run(_req((str(tmp_path),)))
+    args = mock.call_args.args
+    # a single directory target dispatches to -d (cohesion errors on `-f <dir>`)
+    assert "-d" in args
+    assert str(tmp_path) in args
 
 
-async def test_cohesion_sarif_schema_valid() -> None:
-    from code_review.adapters.cohesion_ import CohesionAdapter
-    from code_review.contracts import ReviewRequest
+async def test_cohesion_captures_raw_stdout() -> None:
+    cap = CaptureOutput(tool="cohesion", stdout="File: x.py\n  Class: C", exit_code=0)
+    with patch("code_review.adapters.cohesion_.run_and_capture", new=AsyncMock(return_value=cap)):
+        out = await CohesionAdapter().run(_req(("x.py",)))
+    assert out is cap
+    assert out.stdout == "File: x.py\n  Class: C"
 
-    request = ReviewRequest(scope="per-task", diff_range=None,
-                            target_paths=(str(FIXTURE),),
-                            languages=frozenset({"python"}), config={})
-    output = await CohesionAdapter().run(request)
-    schema = json.loads(SARIF_SCHEMA.read_text())
-    jsonschema.validate(output.sarif, schema)
+
+async def test_cohesion_unavailable_on_empty_targets() -> None:
+    out = await CohesionAdapter().run(_req(()))
+    assert out.status == "unavailable"
+
+
+@pytest.mark.integration
+async def test_cohesion_integration_reports_cohesion() -> None:
+    out = await CohesionAdapter().run(_req((str(FIXTURE / "cohesive.py"),)))
+    assert out.status == "ok", out.error
+    # the raw report must carry the class and its cohesion breakdown
+    assert "LowCohesionService" in out.stdout

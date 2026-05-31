@@ -2,12 +2,47 @@
 id: s1-t1b-migrate-library-adapters
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-migrate-adapters-and-emit-bundle
 sources: [adr-0020-thin-invocation-runner.md, adr-0019-analyzer-unavailable-vs-error.md, s1-migrate-adapters-and-emit-bundle.md]
 created: 2026-05-30
-updated: 2026-05-30
+updated: 2026-05-31
 tags: [migration, adapters, python, library-to-cli, capture]
+notes: |
+  DONE 2026-05-31. Verify PASS, Review MINOR-ONLY (no Critical/Important).
+
+  Implementation deviations from the spec's Design (both Verify-accepted):
+  - **Invocation: `python -m <module>` not the console script.** The spec said console
+    scripts + a `required_binary`/`shutil.which` pre-flight; that would have forced
+    radon/vulture/cohesion to report `unavailable` in capabilities when off PATH, breaking
+    `test_capabilities_runtime` (documented intent: "radon is library-based … stays
+    available"). radon/vulture/cohesion are pinned deps that ship with the package and
+    cannot be "missing", so they follow the bandit/pydeps `python -m` pattern, keep only the
+    empty-targets → unavailable pre-flight, and stay capability-available. AC#2's availability
+    test is the empty-targets branch of its "(missing console script / empty targets)" OR.
+  - **vulture `ok_exit_codes=(0, 3)` not (0, 1).** vulture's real ExitCode enum is
+    NoDeadCode=0 / InvalidInput=1 / InvalidCmdlineArguments=2 / DeadCode=3. Success = found
+    dead code = 3; the spec's (0,1) text would have masked exit 1 (InvalidInput, an error).
+
+  Pinned invocations: radon `cc --json <paths>`; vulture `<paths>` (tolerate 0,3);
+  cohesion `-d <dir>` for a single directory target XOR `-f <files...>` otherwise (cohesion
+  errors on `-f <dir>`).
+
+  Review Minors (opportunistic, not fix tasks):
+  - **cohesion multi-directory dispatch** (`cohesion_.py`): the `-d` guard fires only for a
+    *single* directory target; 2+ directory targets fall to `-f <dir...>` and surface
+    cohesion's own error as a non-ok status. Cohesion's CLI architecturally can't take
+    multiple dirs in one call → formalise the target contract (single-dir-or-file-list) when
+    s1-t3 reworks CLI target derivation.
+  - **Shared `python -m` rationale comment** is duplicated across radon/vulture/cohesion (and
+    bandit/pydeps); consider hoisting the cross-adapter "why pinned-dep, no PATH gating"
+    rationale to one place (e.g. capture.py / adapter-package note) in a later cleanup.
+  - Test-docstring "missing console script" overstatement — fixed in this task.
+
+  `sarif_utils.collect_python_files` is now orphaned in source (no remaining consumer) but
+  its deletion stays deferred to s1-t3 while the CLI still imports `sarif_utils`.
+
+  Gate: full suite 450 passed (3 new integration real-runs), ruff + `mypy code_review` clean.
 ---
 
 # Task s1-t1b — migrate radon / vulture / cohesion (library → CLI subprocess)

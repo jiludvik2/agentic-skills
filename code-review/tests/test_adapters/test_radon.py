@@ -1,90 +1,62 @@
-import json
+"""s1-t1b — radon invoke-and-capture contract (ADR-0020).
+
+radon migrates from an in-process ``cc_visit``/``MetricSet`` adapter to a thin subprocess
+invocation. These tests pin the load-bearing ``cc --json`` invocation, the raw
+passthrough, and the empty-targets availability pre-flight.
+"""
+
+import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock, patch
 
-import jsonschema
+import pytest
 
-if TYPE_CHECKING:
-    from code_review.contracts import ReviewRequest
+from code_review.adapters.radon import RadonAdapter
+from code_review.capture import CaptureOutput
+from code_review.contracts import Analyzer, ReviewRequest
 
-FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
-SCHEMA_PATH = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
-HIGH_CC_FILE = str(FIXTURE_PATH / "complex.py")
+FIXTURE = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
 
 
-def _make_request() -> "ReviewRequest":
-    from code_review.contracts import ReviewRequest
-
-    return ReviewRequest(
-        scope="per-task",
-        diff_range=None,
-        target_paths=(str(FIXTURE_PATH),),
-        languages=frozenset({"python"}),
-        config={},
-    )
+def _req(paths: tuple[str, ...]) -> ReviewRequest:
+    return ReviewRequest(scope="per-task", diff_range=None, target_paths=paths,
+                         languages=frozenset(), config={})
 
 
 def test_radon_protocol_conformance() -> None:
-    from code_review.adapters.radon import RadonAdapter
-    from code_review.contracts import Analyzer
-
     assert isinstance(RadonAdapter(), Analyzer)
     assert RadonAdapter.name == "radon"
 
 
-async def test_radon_produces_metric_set() -> None:
-    from code_review.adapters.radon import RadonAdapter
-
-    output = await RadonAdapter().run(_make_request())
-
-    assert output.metrics is not None
-    assert len(output.metrics.per_file) > 0
-
-
-async def test_radon_high_cc_function_detected() -> None:
-    from code_review.adapters.radon import RadonAdapter
-
-    output = await RadonAdapter().run(_make_request())
-
-    assert output.metrics is not None
-    matching = {p: v for p, v in output.metrics.per_file.items() if "complex.py" in p}
-    assert matching, f"complex.py not in per_file keys: {list(output.metrics.per_file)}"
-    entry = next(iter(matching.values()))
-    max_cc = max(f["cc"] for f in entry["functions"])
-    assert max_cc >= 10, f"Expected CC ≥ 10, got {max_cc}"
+async def test_radon_invocation_pins_flags() -> None:
+    mock = AsyncMock(return_value=CaptureOutput(tool="radon"))
+    with patch("code_review.adapters.radon.run_and_capture", new=mock):
+        await RadonAdapter().run(_req(("a.py", "b.py")))
+    args = mock.call_args.args
+    assert args[0] == "radon"                       # capture label
+    assert args[1:4] == (sys.executable, "-m", "radon")  # pinned-dep module invocation
+    # `cc --json` is the load-bearing default: per-file cyclomatic complexity as JSON
+    assert "cc" in args and "--json" in args
+    assert "a.py" in args and "b.py" in args
 
 
-async def test_radon_empty_target_paths_returns_empty_metricset() -> None:
-    from code_review.adapters.radon import RadonAdapter
-    from code_review.contracts import ReviewRequest
-
-    request = ReviewRequest(
-        scope="per-task",
-        diff_range=None,
-        target_paths=(),
-        languages=frozenset(),
-        config={},
-    )
-    output = await RadonAdapter().run(request)
-
-    assert output.status == "ok"
-    runs = output.sarif.get("runs", [])
-    assert len(runs) == 1
-    assert runs[0]["results"] == []
-    assert runs[0]["tool"]["driver"]["name"] == "radon"
-    assert output.metrics is not None
-    assert output.metrics.per_file == {}
-    assert output.metrics.per_class == {}
-    assert output.metrics.coupling == {}
+async def test_radon_captures_raw_stdout() -> None:
+    cap = CaptureOutput(tool="radon", stdout='{"a.py": []}', exit_code=0)
+    with patch("code_review.adapters.radon.run_and_capture", new=AsyncMock(return_value=cap)):
+        out = await RadonAdapter().run(_req(("a.py",)))
+    assert out is cap
+    assert out.stdout == '{"a.py": []}'
 
 
-async def test_radon_sarif_is_valid() -> None:
-    from code_review.adapters.radon import RadonAdapter
+async def test_radon_unavailable_on_empty_targets() -> None:
+    out = await RadonAdapter().run(_req(()))
+    assert out.status == "unavailable"
 
-    output = await RadonAdapter().run(_make_request())
 
-    schema = json.loads(SCHEMA_PATH.read_text())
-    jsonschema.validate(output.sarif, schema)
-    assert "runs" in output.sarif
-    results = output.sarif["runs"][0].get("results")
-    assert results is not None
+@pytest.mark.integration
+async def test_radon_integration_reports_complexity() -> None:
+    out = await RadonAdapter().run(_req((str(FIXTURE / "complex.py"),)))
+    assert out.status == "ok", out.error
+    # the raw cc --json report must carry the high-CC function and its complexity
+    assert "classify" in out.stdout
+    assert "complexity" in out.stdout

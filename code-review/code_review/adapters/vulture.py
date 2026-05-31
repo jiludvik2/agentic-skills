@@ -1,41 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, ClassVar
+import sys
+from typing import ClassVar
 
-from code_review.adapters.sarif_utils import (
-    collect_python_files,
-    make_location,
-    normalise_sarif,
-    rel_uri,
-)
-from code_review.contracts import AnalyzerOutput, ReviewRequest
-
-
-def _to_sarif(items: list[Any]) -> dict[str, Any]:
-    cwd = str(Path.cwd())
-    results = [
-        {
-            "ruleId": f"vulture.unused-{item.typ}",
-            "message": {
-                "text": f"unused {item.typ} '{item.name}' ({item.confidence}% confidence)"
-            },
-            "locations": [make_location(rel_uri(item.filename, cwd), item.first_lineno)],
-        }
-        for item in items
-    ]
-    return normalise_sarif(
-        {
-            "runs": [
-                {
-                    "tool": {
-                        "driver": {"name": "vulture", "version": "2.13", "rules": []}
-                    },
-                    "results": results,
-                }
-            ]
-        }
-    )
+from code_review.capture import CaptureOutput, run_and_capture
+from code_review.contracts import ReviewRequest
 
 
 class VultureAdapter:
@@ -44,15 +13,17 @@ class VultureAdapter:
     default_timeout_s: ClassVar[int] = 60
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
         if not request.target_paths:
-            return AnalyzerOutput(sarif=normalise_sarif({"runs": []}))
-        files = collect_python_files(request.target_paths)
-        if not files:
-            return AnalyzerOutput(sarif=normalise_sarif({"runs": []}))
-        import vulture as vulture_mod  # type: ignore[import-untyped]
-
-        v = vulture_mod.Vulture()
-        v.scavenge([str(f) for f in files])
-        items = list(v.get_unused_code())
-        return AnalyzerOutput(sarif=_to_sarif(items))
+            return CaptureOutput.unavailable("vulture", "no target paths to analyse")
+        # vulture writes its dead-code report (`file:line: unused …`) to stdout. Invoked via
+        # `python -m vulture` (pinned dep, always present like bandit/pydeps — no PATH-binary
+        # gating). Raw capture, no parsing (ADR-0020). It exits 3 (ExitCode.DeadCode) when it
+        # finds dead code and 0 when clean — both are success → tolerate (0, 3). Exit 1/2 are
+        # real errors (InvalidInput / InvalidCmdlineArguments) and stay non-ok.
+        return await run_and_capture(
+            "vulture",
+            sys.executable, "-m", "vulture", *request.target_paths,
+            timeout_s=self.default_timeout_s,
+            ok_exit_codes=(0, 3),
+        )
