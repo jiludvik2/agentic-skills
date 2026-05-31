@@ -1,14 +1,14 @@
-# State — last updated 2026-05-30
+# State — last updated 2026-05-31
 
-**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020) — facade → thin invocation runner. **Story s0 DONE and committed** (`f5e60c1`): the new raw-capture rail (`capture.py` + `review_bundle.py` + `review-bundle.v1.json`) is fully in place and **purely additive** — the live SARIF path is untouched. Tree clean on `main` (not pushed).
-**Last completed:** **s0 — contract inversion + bundle** (s0-t0 `12eefd6` CaptureOutput + run_and_capture; s0-t1 `1bfa5ed` ReviewBundle + schema). Per-task Verify PASS + Review MINOR-ONLY; story-level Review MINOR-ONLY. Full suite 441 passed; ruff + `mypy code_review` clean.
-**Next:** **Execute s1 once the plan is approved.** **s1 is PLANNED and committed** — story `s1-migrate-adapters-and-emit-bundle` + 4 tasks (s1-t0 type/status SoT; s1-t1 9 Python adapters; s1-t2 4 JS adapters + G1; s1-t3 CLI emits bundle + delete aggregator/severity/hotspots/MetricSet/SARIF-builders). CLI bundle-emission pulled s2→s1-t3 (operator-approved). Plan approval is human — **awaiting operator review before execution.**
+**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020) — facade → thin invocation runner. **Story s1 in flight.** s1-t0 (status SoT + return-type consolidation) and s1-t1 (5 subprocess Python adapters → invoke-and-capture) both **DONE and committed**. Tree clean on `main` (not pushed; ahead of origin).
+**Last completed:** **s1-t1** (`6d77030`) — bandit/semgrep/gitleaks/trivy/pydeps now return `CaptureOutput` via `run_and_capture` (+`env=`); pre-flights → `unavailable` (ADR-0019); trivy/gitleaks avoid `/dev/stdout`; transitional `cli.py` shim holds the legacy aggregate green. Verify PASS, Review MINOR-ONLY. Full suite **447 passed** (5 real-tool integrations), ruff + `mypy code_review` clean. (s1-t0 `6dcc3ed`; re-split plan `554497e`.)
+**Next:** **s1-t1b** — migrate radon/vulture/cohesion (in-process library → CLI subprocess). Then **s1-t1c** schemathesis (library → `schemathesis run` subprocess; auth/sandbox design fork — read the current adapter first, escalate if auth can't map). Then **s1-t2** (JS adapters + G1) and **s1-t3** (CLI emits bundle + delete the SARIF layer/shim). All have operator-approved task specs in `work/active/`.
 
 ## Open questions / follow-ups
-- **s1 plan awaits operator review** (plan approval stays human). It absorbs the 3 s0 story-level Minors: (1) shared ADR-0019 status SoT (s1-t0); (2) bundle `timeout`-capture coverage (s1-t3); (3) timeout-test loop-teardown cleanup (s1-t3). Epic re-scoped: s2 is now SKILL.md interpretation + golden-bundle hardening.
-- **CI mypy gate is package-scoped** (`uv run mypy code_review`). Bare `uv run mypy` also checks `tests/` and surfaces **6 PRE-EXISTING strict errors** in `test_bandit.py`/`test_schemathesis.py` (on HEAD, outside the gate) — not regressions. Consider tightening the gate or fixing the stubs (own task).
-- **Diff-path resolution** (open since s4): `resolve_diff_paths` repo-relative vs `cli.py` cwd-abspath — fix during s1/s2 (invocation layer survives the redesign).
-- **SDLC #26 supply-chain gate:** none wired; `stack-pins.md` cites non-existent `scripts/license_audit.py`; `npm audit` 5 pre-existing transitive vulns (offline). Decide whether to wire a gate (ADR).
-- **`claude-code-review` redirect meta-package** (ADR-0014): due now (first GA published). Own task.
-- **Merged branch `ccglass-traffic-analysis`** still on local + origin; delete (operator authorises) now PR #1 merged.
-- **Stack-pins drift (Minor):** `types-jsonschema` / `types-PyYAML` dev stubs not listed in the stack-pins dev table.
+- **s1-t1 re-split (operator-approved 2026-05-30):** 4 of the 9 "Python adapters" were in-process library calls, not subprocesses → s1-t1 (5 subprocess), s1-t1b (radon/vulture/cohesion library→CLI), s1-t1c (schemathesis). `s1-t2`/`s1-t3` ids unchanged.
+- **Transitional shim DELETE in s1-t3:** `cli.py` `_capture_to_legacy`/`_safe_run`; plus `aggregator`/`severity`/`hotspots`/`MetricSet`/`sarif_utils`/legacy `AnalyzerOutput`/`review-response.json`.
+- **`/dev/stdout` not writable under the OS sandbox / containers** — file-output tools must use native stdout or capture native output, never a `/dev/stdout` redirect. (Cost us a fallout cycle on trivy/gitleaks.)
+- **Minor carried to s1-t3:** `test_sandbox_compatibility` gitleaks/trivy no-temp-file tests are now near-trivial (mocked) — convert to assert no `--report-path`/`--output` arg, or drop.
+- **s0 carry-overs still open (s1-t3):** bundle `timeout`-capture coverage (Minor #2); `test_capture` timeout event-loop-teardown warning (Minor #3, still the one suite warning).
+- **CI mypy gate is package-scoped** (`uv run mypy code_review`); bare `mypy` shows 6 pre-existing strict errors in test_bandit/test_schemathesis (outside the gate) — not regressions.
+- **Diff-path resolution** (open since s4): fix opportunistically in s1-t3 if it falls out of the CLI rewrite.
