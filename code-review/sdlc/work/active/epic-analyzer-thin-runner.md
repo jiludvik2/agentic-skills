@@ -9,9 +9,10 @@ children:
   - s2-skill-interpretation-and-golden-bundle
   - s3-js-semgrep-rules
   - s4-js-complexity-analyzer
+  - s5-maintainability-oracle
 sources: [post-coverage-eval-findings.md, vendor-js-semgrep-rules.md, g5-maintainability-oracle-repos.md, g8-js-complexity-cohesion-absent.md]
 created: 2026-05-30
-updated: 2026-05-30
+updated: 2026-05-31
 tags: [architecture, runner, simplification, sarif, supersedes-facade]
 ---
 
