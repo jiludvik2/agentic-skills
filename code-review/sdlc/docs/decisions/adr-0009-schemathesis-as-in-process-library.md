@@ -14,7 +14,9 @@ tags: [contract-testing, adapters, sandbox, network, architecture]
 
 ## Status
 
-Accepted. Departs from the default subprocess-per-analyzer pattern for the Schemathesis adapter (s4). Permitted by the architecture's Python-library exception; recorded here because it introduces in-process network egress and reverses the s4-plan's initial subprocess default.
+**Superseded by [ADR-0021](../../work/active/adr-0021-remove-schemathesis-from-scope.md) (2026-05-31)** — Schemathesis and the `contracts` review domain were removed from code-review entirely; contract testing moves to a separate skill. The design below is retained as the historical record and a starting point for that skill.
+
+~~Accepted.~~ Departs from the default subprocess-per-analyzer pattern for the Schemathesis adapter (s4). Permitted by the architecture's Python-library exception; recorded here because it introduces in-process network egress and reverses the s4-plan's initial subprocess default.
 
 ## Context
 

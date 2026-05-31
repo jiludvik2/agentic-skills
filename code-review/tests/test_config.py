@@ -196,36 +196,6 @@ def test_invalid_severity_override_value_raises_config_error(tmp_path: Path) -> 
         load_config(tmp_path / "code-review.toml")
 
 
-# ---------------------------------------------------------------------------
-# [contract_testing] section
-# ---------------------------------------------------------------------------
-
-
-def test_contract_testing_parses_single_target(tmp_path: Path) -> None:
-    (tmp_path / "code-review.toml").write_text(
-        textwrap.dedent("""\
-            [contract_testing.targets.petstore]
-            spec_url = "http://localhost:8000/openapi.json"
-            base_url = "http://localhost:8000"
-            timeout_s = 60
-
-            [contract_testing.targets.petstore.auth]
-            token_env = "PETSTORE_TOKEN"
-        """)
-    )
-    config = load_config(tmp_path / "code-review.toml")
-    assert "petstore" in config.contract_testing
-    target = config.contract_testing["petstore"]
-    assert target["spec_url"] == "http://localhost:8000/openapi.json"
-    assert target["base_url"] == "http://localhost:8000"
-    assert target["timeout_s"] == 60
-    assert target["auth"]["token_env"] == "PETSTORE_TOKEN"
-
-
-def test_contract_testing_absent_is_empty(tmp_path: Path) -> None:
-    config = load_config(tmp_path / "code-review.toml")
-    assert config.contract_testing == {}
-
 
 # ---------------------------------------------------------------------------
 # semgrep_rules (root-level key; ADR-0016 #5)

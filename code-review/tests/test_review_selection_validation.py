@@ -19,7 +19,7 @@ from tests.conftest import FakeAnalyzer
 ALL_ANALYZER_NAMES = [
     "semgrep", "bandit", "gitleaks", "trivy",
     "radon", "vulture", "knip", "jscpd", "eslint",
-    "pydeps", "depcruiser", "cohesion", "schemathesis",
+    "pydeps", "depcruiser", "cohesion",
 ]
 
 
@@ -141,7 +141,7 @@ def test_unknown_review_value_error_lists_valid_domains(monkeypatch: pytest.Monk
     runner = CliRunner(capture="fd")
     result = runner.invoke(app, ["run", "--review", "bogus", "--target", "."])
     combined = result.output + result.stderr
-    for domain in ("security", "maintainability", "contracts"):
+    for domain in ("security", "maintainability"):
         assert domain in combined, f"valid domain {domain!r} not mentioned in error output"
 
 
@@ -187,29 +187,25 @@ def test_analyzer_override_ignores_review_and_depth(monkeypatch: pytest.MonkeyPa
 
 
 # ---------------------------------------------------------------------------
-# story-level gate: conformance + per-task → error
+# contracts/conformance removed (ADR-0021) → now unknown-value errors
 # ---------------------------------------------------------------------------
 
-def test_conformance_per_task_exits_nonzero_with_message(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_conformance_now_unknown_exits_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_all(monkeypatch)
     runner = CliRunner(capture="fd")
     result = runner.invoke(
-        app, ["run", "--review", "conformance", "--scope", "per-task", "--target", "."]
+        app, ["run", "--review", "conformance", "--scope", "story-level", "--target", "."]
     )
     assert result.exit_code != 0
     combined = result.output + result.stderr
-    assert "story-level" in combined
+    assert "conformance" in combined
 
 
-# ---------------------------------------------------------------------------
-# contracts@quick → error with clear message
-# ---------------------------------------------------------------------------
-
-def test_contracts_quick_exits_nonzero_with_message(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_contracts_now_unknown_exits_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_all(monkeypatch)
     runner = CliRunner(capture="fd")
     result = runner.invoke(
-        app, ["run", "--review", "contracts", "--depth", "quick", "--target", "."]
+        app, ["run", "--review", "contracts", "--target", "."]
     )
     assert result.exit_code != 0
     combined = result.output + result.stderr

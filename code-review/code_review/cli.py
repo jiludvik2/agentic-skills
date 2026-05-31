@@ -152,7 +152,6 @@ async def _run_analyzers(
     line_tolerance: int = 3,
     hotspot_weights: dict[str, float] | None = None,
     severity_overrides: dict[str, str] | None = None,
-    contract_testing: dict[str, Any] | None = None,
     semgrep_rules: str | None = None,
 ) -> dict[str, Any]:
     from code_review.adapters import REGISTRY
@@ -173,7 +172,6 @@ async def _run_analyzers(
         target_paths=target_paths,
         languages=frozenset(),
         config={
-            "contract_testing": contract_testing or {},
             "semgrep_rules": semgrep_rules,
         },
     )
@@ -388,7 +386,6 @@ def run(
             line_tolerance=config.dedup_line_tolerance,
             hotspot_weights=config.hotspot_weights,
             severity_overrides=config.severity_overrides,
-            contract_testing=config.contract_testing,
             semgrep_rules=config.semgrep_rules,
         )
     )

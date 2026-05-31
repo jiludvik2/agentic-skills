@@ -147,7 +147,6 @@ def test_runtime_dependency_set_matches_expected() -> None:
         "vulture>=2.13",
         "pydeps>=1.12",
         "cohesion>=1.1",
-        "schemathesis>=4.0,<5",
     }
     actual = set(_project()["dependencies"])
     assert actual == expected, (

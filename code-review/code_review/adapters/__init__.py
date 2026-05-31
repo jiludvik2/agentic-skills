@@ -9,7 +9,6 @@ from code_review.adapters.jscpd import JscpdAdapter
 from code_review.adapters.knip import KnipAdapter
 from code_review.adapters.pydeps import PydepsAdapter
 from code_review.adapters.radon import RadonAdapter
-from code_review.adapters.schemathesis_ import SchemathesisAdapter
 from code_review.adapters.semgrep import SemgrepAdapter
 from code_review.adapters.trivy import TrivyAdapter
 from code_review.adapters.vulture import VultureAdapter
@@ -28,7 +27,6 @@ REGISTRY: dict[str, type[Any]] = {
     "knip": KnipAdapter,
     "pydeps": PydepsAdapter,
     "radon": RadonAdapter,
-    "schemathesis": SchemathesisAdapter,
     "semgrep": SemgrepAdapter,
     "trivy": TrivyAdapter,
     "vulture": VultureAdapter,

@@ -37,7 +37,6 @@ Per **ADR-0013** (partial supersede of ADR-0003): `pyproject.toml` declares a lo
 | vulture | `>=2.13` | `2.13` | dead-code detection |
 | pydeps | `>=1.12` | `1.12.20` | coupling metrics |
 | cohesion | `>=1.1` | `1.1.0` | LCOM4 cohesion |
-| schemathesis | `>=4.0,<5` | `4.0.10` | contract testing (full scope). Upper bound: 3→4 was a breaking-change major; re-evaluate before allowing 5.x. |
 
 ## Python dev dependencies (exact pins)
 
@@ -47,18 +46,15 @@ Per **ADR-0013** (partial supersede of ADR-0003): `pyproject.toml` declares a lo
 | pytest-asyncio | `0.25.0` |
 | mypy | `1.13.0` |
 | ruff | `0.15.14` |
-| fastapi | `0.136.3` |
-| uvicorn | `0.34.3` |
 
-**Security floor (transitive):** `fastapi==0.136.3` floors `starlette>=1.0.1` (lock resolves `1.1.0`),
-clearing CVE-2025-54121, CVE-2025-62727, PYSEC-2026-161 introduced by the original `fastapi==0.115.12`
-pin (→ `starlette 0.46.2`). See s4 close notes.
+**Known allow-listed advisory:** `pytest 8.3.4` / CVE-2025-71176 (fix 9.0.3). The prior blocker —
+schemathesis requiring `pytest>=8,<9` — was removed when schemathesis was dropped (ADR-0021,
+2026-05-31), so the `pytest` 9.x bump is now unblocked. Deferred to a separate dev-dep-bump story;
+test-only, never shipped at runtime. **Expiry: 2026-08-31** — bump `pytest` then, or re-affirm.
 
-**Known allow-listed advisory:** `pytest 8.3.4` / CVE-2025-71176 (fix 9.0.3) — un-actionable: the
-schemathesis pin in `uv.lock` (`4.0.10`, against spec floor `>=4.0,<5`) requires `pytest>=8,<9`, so
-pytest cannot reach 9.x without bumping schemathesis (a separate story). Test-only, never shipped at
-runtime. **Expiry: 2026-08-31** — revisit when schemathesis is next bumped; if still pinned, re-affirm
-or escalate.
+(fastapi/uvicorn were dev-only fixture deps for the Schemathesis adapter; removed with it under
+ADR-0021. The starlette transitive-CVE floor they provided is no longer relevant — nothing else
+imports them.)
 
 ## Subprocess-only tools (runtime prerequisites, NOT Python deps)
 
@@ -121,7 +117,7 @@ Attempting `mkdir .claude/skills/code-review/<anything>` will fail with "Operati
 
 Split per **ADR-0013**:
 
-- **Runtime deps** (`[project.dependencies]`): lower-bound only (`>=X.Y`), anchored at the currently-locked minor. Justified upper bounds permitted with inline `#` comment (schemathesis is the current example). Spec floor = "minimum compatible minor"; `uv.lock` carries the exact patch the project was tested against.
+- **Runtime deps** (`[project.dependencies]`): lower-bound only (`>=X.Y`), anchored at the currently-locked minor. Justified upper bounds permitted with an inline `#` comment stating why (no runtime dep currently carries one — schemathesis, the former example, was removed under ADR-0021). Spec floor = "minimum compatible minor"; `uv.lock` carries the exact patch the project was tested against.
 - **Dev deps** (`[dependency-groups] dev`): exact pins (`==X.Y.Z`). Never shipped to consumers; reproducible CI matters more than transitive flexibility. ADR-0003 §1 applies unchanged here.
 
 Version bumps are deliberate, reviewed events — for runtime deps the substantive change is the `uv.lock` bump (with `stack-pins.md` reconciled in the same commit per SDLC rule #1b); for dev deps the change is both spec + lock together. Rationale: **adr-0003** (original governance intent), **adr-0013** (split for PyPI consumers).

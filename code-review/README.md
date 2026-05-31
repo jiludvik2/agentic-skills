@@ -22,7 +22,7 @@ The PyPI distribution and console-script binary are both `polyreview`; the Pytho
 
 ### Analyzer prerequisites
 
-`pip install polyreview` ships the **Python** analyzers — Semgrep, Bandit, Radon, Vulture, pydeps, cohesion, Schemathesis — ready to run. The other analyzers depend on external tooling that pip can't bundle:
+`pip install polyreview` ships the **Python** analyzers — Semgrep, Bandit, Radon, Vulture, pydeps, cohesion — ready to run. The other analyzers depend on external tooling that pip can't bundle:
 
 - **JavaScript/TypeScript** (ESLint, knip, jscpd, dependency-cruiser) need a vendored `node_modules`.
 - **Secret & dependency scanning** (gitleaks, Trivy) are standalone binaries that must be on your `PATH`.

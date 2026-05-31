@@ -80,7 +80,6 @@ The taxonomy is data-driven (`capabilities.json`) and enforced at parse time. Us
 | `maintainability` | `quality` | quick | js, ts | any |
 | `maintainability` | `coupling` | full | py, js, ts | any |
 | `maintainability` | `cohesion` | full | py | any |
-| `contracts` | `conformance` | full | API | story-level |
 
 ### Depth tier
 
@@ -109,9 +108,6 @@ polyreview run --review coupling --scope story-level --target .
 
 # Whole quick review (default)
 polyreview run --target .
-
-# Contract testing at story-level
-polyreview run --review conformance --scope story-level --target .
 ```
 
 ### Warnings and errors
@@ -122,9 +118,7 @@ All warnings go to **stderr** only (never stdout, never the `--output` JSON). Ex
 - **Duplicate `--review`** — same value twice: deduped + warning + exit 0.
 - **Subcategory + explicit `--depth`** — depth is ignored: warning + exit 0.
 - **Contradictory `--depth`** values — simpler (`quick`) wins: warning + exit 0.
-- **Unknown `--review` value** — error listing valid domains and subcategories: exit 1.
-- **`contracts --depth quick`** — domain has no quick-tier analyzers: exit 1 with message.
-- **`conformance --scope per-task`** — story-level-only analyzer excluded: exit 1 with message.
+- **Unknown `--review` value** — error listing valid domains and subcategories: exit 1. (The retired `contracts` domain and its `conformance` subcategory now surface here — contract testing was removed; see ADR-0021.)
 
 ## Install
 
@@ -179,16 +173,4 @@ The skill is designed to run entirely inside Claude Code's OS sandbox after `set
 }
 ```
 
-At `quick` or `full` scope the deterministic analyzers need no network at runtime, so `allowedDomains` stays empty. For contract testing (`--review conformance --scope story-level`), add the Schemathesis target hosts to `allowedDomains` — and nothing else.
-
-```json
-{
-  "sandbox": {
-    "network": {
-      "allowedDomains": ["localhost", "api.internal.example.com"]
-    }
-  }
-}
-```
-
-If Schemathesis cannot reach the configured target, the adapter returns `status: "error"` with an `error` field naming the unreachable host and reminding you to check `sandbox.allowedDomains`. Other analyzers' results are preserved in the consolidated output.
+All deterministic analyzers run offline at every scope and depth, so `allowedDomains` stays empty.

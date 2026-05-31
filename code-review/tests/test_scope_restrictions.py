@@ -13,9 +13,12 @@ from code_review.contracts import AnalyzerOutput, ReviewRequest
 runner = CliRunner()
 
 
-class _StubSchemathesisAdapter:
-    name: ClassVar[str] = "schemathesis"
-    kind: ClassVar[str] = "contract"
+# A generic story-level-only stub. The scope-restriction mechanism is analyzer-agnostic;
+# after ADR-0021 removed Schemathesis (the only real story-level-only adapter) we exercise
+# the mechanism with a synthetic adapter rather than naming a deleted one.
+class _StoryLevelOnlyAdapter:
+    name: ClassVar[str] = "storyonly"
+    kind: ClassVar[str] = "deterministic"
     default_timeout_s: ClassVar[int] = 30
     scope_restrictions: ClassVar[frozenset[str]] = frozenset({"story-level"})
     required_binary: ClassVar[None] = None
@@ -24,7 +27,7 @@ class _StubSchemathesisAdapter:
         return AnalyzerOutput(
             sarif={
                 "version": "2.1.0",
-                "runs": [{"tool": {"driver": {"name": "schemathesis"}}, "results": []}],
+                "runs": [{"tool": {"driver": {"name": "storyonly"}}, "results": []}],
             }
         )
 
@@ -46,7 +49,7 @@ class _StubBanditAdapter:
 
 
 _STUB_REGISTRY: dict[str, type[Any]] = {
-    "schemathesis": _StubSchemathesisAdapter,
+    "storyonly": _StoryLevelOnlyAdapter,
     "bandit": _StubBanditAdapter,
 }
 
@@ -59,7 +62,7 @@ def test_scope_per_task_rejects_story_level_only_analyzer() -> None:
     ):
         result = runner.invoke(
             app,
-            ["run", "--analyzer", "schemathesis", "--scope", "per-task"],
+            ["run", "--analyzer", "storyonly", "--scope", "per-task"],
             catch_exceptions=False,
         )
     assert result.exit_code != 0
@@ -74,7 +77,7 @@ def test_scope_story_level_accepts_story_level_only_analyzer() -> None:
     ):
         result = runner.invoke(
             app,
-            ["run", "--analyzer", "schemathesis", "--scope", "story-level"],
+            ["run", "--analyzer", "storyonly", "--scope", "story-level"],
             catch_exceptions=False,
         )
     assert result.exit_code == 0

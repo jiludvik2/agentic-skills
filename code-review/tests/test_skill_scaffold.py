@@ -55,9 +55,9 @@ def test_skill_md_has_required_sections() -> None:
         assert re.search(rf"^#+\s*{re.escape(header)}", text, re.MULTILINE), (
             f"missing section: {header}"
         )
-    # Taxonomy section lists all three domains
+    # Taxonomy section lists the review domains (contracts removed — ADR-0021)
     taxonomy_section = _section_body(text, "Review taxonomy")
-    for domain in ("security", "maintainability", "contracts"):
+    for domain in ("security", "maintainability"):
         assert domain in taxonomy_section, f"Review taxonomy section does not mention '{domain}'"
 
 

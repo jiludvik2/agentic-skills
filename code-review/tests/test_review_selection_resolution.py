@@ -79,14 +79,6 @@ def test_subcategory_coupling_selects_both_tools_even_at_quick_depth(
     assert set(result.analyzers) == {"pydeps", "depcruiser"}
 
 
-def test_subcategory_conformance_full_story_level(taxonomy: list[dict[str, Any]]) -> None:
-    result = resolve_review_selection(
-        taxonomy, review=["conformance"], depth="full", scope="story-level"
-    )
-    assert result.analyzers == ["schemathesis"]
-    assert result.error is None
-
-
 # ---------------------------------------------------------------------------
 # Rule 4: --depth alone (standalone depth across all domains)
 # ---------------------------------------------------------------------------
@@ -107,14 +99,6 @@ def test_standalone_depth_full_at_per_task_excludes_story_level(
         "pydeps", "depcruiser", "cohesion",
     }
     assert set(result.analyzers) == expected
-    assert "schemathesis" not in result.analyzers
-
-
-def test_standalone_depth_full_at_story_level_includes_schemathesis(
-    taxonomy: list[dict[str, Any]],
-) -> None:
-    result = resolve_review_selection(taxonomy, review=[], depth="full", scope="story-level")
-    assert "schemathesis" in result.analyzers
 
 
 # ---------------------------------------------------------------------------
@@ -191,34 +175,26 @@ def test_js_diff_excludes_python_only_analyzers(taxonomy: list[dict[str, Any]]) 
 
 
 # ---------------------------------------------------------------------------
-# Story-level gate (scope filter)
+# Contracts removed (ADR-0021): the domain and its `conformance` subcategory no
+# longer exist, so both resolve as unknown values.
 # ---------------------------------------------------------------------------
 
-def test_conformance_per_task_errors_with_scope_message(taxonomy: list[dict[str, Any]]) -> None:
-    result = resolve_review_selection(
-        taxonomy, review=["conformance"], depth="full", scope="per-task"
-    )
-    assert result.analyzers == []
-    assert result.error is not None
-    assert "story-level" in result.error
-
-
-def test_contracts_domain_quick_errors_no_quick_tier(taxonomy: list[dict[str, Any]]) -> None:
-    result = resolve_review_selection(
-        taxonomy, review=["contracts"], depth="quick", scope="per-task"
-    )
-    assert result.analyzers == []
-    assert result.error is not None
-    assert "contracts" in result.error
-    assert "quick" in result.error
-
-
-def test_contracts_domain_full_story_level_succeeds(taxonomy: list[dict[str, Any]]) -> None:
+def test_contracts_domain_now_unknown(taxonomy: list[dict[str, Any]]) -> None:
     result = resolve_review_selection(
         taxonomy, review=["contracts"], depth="full", scope="story-level"
     )
-    assert result.analyzers == ["schemathesis"]
-    assert result.error is None
+    assert result.analyzers == []
+    assert result.error is not None
+    assert "Unknown" in result.error and "contracts" in result.error
+
+
+def test_conformance_subcategory_now_unknown(taxonomy: list[dict[str, Any]]) -> None:
+    result = resolve_review_selection(
+        taxonomy, review=["conformance"], depth="full", scope="story-level"
+    )
+    assert result.analyzers == []
+    assert result.error is not None
+    assert "Unknown" in result.error and "conformance" in result.error
 
 
 # ---------------------------------------------------------------------------

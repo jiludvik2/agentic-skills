@@ -31,7 +31,7 @@ def test_capabilities_has_required_sections() -> None:
 def test_review_kinds_minimum_set() -> None:
     caps = _load_caps()
     ids = {rk["id"] for rk in caps["review_kinds"]}
-    assert {"per-task", "story-level", "contract-verification"} <= ids
+    assert {"per-task", "story-level"} <= ids
     for rk in caps["review_kinds"]:
         assert rk["scope"] in ("diff", "cumulative-diff", "story-level-only")
         assert "min" in rk["expected_duration_s"] and "max" in rk["expected_duration_s"]
@@ -56,19 +56,18 @@ def test_taxonomies_include_sdlc_severity() -> None:
     assert set(values) == {"critical", "important", "minor", "nit"}
 
 
-def test_schemathesis_capabilities_entry() -> None:
+def test_no_contract_analyzer_remains() -> None:
+    """ADR-0021: Schemathesis and the contracts domain were removed from code-review."""
     caps = _load_caps()
-    entries = [a for a in caps["analyzers"] if a["id"] == "schemathesis"]
-    assert entries, "schemathesis not found in capabilities.analyzers"
-    entry = entries[0]
-    assert entry["default_timeout_s"] == 600
-    assert entry.get("scope_restriction") == "story-level", "schemathesis is story-level-only"
-    assert "review_scope" not in entry, "review_scope removed; use domain/subcategory/tier instead"
+    ids = {a["id"] for a in caps["analyzers"]}
+    assert "schemathesis" not in ids
+    assert all(a["domain"] != "contracts" for a in caps["analyzers"])
+    assert all(rk["id"] != "contract-verification" for rk in caps["review_kinds"])
 
 
 def test_all_analyzers_have_taxonomy_tags() -> None:
     caps = _load_caps()
-    valid_domains = {"security", "maintainability", "contracts"}
+    valid_domains = {"security", "maintainability"}
     valid_tiers = {"quick", "full"}
     for a in caps["analyzers"]:
         aid = a["id"]
@@ -99,7 +98,6 @@ def test_taxonomy_matches_locked_table() -> None:
         ("pydeps", "maintainability", "coupling", "full"),
         ("depcruiser", "maintainability", "coupling", "full"),
         ("cohesion", "maintainability", "cohesion", "full"),
-        ("schemathesis", "contracts", "conformance", "full"),
     ]
     for aid, domain, subcategory, tier in expected:
         assert aid in entries, f"{aid} missing from capabilities.json"

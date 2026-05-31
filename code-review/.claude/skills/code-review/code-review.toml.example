@@ -53,16 +53,3 @@
 # severity_weighted_findings = 1.0
 # cyclomatic_complexity = 0.5
 # coupling = 0.3
-
-## ----------------------------------------------------------------------
-## Contract testing
-## ----------------------------------------------------------------------
-## `[contract_testing.targets.<service>]`: per-service configuration for
-## the Schemathesis contract-testing adapter. `schemathesis_target` is the
-## OpenAPI/JSON-Schema endpoint; `auth.token_env` names an env var holding
-## the bearer token (the value itself never appears in this file).
-
-# [contract_testing.targets.my-api]
-# schemathesis_target = "http://localhost:8000/openapi.json"
-# [contract_testing.targets.my-api.auth]
-# token_env = "MY_API_TOKEN"

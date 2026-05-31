@@ -11,6 +11,8 @@ updated: 2026-05-28
 
 # ADR-0011 — Hierarchical review selection (domain → subcategory) with orthogonal quick/full depth
 
+> **Amended by [ADR-0021](../../work/active/adr-0021-remove-schemathesis-from-scope.md) (2026-05-31).** The `contracts` review domain and its `conformance` subcategory were removed when Schemathesis was dropped from code-review. Every reference below to **`contracts`**, **`conformance`**, the **`schemathesis`** analyzer, the **`contract-verification`** review-kind, and the **story-level-only** gating that existed solely for it is **historical** — the selection model itself (domain → subcategory, orthogonal quick/full depth, `--scope` timing) is unchanged and still live for the remaining `security` / `maintainability` domains. The `review_scope`-property removal (below) did land.
+
 ## Context
 
 The CLI carried an orphaned `--review-scope {lite,standard,full}` flag — parsed but never wired to analyzer selection (the analyzer set came only from `--analyzer` / `--language`). The unified-reviewer epic, before the split (ADR-0010), had assumed coarse `lite/standard/full` bundles per ADR-0004; the operator rejected those bundle names as opaque and required:

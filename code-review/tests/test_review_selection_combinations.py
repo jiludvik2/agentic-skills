@@ -19,7 +19,7 @@ from tests.conftest import FakeAnalyzer
 ALL_ANALYZER_NAMES = [
     "semgrep", "bandit", "gitleaks", "trivy",
     "radon", "vulture", "knip", "jscpd", "eslint",
-    "pydeps", "depcruiser", "cohesion", "schemathesis",
+    "pydeps", "depcruiser", "cohesion",
 ]
 
 

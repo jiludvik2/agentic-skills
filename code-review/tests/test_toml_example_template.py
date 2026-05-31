@@ -36,7 +36,6 @@ def test_example_uncomments_to_valid_toml() -> None:
     assert "severity" in data and data["severity"]
     assert "hotspots" in data and "weights" in data["hotspots"]
     assert "disabled_analyzers" in data and data["disabled_analyzers"] == ["trivy"]
-    assert "contract_testing" in data and "targets" in data["contract_testing"]
 
 
 def test_uncommented_example_load_config_roundtrip(tmp_path: Path) -> None:
@@ -48,7 +47,6 @@ def test_uncommented_example_load_config_roundtrip(tmp_path: Path) -> None:
     assert cfg.severity_overrides["semgrep:python.lang.security.audit.weak-crypto"] == "important"
     assert cfg.hotspot_weights["severity_weighted_findings"] == 1.0
     assert cfg.disabled_analyzers == ["trivy"]
-    assert "my-api" in cfg.contract_testing
 
 
 def test_shipped_example_parses_as_is() -> None:

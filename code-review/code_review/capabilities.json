@@ -11,12 +11,6 @@
       "description": "Review the cumulative diff of a closed story for cross-cutting drift and consistency.",
       "scope": "cumulative-diff",
       "expected_duration_s": {"min": 10, "max": 180}
-    },
-    {
-      "id": "contract-verification",
-      "description": "Exercise API contracts with property-based and consumer-driven tests (Schemathesis/Pact).",
-      "scope": "story-level-only",
-      "expected_duration_s": {"min": 30, "max": 300}
     }
   ],
   "stack_coverage": {
@@ -193,18 +187,6 @@
       "taxonomies_tagged": [],
       "default_timeout_s": 60,
       "scope_restriction": null
-    },
-    {
-      "id": "schemathesis",
-      "kind": "contract",
-      "domain": "contracts",
-      "subcategory": "conformance",
-      "tier": "full",
-      "languages": [],
-      "rule_classes": ["contract"],
-      "taxonomies_tagged": [],
-      "default_timeout_s": 600,
-      "scope_restriction": "story-level"
     }
   ],
   "hotspots": {
