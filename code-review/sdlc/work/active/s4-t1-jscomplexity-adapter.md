@@ -46,14 +46,15 @@ architecture-validation: measure how additive it really is.
 3. **`code_review/lang_select.py`** — add `"jscomplexity"` to `_JS_ADAPTERS`.
 4. **`code_review/capabilities.json`** — new entry: `id="jscomplexity"`,
    `kind="deterministic"`, `domain="maintainability"`, `subcategory="complexity"`,
-   `tier="quick"`, `languages=["javascript","typescript"]`, `rule_classes=["complexity"]`,
-   `taxonomies_tagged=[]`, `default_timeout_s=90`, `scope_restriction=null`. Validate
-   against `code_review/schemas/capabilities.json`.
+   `tier="quick"`, `languages=["javascript"]` (JS-only per ADR-0022 s4-t1 amendment),
+   `rule_classes=["complexity"]`, `taxonomies_tagged=[]`, `default_timeout_s=90`,
+   `scope_restriction=null`. Validate against `code_review/schemas/capabilities.json`.
 5. **`tests/test_capabilities.py`** — add `jscomplexity` to the **locked-taxonomy table**
    in `test_taxonomy_matches_locked_table` (else it fails).
-6. **Fixtures** — `tests/fixtures/js-complexity/` with a `.js` and a `.ts` file each
-   containing a function whose cyclomatic complexity is unmistakably > 1 (a chain of
-   `if`/`else`/`&&` branches) so the reported number is non-trivial and stable.
+6. **Fixture** — `tests/fixtures/js-complexity/branchy.js` containing a function whose
+   cyclomatic complexity is unmistakably > 1 (a chain of `if`/`else`/`&&`/ternary branches)
+   so the reported number is non-trivial and stable. JS-only (TS is out of scope per the
+   ADR-0022 amendment; eslint cannot parse `.ts` without the unvendored parser).
 
 If the operator chose `eslintcc`/`ts-complex` instead: also add the `package.json` +
 `package-lock.json` pin and a `stack-pins.md` Node/JS-toolchain row (ADR-0017), reconciled
@@ -67,8 +68,10 @@ in the same commit (SDLC rule #1b); the adapter then invokes that tool's CLI ins
      weight like radon's E/F ranks.
    - **Capabilities table** (the `maintainability | complexity | quick | py | any` row): show
      JS/TS coverage (broaden the row or add a sibling — match the table's convention).
-   - **JS cohesion limitation:** a short line stating JS/TS cohesion (LCOM) is not provided
-     (no thin tool fits), cross-referencing ADR-0022.
+   - **Limitations:** short lines stating (a) JS/TS cohesion (LCOM) is not provided (no thin
+     tool fits) and (b) `jscomplexity` is JavaScript-only — TS complexity is not provided
+     (eslint needs the unvendored `@typescript-eslint/parser`) — both cross-referencing
+     ADR-0022.
 
 ## Acceptance criteria
 
@@ -80,12 +83,13 @@ in the same commit (SDLC rule #1b); the adapter then invokes that tool's CLI ins
   config-lookup suppression flag, `--format @microsoft/eslint-formatter-sarif`, NODE_PATH in
   env, `ok_exit_codes=(0, 1)`, cwd anchored at the common ancestor.
 - Integration test (`@pytest.mark.integration`, skip if node/eslint absent): provisioned
-  `node_modules` + the `js-complexity` fixture (both `.js` and `.ts`) → `status=="ok"` and
-  the captured output contains a per-function complexity finding for each language (assert a
-  finding whose location uri ends in `.js` and one ending in `.ts`, mirroring the s3 JS/TS
-  assertion).
-- `select_adapters(frozenset({"javascript"}))` and `{"typescript"}` include `jscomplexity`;
-  `select_adapters(frozenset({"python"}))` does not.
+  `node_modules` + the `js-complexity` `.js` fixture → `status=="ok"` and the captured SARIF
+  contains a `complexity`-rule finding naming the fixture function and its computed value
+  (assert the `complexity` ruleId and a `.js` location uri).
+- `select_adapters(frozenset({"javascript"}))` includes `jscomplexity`;
+  `select_adapters(frozenset({"python"}))` does not. (It is in `_JS_ADAPTERS` so a `{"typescript"}`
+  selection also lists it; the capabilities `languages=[javascript]` filter is what scopes it
+  to JS at selection time — no separate assertion needed beyond the python-exclusion.)
 - All `test_capabilities.py` consistency tests pass (schema, REGISTRY membership, locked
   taxonomy, taxonomy tags).
 - No change to `radon.py` or any existing JS adapter.
@@ -108,10 +112,13 @@ in the same commit (SDLC rule #1b); the adapter then invokes that tool's CLI ins
    `capabilities.json` + the locked table both list `jscomplexity`.
 3. **lang_select test** — assert `jscomplexity` selected for js/ts, not for python-only;
    RED until `_JS_ADAPTERS` updated.
-4. **Integration test** — as in the AC; validate the eslint complexity-config invocation
-   against the real vendored binary BEFORE finalising the argv assertions (the flat-config
-   shape and the config-lookup-suppression flag are the empirical unknowns — verify, like
-   s3-t0 validated the semgrep pattern, before pinning).
+4. **Integration test** — as in the AC. The eslint complexity-config invocation is already
+   validated against the real vendored binary (s4-t1 pre-work): `node <eslint>
+   --no-config-lookup --config <cfg.cjs> --format @microsoft/eslint-formatter-sarif <targets>`
+   with `module.exports = [{ rules: { complexity: ["warn", 0] } }]` emits SARIF with one
+   `complexity` result per function (e.g. "Function 'branchy' has a complexity of 7"),
+   exit 0, NODE_PATH pointing at the vendored node_modules. `.ts` targets are silently
+   ignored by eslint ("File ignored…", exit 0) — consistent with the JS-only scope.
 5. **Doc guard** — `test_every_analyzer_documented` goes RED when `jscomplexity` enters
    `REGISTRY`; confirm it, then add the SKILL.md row to make it GREEN (this is why docs are
    in-task).

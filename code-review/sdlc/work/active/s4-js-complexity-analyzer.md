@@ -65,21 +65,26 @@ unchanged. The story spec below is written against the recommended option (1).
 
 1. **ADR-0022** recording the tool choice, the `cc`-parity scope, and the **JS cohesion
    limitation** (see below). (s4-t0)
-2. **New analyzer** (recommended: `jscomplexity`) — a thin-runner adapter that invokes the
-   vendored ESLint with an adapter-supplied complexity-only flat config and the vendored
-   SARIF formatter, capturing raw output (ADR-0020). Wired into `REGISTRY`, `_JS_ADAPTERS`,
-   and `capabilities.json` (`domain=maintainability`, `subcategory=complexity`, `tier=quick`,
-   `languages=[javascript, typescript]`). Tests: invocation-contract + integration.
+2. **New analyzer** `jscomplexity` — a thin-runner adapter that invokes the vendored ESLint
+   with an adapter-supplied complexity-only flat config and the vendored SARIF formatter,
+   capturing raw output (ADR-0020). Wired into `REGISTRY`, `_JS_ADAPTERS`, and
+   `capabilities.json` (`domain=maintainability`, `subcategory=complexity`, `tier=quick`,
+   **`languages=[javascript]`** — JavaScript-only per the ADR-0022 s4-t1 amendment; see the TS
+   limitation below). Tests: invocation-contract + integration.
    **SKILL.md docs land in the same task** (reading-guide row + capabilities row + cohesion
    limitation) — the `test_every_analyzer_documented` guard ties REGISTRY membership to the
    SKILL.md table, so code and docs must commit together to keep the suite green. (s4-t1)
 
-## JS cohesion — documented limitation, not built (G8 second half)
+## Documented limitations, not built
 
-Python has `cohesion` (LCOM4). There is **no maintained, thin, JSON-emitting JS/TS cohesion
-tool** that fits the vendored-npm + raw-capture model. Per G8, JS cohesion is **declared a
-known limitation** (documented in ADR-0022 and SKILL.md), not implemented. This is a
-deliberate scope boundary, not an omission.
+- **JS cohesion (LCOM4)** — no maintained, thin, JSON-emitting JS/TS cohesion tool fits the
+  vendored-npm + raw-capture model. Declared a known limitation (ADR-0022 + SKILL.md), not
+  implemented.
+- **TypeScript complexity** — `jscomplexity` is **JavaScript-only**. ESLint cannot parse
+  `.ts` without `@typescript-eslint/parser` (not vendored), and adding it would forfeit the
+  zero-new-dependency rationale (ADR-0022 s4-t1 amendment, operator decision 2026-05-31). TS
+  complexity is a documented limitation; adding it later is a clean follow-up (vendor
+  `typescript-eslint`, widen `capabilities` — no adapter rewrite).
 
 ## Out of scope
 
@@ -93,22 +98,24 @@ deliberate scope boundary, not an omission.
 
 - ADR-0022 exists recording: the chosen tool + rationale, the `cc`-parity scope, and the JS
   cohesion limitation. Cross-referenced from the epic and SKILL.md.
-- A new analyzer is registered in `REGISTRY`, `_JS_ADAPTERS`, and `capabilities.json` with
-  `domain=maintainability`, `subcategory=complexity`, `tier=quick`,
-  `languages=[javascript, typescript]`, `rule_classes=[complexity]`.
+- A new analyzer `jscomplexity` is registered in `REGISTRY`, `_JS_ADAPTERS`, and
+  `capabilities.json` with `domain=maintainability`, `subcategory=complexity`, `tier=quick`,
+  **`languages=[javascript]`**, `rule_classes=[complexity]`.
 - The adapter follows the thin-runner contract: invoke + raw capture, ADR-0019
   `unavailable`-vs-`error` mapping (missing node/binary → unavailable; no JS files →
   unavailable; no targets → unavailable), no output parsing.
-- Integration test: provisioned `node_modules` + a JS **and** TS fixture → `status=="ok"`
-  and per-function complexity present in the captured output for both languages.
+- Integration test: provisioned `node_modules` + a JS fixture → `status=="ok"` and
+  per-function cyclomatic complexity present in the captured output.
 - `test_capabilities.py` locked-taxonomy table updated to include the new analyzer; all
   capability/registry consistency tests pass.
-- `select_adapters({"javascript"})` and `{"typescript"}` include the new analyzer; a
-  pure-Python selection does not.
-- SKILL.md per-tool reading-guide row + capabilities table row added; JS cohesion limitation
-  documented.
-- If a new npm tool was chosen: `package.json` + `package-lock.json` pinned and
-  `stack-pins.md` Node/JS table row added (ADR-0017), reconciled in the same commit.
+- `select_adapters({"javascript"})` includes `jscomplexity`; a pure-Python selection does
+  not. (It is in `_JS_ADAPTERS`, so a TS-bearing selection lists it too, but the
+  capabilities `languages=[javascript]` filter excludes it from a TS-only diff; on a mixed
+  or pure-TS target the adapter no-ops cleanly — eslint ignores `.ts`, status `ok`, no
+  results.)
+- SKILL.md per-tool reading-guide row + capabilities table row added; JS cohesion **and** TS
+  complexity limitations documented.
+- No new dependency (zero-dependency reuse of vendored ESLint per ADR-0022).
 - `uv run pytest` (+ integration), `uv run ruff check .`, `uv run mypy code_review` clean.
 
 ## Task sequence

@@ -2,7 +2,13 @@
 
 **Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). **s0–s3 DONE.** s0–s2 pushed to origin/main at 92c8b40; **s3 is local-only (4 commits ahead, unpushed).**
 **Last completed:** **Story s3** (`s3-js-semgrep-rules`, G6) — vendored `security-js.yaml` (js-eval CWE-95 ERROR, js-innerhtml-xss CWE-79 WARNING) for `[javascript, typescript]`; `vuln.js` + `vuln.ts` fixture; integration test asserting both rules fire on both languages; SKILL.md + ADR-0016 updated. Zero `code_review/` change — architecture-validation criterion ("near-trivial") proven. 385 tests green.
-**Next:** **Operator approval of the s4 plan** (compiled, not yet committed) — then execute s4-t0 (ADR-0022 tool selection) → s4-t1 (adapter + wiring + docs + tests). s3 is pushed (origin/main @ 3be3eeb).
+**Next:** **HALTED at s4-t1 — gate escalation (operator decision needed).** s4-t0 done (ADR-0022 @ 07d38aa, local). s3 pushed (origin/main @ 3be3eeb). s4 commits 20a9a2d (plan) + 07d38aa (ADR) are local/unpushed.
+
+## ⚠️ s4-t1 BLOCKED — TS parity vs zero-dependency conflict
+Validated against the real vendored toolchain: ESLint cannot parse `.ts` (type annotations) without `@typescript-eslint/parser`, which is **not** vendored (we have `typescript@5.9.3` but not the eslint parser bridge). So ADR-0022's "reuse vendored ESLint → JS+TS at zero new dependency" holds for **JS only, not TS**. Decision needed:
+- **(Rec) JS-only now** — capabilities `languages=[javascript]`; TS complexity a documented limitation (like jscpd JS-scoping). Preserves zero-dependency; amend ADR-0022 + story AC.
+- **Add `typescript-eslint` parser dep** — full JS+TS parity; costs the zero-dependency property; ADR-0017 pin + stack-pins row + ADR-0022 amendment.
+- **Switch tool** (ts-complex/eslintcc) — also a dep; abandons the eslint-reuse elegance.
 
 ## Story s4 plan summary (awaiting approval)
 Story `s4-js-complexity-analyzer` — G8: JS/TS complexity analyzer, radon-`cc` parity. Two tasks:
