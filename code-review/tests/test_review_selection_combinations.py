@@ -18,7 +18,7 @@ from tests.conftest import FakeAnalyzer
 
 ALL_ANALYZER_NAMES = [
     "semgrep", "bandit", "gitleaks", "trivy",
-    "radon", "vulture", "knip", "jscpd", "eslint",
+    "radon", "jscomplexity", "vulture", "knip", "jscpd", "eslint",
     "pydeps", "depcruiser", "cohesion",
 ]
 
@@ -49,7 +49,8 @@ def test_multiple_domains_unioned_no_warning(monkeypatch: pytest.MonkeyPatch) ->
          "--depth", "quick", "--target", "."],
     )
     assert result.exit_code == 0, result.output
-    expected = {"semgrep", "bandit", "gitleaks", "radon", "vulture", "knip", "jscpd", "eslint"}
+    expected = {"semgrep", "bandit", "gitleaks", "radon", "jscomplexity",
+                "vulture", "knip", "jscpd", "eslint"}
     assert _ran(result.stdout) == expected
     assert not result.stderr
 

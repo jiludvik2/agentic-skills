@@ -5,6 +5,7 @@ from code_review.adapters.cohesion_ import CohesionAdapter
 from code_review.adapters.depcruiser import DependencyCruiserAdapter
 from code_review.adapters.eslint import EslintAdapter
 from code_review.adapters.gitleaks import GitleaksAdapter
+from code_review.adapters.jscomplexity import JsComplexityAdapter
 from code_review.adapters.jscpd import JscpdAdapter
 from code_review.adapters.knip import KnipAdapter
 from code_review.adapters.pydeps import PydepsAdapter
@@ -23,6 +24,7 @@ REGISTRY: dict[str, type[Any]] = {
     "depcruiser": DependencyCruiserAdapter,
     "eslint": EslintAdapter,
     "gitleaks": GitleaksAdapter,
+    "jscomplexity": JsComplexityAdapter,
     "jscpd": JscpdAdapter,
     "knip": KnipAdapter,
     "pydeps": PydepsAdapter,

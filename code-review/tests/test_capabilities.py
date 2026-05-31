@@ -91,6 +91,7 @@ def test_taxonomy_matches_locked_table() -> None:
         ("gitleaks", "security", "secrets", "quick"),
         ("trivy", "security", "dependencies", "full"),
         ("radon", "maintainability", "complexity", "quick"),
+        ("jscomplexity", "maintainability", "complexity", "quick"),
         ("vulture", "maintainability", "dead-code", "quick"),
         ("knip", "maintainability", "dead-code", "quick"),
         ("jscpd", "maintainability", "duplication", "quick"),

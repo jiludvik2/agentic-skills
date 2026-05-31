@@ -96,6 +96,18 @@
       "scope_restriction": null
     },
     {
+      "id": "jscomplexity",
+      "kind": "deterministic",
+      "domain": "maintainability",
+      "subcategory": "complexity",
+      "tier": "quick",
+      "languages": ["javascript"],
+      "rule_classes": ["complexity"],
+      "taxonomies_tagged": [],
+      "default_timeout_s": 90,
+      "scope_restriction": null
+    },
+    {
       "id": "vulture",
       "kind": "deterministic",
       "domain": "maintainability",

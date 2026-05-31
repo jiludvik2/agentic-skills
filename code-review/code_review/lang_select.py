@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 _PYTHON_ADAPTERS = frozenset({"bandit", "vulture", "pydeps", "cohesion", "radon", "semgrep"})
-_JS_ADAPTERS = frozenset({"eslint", "jscpd", "knip", "depcruiser"})
+_JS_ADAPTERS = frozenset({"eslint", "jscpd", "knip", "depcruiser", "jscomplexity"})
 _COMMON_ADAPTERS = frozenset({"gitleaks", "trivy"})
 
 

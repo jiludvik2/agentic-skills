@@ -31,6 +31,13 @@ def test_mixed_selects_all_relevant() -> None:
     assert "gitleaks" in result  # language-agnostic
 
 
+def test_javascript_selects_jscomplexity() -> None:
+    from code_review.lang_select import select_adapters
+
+    assert "jscomplexity" in select_adapters(frozenset({"javascript"}))
+    assert "jscomplexity" not in select_adapters(frozenset({"python"}))
+
+
 def test_unknown_language_returns_common_only() -> None:
     from code_review.lang_select import select_adapters
 

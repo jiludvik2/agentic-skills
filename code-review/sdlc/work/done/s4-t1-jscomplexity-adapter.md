@@ -2,12 +2,12 @@
 id: s4-t1-jscomplexity-adapter
 kind: task
 project: code-review
-status: active
+status: done
 parent: s4-js-complexity-analyzer
 sources: [s4-t0-adr-js-complexity-tool.md, adr-0020-thin-invocation-runner.md, adr-0011-review-selection-model.md]
 created: 2026-05-31
 updated: 2026-05-31
-tags: [adapter, complexity, javascript, typescript, capabilities, test-first]
+tags: [adapter, complexity, javascript, capabilities, test-first]
 ---
 
 # Task s4-t1 — JS complexity adapter + wiring + tests

@@ -47,14 +47,15 @@ def test_maintainability_quick_selects_correct_analyzers(taxonomy: list[dict[str
     result = resolve_review_selection(
         taxonomy, review=["maintainability"], depth="quick", scope="per-task"
     )
-    assert set(result.analyzers) == {"radon", "vulture", "knip", "jscpd", "eslint"}
+    assert set(result.analyzers) == {"radon", "jscomplexity", "vulture", "knip", "jscpd", "eslint"}
 
 
 def test_maintainability_full_adds_coupling_and_cohesion(taxonomy: list[dict[str, Any]]) -> None:
     result = resolve_review_selection(
         taxonomy, review=["maintainability"], depth="full", scope="per-task"
     )
-    expected = {"radon", "vulture", "knip", "jscpd", "eslint", "pydeps", "depcruiser", "cohesion"}
+    expected = {"radon", "jscomplexity", "vulture", "knip", "jscpd", "eslint",
+                "pydeps", "depcruiser", "cohesion"}
     assert set(result.analyzers) == expected
 
 
@@ -85,7 +86,8 @@ def test_subcategory_coupling_selects_both_tools_even_at_quick_depth(
 
 def test_standalone_depth_quick_selects_all_quick_analyzers(taxonomy: list[dict[str, Any]]) -> None:
     result = resolve_review_selection(taxonomy, review=[], depth="quick", scope="per-task")
-    expected = {"semgrep", "bandit", "gitleaks", "radon", "vulture", "knip", "jscpd", "eslint"}
+    expected = {"semgrep", "bandit", "gitleaks", "radon", "jscomplexity",
+                "vulture", "knip", "jscpd", "eslint"}
     assert set(result.analyzers) == expected
 
 
@@ -95,7 +97,7 @@ def test_standalone_depth_full_at_per_task_excludes_story_level(
     result = resolve_review_selection(taxonomy, review=[], depth="full", scope="per-task")
     expected = {
         "semgrep", "bandit", "gitleaks", "trivy",
-        "radon", "vulture", "knip", "jscpd", "eslint",
+        "radon", "jscomplexity", "vulture", "knip", "jscpd", "eslint",
         "pydeps", "depcruiser", "cohesion",
     }
     assert set(result.analyzers) == expected
@@ -119,7 +121,7 @@ def test_union_complexity_and_coupling(taxonomy: list[dict[str, Any]]) -> None:
     result = resolve_review_selection(
         taxonomy, review=["complexity", "coupling"], depth="quick", scope="per-task"
     )
-    assert set(result.analyzers) == {"radon", "pydeps", "depcruiser"}
+    assert set(result.analyzers) == {"radon", "jscomplexity", "pydeps", "depcruiser"}
     assert not result.warnings
 
 
@@ -127,7 +129,8 @@ def test_union_security_and_maintainability_quick(taxonomy: list[dict[str, Any]]
     result = resolve_review_selection(
         taxonomy, review=["security", "maintainability"], depth="quick", scope="per-task"
     )
-    expected = {"semgrep", "bandit", "gitleaks", "radon", "vulture", "knip", "jscpd", "eslint"}
+    expected = {"semgrep", "bandit", "gitleaks", "radon", "jscomplexity",
+                "vulture", "knip", "jscpd", "eslint"}
     assert set(result.analyzers) == expected
     assert not result.warnings
 

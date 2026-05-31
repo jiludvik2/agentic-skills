@@ -7,7 +7,7 @@ parent: s4-t0-adr-js-complexity-tool
 sources: [s4-js-complexity-analyzer.md, epic-analyzer-thin-runner.md, g8-js-complexity-cohesion-absent.md, adr-0011-review-selection-model.md, adr-0017-node-range-and-js-toolchain-pins.md, adr-0019-analyzer-unavailable-vs-error.md, adr-0020-thin-invocation-runner.md]
 created: 2026-05-31
 updated: 2026-05-31
-tags: [complexity, javascript, typescript, eslint, cohesion, maintainability]
+tags: [complexity, javascript, eslint, cohesion, maintainability]
 ---
 
 # ADR-0022: JS/TS complexity analyzer — tool selection
@@ -94,9 +94,10 @@ Candidate tools considered:
 
 3. **Selection-scheme placement (no scheme change).** `jscomplexity` slots into the existing
    ADR-0011 scheme under `domain=maintainability`, `subcategory=complexity`, `tier=quick`,
-   `languages=[javascript, typescript]`, `rule_classes=[complexity]` — mirroring how `knip`
-   (JS dead-code) mirrors `vulture` (Python dead-code). `--review complexity` and `--review
-   maintainability` then cover both language families, with diff-language filtering selecting
+   `languages=[javascript]` (per the s4-t1 amendment above), `rule_classes=[complexity]` —
+   mirroring how `knip` (JS dead-code) mirrors `vulture` (Python dead-code). `--review
+   complexity` and `--review maintainability` then cover both language families (Python via
+   radon, JS via jscomplexity), with diff-language filtering selecting
    the right one.
 
 4. **No new pin.** Because the analyzer reuses vendored ESLint, `package.json` /

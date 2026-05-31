@@ -18,7 +18,7 @@ from tests.conftest import FakeAnalyzer
 
 ALL_ANALYZER_NAMES = [
     "semgrep", "bandit", "gitleaks", "trivy",
-    "radon", "vulture", "knip", "jscpd", "eslint",
+    "radon", "jscomplexity", "vulture", "knip", "jscpd", "eslint",
     "pydeps", "depcruiser", "cohesion",
 ]
 
@@ -170,7 +170,8 @@ def test_default_no_flags_runs_quick_set(monkeypatch: pytest.MonkeyPatch) -> Non
     result = runner.invoke(app, ["run", "--target", "."])
     assert result.exit_code == 0, result.output
     assert _ran(result.stdout) == {
-        "semgrep", "bandit", "gitleaks", "radon", "vulture", "knip", "jscpd", "eslint"
+        "semgrep", "bandit", "gitleaks", "radon", "jscomplexity",
+        "vulture", "knip", "jscpd", "eslint"
     }
 
 
