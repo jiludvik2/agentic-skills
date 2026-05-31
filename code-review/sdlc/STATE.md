@@ -1,6 +1,6 @@
 # State — last updated 2026-05-31
 
-**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). s0–s4 DONE and pushed to origin/main @ 0051d34. **s5 PLANNED (committed @ 89602f3, local), awaiting operator approval to execute.** Working tree clean.
+**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). s0–s4 DONE and pushed to origin/main @ 0051d34. **s5 PLANNED (committed @ 127d4d8, local), awaiting operator approval to execute.** Working tree clean.
 **Last completed:** **Story s4** (`s4-js-complexity-analyzer`, G8) — shipped `jscomplexity` (vendored-ESLint complexity rule, radon-cc parity, JS-only). 393 tests green.
 **Next:** **Execute s5-t0** once the plan is approved. s5 is the **last story of the epic**; closing it hits the epic boundary.
 
