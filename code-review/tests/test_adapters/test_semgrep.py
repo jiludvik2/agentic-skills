@@ -19,6 +19,7 @@ from code_review.capture import CaptureOutput
 from code_review.contracts import Analyzer, ReviewRequest
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "python-with-known-issues"
+JS_FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "js-with-security-issues"
 RULES_PATH = Path(__file__).parent.parent / "fixtures" / "semgrep-rules"
 
 
@@ -30,6 +31,19 @@ def _req(paths: tuple[str, ...], config: dict | None = None) -> ReviewRequest:
 def _present() -> object:
     """Patch ctx: semgrep binary present on PATH (so the which pre-flight passes)."""
     return patch("code_review.adapters.semgrep.shutil.which", return_value="/usr/bin/semgrep")
+
+
+def _provision_vendored_rules() -> None:
+    """Provision the vendored ruleset the way setup.sh does, into the cache root the
+    caller has already pointed POLYREVIEW_CACHE_DIR at. Asserts a clean exit."""
+    import importlib.util
+
+    prefetch_path = Path(__file__).parent.parent.parent / "scripts" / "prefetch_caches.py"
+    spec = importlib.util.spec_from_file_location("prefetch_caches", prefetch_path)
+    assert spec is not None and spec.loader is not None
+    prefetch = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(prefetch)
+    assert prefetch.main() == 0
 
 
 def test_semgrep_protocol_conformance() -> None:
@@ -164,18 +178,11 @@ async def test_semgrep_end_to_end_with_provisioned_cache(
     """With rules provisioned the way setup.sh does it (vendored ruleset copied into
     cache_root()/cache/semgrep/rules) and NO override, the raw capture carries the
     vendored rule's finding (resolves F3; analyzer-coverage discipline)."""
-    import importlib.util
-
     if shutil.which("semgrep") is None:
         pytest.skip("semgrep not on PATH")
 
     monkeypatch.setenv("POLYREVIEW_CACHE_DIR", str(tmp_path))
-    prefetch_path = Path(__file__).parent.parent.parent / "scripts" / "prefetch_caches.py"
-    spec = importlib.util.spec_from_file_location("prefetch_caches", prefetch_path)
-    assert spec is not None and spec.loader is not None
-    prefetch = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(prefetch)
-    assert prefetch.main() == 0
+    _provision_vendored_rules()
     assert (tmp_path / "cache" / "semgrep" / "rules").is_dir()
 
     out = await SemgrepAdapter().run(_req((str(FIXTURE_PATH),)))
@@ -186,3 +193,30 @@ async def test_semgrep_end_to_end_with_provisioned_cache(
     assert any("subprocess-shell-true" in rid for rid in rule_ids), (
         f"expected the vendored subprocess-shell-true rule to fire; got {rule_ids}"
     )
+
+
+@pytest.mark.integration
+async def test_semgrep_js_rules_fire_on_js_fixture(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Vendored JS rules fire on a planted JS fixture end-to-end (s3 / G6).
+
+    Architecture validation (ADR-0020): adding JS coverage required only a new
+    vendored rule file — the provisioning path globs ``*.y*ml`` so it is auto-copied,
+    and no adapter code changed.
+    """
+    if shutil.which("semgrep") is None:
+        pytest.skip("semgrep not on PATH")
+
+    monkeypatch.setenv("POLYREVIEW_CACHE_DIR", str(tmp_path))
+    _provision_vendored_rules()
+    assert (tmp_path / "cache" / "semgrep" / "rules" / "security-js.yaml").exists()
+
+    out = await SemgrepAdapter().run(_req((str(JS_FIXTURE_PATH),)))
+    assert out.status == "ok", f"expected ok, got {out.status}: {out.error}"
+    payload = json.loads(out.stdout)
+    rule_ids = [r.get("ruleId", "") for r in payload.get("runs", [{}])[0].get("results", [])]
+    assert any("js-eval" in rid for rid in rule_ids), f"js-eval not fired; got {rule_ids}"
+    assert any(
+        "js-innerhtml-xss" in rid for rid in rule_ids
+    ), f"js-innerhtml-xss not fired; got {rule_ids}"

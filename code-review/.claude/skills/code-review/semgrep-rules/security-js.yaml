@@ -1,0 +1,23 @@
+# Vendored JS/TS security ruleset for polyreview (ADR-0016, delivered s3 / G6).
+# Provenance: hand-authored security rules for the polyreview deterministic
+# layer; license: MIT (same as polyreview), no AGPL — satisfies the stack-pins.md
+# floor. Same provenance policy as security.yaml. setup.sh/prefetch_caches.py
+# copy this (and every *.y*ml in this dir) into cache_root()/cache/semgrep/rules.
+rules:
+  - id: js-eval
+    pattern: eval(...)
+    message: >
+      Use of eval() on potentially untrusted input (CWE-95).
+    languages: [javascript, typescript]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-95"
+
+  - id: js-innerhtml-xss
+    pattern: $X.innerHTML = $Y
+    message: >
+      Direct innerHTML assignment can introduce DOM-based XSS (CWE-79).
+    languages: [javascript, typescript]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-79"

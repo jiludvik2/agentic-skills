@@ -2,11 +2,19 @@
 id: s3-t0-js-rules-fixture-test
 kind: task
 project: code-review
-status: active
+status: done
 parent: s3-js-semgrep-rules
 sources: [adr-0016-semgrep-rule-provenance.md, epic-analyzer-thin-runner.md]
 created: 2026-05-31
 updated: 2026-05-31
+notes: |
+  Review MINOR-ONLY. Resolved: hoisted _provision_vendored_rules() helper to
+  remove the prefetch-loading duplication across the two e2e tests. Residual
+  Minor (accepted, no action): js-eval shares the pattern `eval(...)` with
+  security.yaml's dangerous-eval, differentiated only by `languages:` — correct
+  (semgrep scopes by language), divergent IDs are required. Nits dropped: a .ts
+  fixture would exercise the declared `typescript` language entry (deferred,
+  out of scope per story).
 tags: [semgrep, javascript, security, rules, fixture, integration-test]
 ---
 
