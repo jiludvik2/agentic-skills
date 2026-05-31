@@ -152,6 +152,59 @@ The skill supports three on-disk shapes. The `code_review` Python package resolv
 
 How a consumer (CI script, the `intent-review` sibling skill, a human at the terminal, or a custom reviewer.md) actually drives `code-review` is up to the consumer — invoke `polyreview` with the `--review` / `--depth` flags documented above.
 
+## Interpreting the bundle
+
+The CLI emits a single `review-bundle.v1.json` whose structure is:
+
+```json
+{
+  "schema": "polyreview/review-bundle/v1",
+  "request": { "scope": "...", "diff_range": "...", "target_paths": [...], "languages": [...] },
+  "outputs": [ { "tool": "...", "status": "...", "stdout": "...", "stderr": "...", ... } ]
+}
+```
+
+**Read `status` first (ADR-0019).** Each `outputs[]` entry carries one of four values:
+
+- `ok` — tool ran and produced output; read `stdout` for findings.
+- `error` — tool did not complete (bad exit code, spawn failure, etc.); read `error` and `stderr`. Do **not** treat silence here as all-clear.
+- `timeout` — tool was killed after its deadline; analysed nothing. Surface it; do **not** treat as all-clear.
+- `unavailable` — the tool is not installed or has no applicable files to scan. This is **not** a finding-free pass: it means the tool did not run, not that it found nothing.
+
+### Per-tool reading guide
+
+| Tool | Format | What to read | Severity cues |
+|---|---|---|---|
+| **bandit** | JSON | `results[]` array; each entry has `issue_severity` (`LOW`/`MEDIUM`/`HIGH`) and `issue_confidence` (`LOW`/`MEDIUM`/`HIGH`) | HIGH severity + HIGH confidence → likely Important/Critical; LOW + LOW → Minor/Nit |
+| **semgrep** | SARIF | `runs[].results[]`; each entry has `level` (`error`/`warning`/`note`) and `ruleId` | `error`-level rule for injection/auth/crypto → likely Critical/Important; `warning` → Important/Minor |
+| **trivy** | SARIF | `runs[].results[]`; each entry has `ruleId` (CVE) and `level`; `properties.severity` carries NVD score | CRITICAL/HIGH CVEs in direct deps → Important; MEDIUM/LOW or transitive → Minor |
+| **eslint** | SARIF | `runs[].results[]`; `level` maps from eslint severity (2=error, 1=warning) | `error`-level → Important; `warning` → Minor/Nit |
+| **vulture** | plain text | `path:line: unused <kind> '<name>' (NN% confidence)` | Weight by confidence %; < 60% is high FP risk (see note below) |
+| **gitleaks** | plain text | Native finding output; **exit 1 = leaks present** (adapter maps to `ok`/`error` per exit code) | Any confirmed leak → Critical; treat every finding seriously |
+| **cohesion** | plain text | Per-class cohesion score (0.0–1.0); low scores indicate split-responsibility classes | < 0.5 on a large class → Minor; very low (< 0.3) → Important |
+| **radon** | JSON | `cc` subcommand: per-function complexity ranks A–F; rank A/B = simple, E/F = very complex | E/F-rank public functions → Minor/Important depending on risk surface |
+| **pydeps** | JSON | Dependency map (`stdout` is JSON with module edges); look for unexpected cycles or fan-out | Circular deps → Important; deep fan-out → Minor |
+| **jscpd** | JSON | `duplicates[]` array; each entry has `firstFile`/`secondFile` paths and `lines` count | Large duplicates (50+ lines) → Minor; very large (200+ lines) → Important |
+| **knip** | JSON | `--reporter json`: `files[]` (unused files), `exports[]` (unused exports), `dependencies[]` | High false-positive risk for public API / cross-boundary exports — corroborate before reporting |
+| **depcruiser** | JSON | `violations[]` array; each entry has `rule.name` and `rule.severity` (`error`/`warn`/`info`) | `error`-severity violations (e.g. circular, forbidden) → Important; `warn` → Minor |
+
+### Severity judgment
+
+Map tool output to the SDLC taxonomy (critical/important/minor/nit) **by judgment** — there is no mechanical mapping. Two worked examples:
+
+- A semgrep `error`-level rule matching a SQL injection pattern in production code → likely **Critical** or **Important**.
+- A radon `C`-rank function in a low-risk utility module → **Minor**.
+
+### Cross-tool dedup
+
+When two tools flag the same location or issue (e.g. semgrep and bandit both catch a hardcoded secret), dedup **by judgment**: surface the finding once with the stronger evidence. No mechanical aggregation.
+
+### False-positive notes (G2/G7)
+
+**vulture** has a high false-positive rate for dynamically-referenced names: framework hooks, `__all__` exports, plugin entry points, and `__init__` parameters are often flagged as "unused" because vulture performs static analysis only. Weight findings by the reported confidence %; treat anything below ~60% as suspect rather than definitively dead. Always check whether the name is referenced dynamically before reporting it.
+
+**knip** is a whole-project tool that analyses the full JS/TS graph. It reports unused exports that may be public API or consumed across package boundaries it cannot see (e.g. monorepo siblings, dynamic imports, externally-consumed library entry points). Corroborate with cross-repo search or a human review before reporting a knip finding as confirmed dead code.
+
 ## Sandbox configuration
 
 The skill is designed to run entirely inside Claude Code's OS sandbox after `setup.sh` has prefetched everything. Recommended strict defaults for the host project's `.claude/settings.json`:
