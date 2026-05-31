@@ -9,7 +9,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 F="${HERE}/fixtures"
 rm -rf "${F}"
-mkdir -p "${F}/python/couplingpkg" "${F}/deps" "${F}/js/src" "${F}/api"
+mkdir -p "${F}/python/couplingpkg" "${F}/deps" "${F}/js/src"
 
 # ── Python: security (bandit + semgrep) ──────────────────────────────────────
 cat > "${F}/python/sec_vuln.py" <<'PY'
@@ -128,7 +128,10 @@ PY
 echo '"""Coupling fixture package for pydeps high-fan-out detection."""' \
     > "${F}/python/couplingpkg/__init__.py"
 for i in $(seq -w 0 11); do
-    echo "VALUE_${i} = ${i}" > "${F}/python/couplingpkg/mod${i}.py"
+    # $((10#${i})) strips the seq -w zero-padding: "03" → 3. A literal "VALUE_03 = 03"
+    # is a Python SyntaxError (leading zeros in decimal ints), which crashes the
+    # cohesion analyzer's AST parse over this package.
+    echo "VALUE_${i} = $((10#${i}))" > "${F}/python/couplingpkg/mod${i}.py"
 done
 {
     echo '"""Hub module importing 12 siblings -> fan-out 12 (>= threshold 10)."""'
@@ -296,31 +299,7 @@ cat > "${F}/js/__mocks__/service.ts" <<'TS'
 export const svc = (): number => 42;
 TS
 
-# ── API for contract testing (schemathesis) ──────────────────────────────────
-cat > "${F}/api/app.py" <<'PY'
-"""Minimal FastAPI app whose 200 response violates its advertised schema.
-
-The OpenAPI doc advertises the `User` model (id + user_name required), but the
-handler returns a raw JSONResponse missing `user_name`, bypassing FastAPI's
-response validation. Schemathesis' response_schema_conformance check should flag
-a JsonSchemaError -> ruleId schemathesis.response_schema_violation.
-"""
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-
-app = FastAPI()
-
-
-class User(BaseModel):
-    id: int
-    user_name: str
-
-
-@app.get("/users/{user_id}", response_model=User)
-def get_user(user_id: int) -> JSONResponse:
-    # BUG: omits the required `user_name` field.
-    return JSONResponse({"id": user_id})
-PY
+# (schemathesis / the FastAPI contract-testing fixture was removed: schemathesis is
+# no longer in the analyzer registry — ADR-0021.)
 
 echo "Fixtures scaffolded under ${F}"

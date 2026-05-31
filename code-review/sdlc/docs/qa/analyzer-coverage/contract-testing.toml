@@ -1,6 +1,0 @@
-# Config for the schemathesis contract-testing smoke run.
-# Points at the local FastAPI app started by run_smoke.py (fixtures/api/app.py).
-[contract_testing.targets.demo]
-spec_url = "http://127.0.0.1:8099/openapi.json"
-base_url = "http://127.0.0.1:8099"
-timeout_s = 60

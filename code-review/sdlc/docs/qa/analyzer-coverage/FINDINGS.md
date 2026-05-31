@@ -3,8 +3,8 @@ id: qa-analyzer-coverage-findings
 kind: runbook
 project: code-review
 created: 2026-05-29
-updated: 2026-05-29
-verified-on: 2026-05-29
+updated: 2026-05-31
+verified-on: 2026-05-31
 tags: [qa, findings, ga-readiness]
 sources: [sdlc/docs/qa/analyzer-coverage/run_smoke.py]
 ---
@@ -154,6 +154,55 @@ exit 1 + message for each.
 signal with no caveats. `semgrep`, `knip`, `pydeps` pass with the caveats noted
 above. **`eslint` is no longer counted clean** — it only passed under harness
 scaffolding (see F8).
+
+## 2026-05-31 — bundle-migration run (epic analyzer-thin-runner, story s5)
+
+The s5 work re-pointed the harness off the deleted consolidated SARIF/metrics
+schema onto the raw review bundle (ADR-0020) and added two precision coupling
+oracles. The **first real end-to-end run after the migration** (it had only been
+unit-tested) scored **0/15**, then **13/14** after the fixes below — i.e. the
+migrated harness immediately caught a cluster of real regressions. Final state:
+**13/14 pass, 1 xfail (gitleaks), 0 real failures**; both precision oracles
+(pydeps-cycles, depcruiser-mocks) pass against the real binaries.
+
+### F11 — harness invoked the CLI with the pre-`run`-subcommand shape (was 0/15)
+The bundle migration (s1-t3) restructured the CLI into subcommands (`run`,
+`install`, `uninstall`); analyzer execution moved under `run`. `run_smoke.py`
+still called `python -m code_review.cli --analyzer …` (flat), which every case
+rejected with `rc=2: No such command`. The harness had been unit-tested but never
+re-run end-to-end, so this was invisible until now. **Fixed:** `_run_cli` prepends
+`run`. *Lesson: harness/integration code needs one real run before its task closes
+— unit-green ≠ harness-works.*
+
+### F12 — trivy oracle parsed native JSON, but the adapter emits SARIF
+The trivy adapter runs `trivy fs --format sarif`, so bundle stdout is SARIF, but
+the oracle used `count_trivy` (native `{"Results":…}`) → 0 findings on a real
+8-CVE scan. **Fixed:** trivy case now uses `count_sarif_results`.
+
+### F13 — harness still invoked `schemathesis`, removed from the registry (ADR-0021)
+The case errored `unknown analyzer(s): schemathesis`. **Fixed:** removed the
+schemathesis case, `run_schemathesis()`, the FastAPI `fixtures/api/` target, and
+`contract-testing.toml` from the harness.
+
+### F14 — `couplingpkg` fixture emitted invalid Python, crashing cohesion
+`scaffold_fixtures.sh` generated `VALUE_${i} = ${i}` with `seq -w` zero-padding →
+`VALUE_03 = 03`, a `SyntaxError` (leading zeros in decimal ints). cohesion's AST
+parse over the package raised, status=error. Latent since the couplingpkg fixture
+was added; only surfaced now because cohesion is exercised over that tree.
+**Fixed:** `VALUE_${i} = $((10#${i}))` (strip the pad; harmless to pydeps fan-out).
+
+### F15 — `gitleaks` emits no JSON on stdout (OPEN — xfail, follow-up filed)
+The adapter runs `gitleaks detect --source X --no-git` with **no**
+`--report-format json`, so findings print to **stderr** in human format and
+captured **stdout is empty** → any bundle consumer (oracle or agent) sees zero
+findings even though gitleaks found the secret (stderr: `leaks found: 1`, exit 1).
+This is a real shipping-adapter defect, exposed by the raw-capture model (the old
+facade parsed it differently). It needs an off-argv JSON report path (cf.
+`/dev/stdout`-not-writable-under-sandbox constraint). **Out of s5 scope** —
+reported as **xfail** in the harness (`KNOWN_DEFERRED`) and filed as follow-up
+`fu-gitleaks-json-output-capture`. Recommend a broader adapter output-capture
+audit: the harness only checks ≥1 signal, so any adapter emitting to stderr/file
+silently reads as 0.
 
 ## GA-readiness implication
 
