@@ -24,32 +24,7 @@
 ## the cache is unprovisioned, the semgrep analyzer errors and names setup.sh.
 # semgrep_rules = "/path/to/semgrep-rules"
 
-## ----------------------------------------------------------------------
-## Deduplication
-## ----------------------------------------------------------------------
-## `dedup.line_tolerance` (int, default 3): how many lines apart two findings
-## from different analyzers can be while still treated as the same finding.
-
-# [dedup]
-# line_tolerance = 3
-
-## ----------------------------------------------------------------------
-## Severity overrides
-## ----------------------------------------------------------------------
-## `[severity]` (table of rule-id -> label): downgrade or upgrade specific
-## rules. Labels must be one of: critical, important, minor, nit.
-
-# [severity]
-# "semgrep:python.lang.security.audit.weak-crypto" = "important"
-
-## ----------------------------------------------------------------------
-## Hotspot weights
-## ----------------------------------------------------------------------
-## `[hotspots.weights]` (table of metric -> float): how each per-file metric
-## contributes to the hotspot ranking score. Defaults come from
-## capabilities.json; override any subset.
-
-# [hotspots.weights]
-# severity_weighted_findings = 1.0
-# cyclomatic_complexity = 0.5
-# coupling = 0.3
+## Note: the thin invocation runner (ADR-0020) emits one raw per-tool capture per
+## analyzer (review-bundle.v1.json) and does no cross-tool SARIF aggregation, so the
+## former [dedup] / [severity] / [hotspots] knobs no longer exist. The two options above
+## are the only tunables.

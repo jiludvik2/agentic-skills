@@ -39,6 +39,14 @@ async def run_subprocess(
     except TimeoutError:
         with contextlib.suppress(ProcessLookupError, OSError):
             proc.kill()
+        # Reap the killed child within this loop so its subprocess transport closes cleanly;
+        # otherwise the transport is finalised at GC after the loop is gone and asyncio emits
+        # "RuntimeError: Event loop is closed" as an unraisable warning (s0 Minor #3). Bound
+        # the reap: a real analyzer that spawned its own children (node/semgrep) can leave
+        # proc.wait() blocking after the kill, which would hang the whole run — so cap it and
+        # give up rather than wait forever.
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(proc.wait(), timeout=5.0)
         return SubprocessResult(stdout=b"", stderr=b"", returncode=-1, timed_out=True)
     except Exception as exc:
         return SubprocessResult(stdout=b"", stderr=b"", returncode=-1, error=str(exc))

@@ -1,12 +1,13 @@
 """The review bundle — the thin invocation runner's agent-facing contract (ADR-0020).
 
-A ``ReviewBundle`` aggregates the ``ReviewRequest`` echo (scope/diff/targets/languages)
+A ``ReviewBundle`` combines the ``ReviewRequest`` echo (scope/diff/targets/languages)
 with one raw ``CaptureOutput`` per tool, and serialises to deterministic JSON validated
 against the published schema ``review-bundle.v1.json``. The schema constrains *structure*
 (fields, the ADR-0019 status enum) — never the content of ``stdout``/``stderr``, which is
 deliberately opaque (the agent interprets the raw tool output).
 
-Additive in s0: the live CLI still emits SARIF; s2 switches it onto this bundle.
+As of s1-t3 this is the CLI's sole output: ``polyreview run`` emits this bundle directly
+and the former SARIF-normalisation layer is gone.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from code_review.status import Status
 # Versioned contract id — bump on any breaking shape change (the agent/SKILL.md pin it).
 SCHEMA_ID = "polyreview/review-bundle/v1"
 
-# Published schema, shipped alongside the SARIF schema (pyproject wheel `include`).
+# Published schema, shipped via the pyproject wheel `include`.
 _SCHEMA_RESOURCE = "review-bundle.v1.json"
 
 

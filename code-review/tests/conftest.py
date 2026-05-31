@@ -4,7 +4,8 @@ from __future__ import annotations
 import asyncio
 from typing import ClassVar
 
-from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.capture import CaptureOutput
+from code_review.contracts import ReviewRequest
 
 
 class FakeAnalyzer:
@@ -13,8 +14,8 @@ class FakeAnalyzer:
     default_timeout_s: ClassVar[int] = 30
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
-        return AnalyzerOutput(sarif={}, status="ok")
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
+        return CaptureOutput(tool=self.name, status="ok", command=(self.name,))
 
 
 class FakeAnalyzer2(FakeAnalyzer):
@@ -28,6 +29,6 @@ class SlowFakeAnalyzer:
     sleep_s: ClassVar[float] = 0.0
     name: ClassVar[str] = "slow"
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
         await asyncio.sleep(self.sleep_s)
-        return AnalyzerOutput(sarif={}, status="ok")
+        return CaptureOutput(tool=self.name, status="ok", command=(self.name,))

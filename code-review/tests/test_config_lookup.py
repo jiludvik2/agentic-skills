@@ -5,7 +5,6 @@ Per s0-t2: cli._resolve_config_path resolves the config-file path from the
 Path | None directly — it no longer walks any skill-dir."""
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
 
 import pytest
@@ -17,13 +16,10 @@ from code_review.config import load_config
 runner = CliRunner()
 
 
-def _write_toml(path: Path, line_tolerance: int) -> None:
-    path.write_text(
-        textwrap.dedent(f"""\
-            [dedup]
-            line_tolerance = {line_tolerance}
-        """)
-    )
+def _write_toml(path: Path, marker: int) -> None:
+    # The value is arbitrary; resolution tests only care about *which* file is found, and
+    # the load_config tests below read semgrep_rules back. (`marker` distinguishes files.)
+    path.write_text(f'semgrep_rules = "/rules/{marker}.yaml"\n')
 
 
 # --- _resolve_config_path: pure resolution logic --------------------------
@@ -80,22 +76,22 @@ def test_resolve_explicit_wins_over_cwd(
 
 def test_load_config_none_returns_defaults() -> None:
     config = load_config(None)
-    assert config.dedup_line_tolerance == 3
-    assert config.severity_overrides == {}
+    assert config.disabled_analyzers == []
+    assert config.semgrep_rules is None
 
 
 def test_load_config_reads_explicit_path(tmp_path: Path) -> None:
     toml = tmp_path / "code-review.toml"
     _write_toml(toml, 5)
     config = load_config(toml)
-    assert config.dedup_line_tolerance == 5
+    assert config.semgrep_rules == "/rules/5.yaml"
 
 
 def test_load_config_missing_file_returns_defaults(tmp_path: Path) -> None:
     """load_config trusts its caller; if the file doesn't exist it returns
     defaults. Existence checking lives in _resolve_config_path."""
     config = load_config(tmp_path / "missing.toml")
-    assert config.dedup_line_tolerance == 3
+    assert config.semgrep_rules is None
 
 
 # --- CLI integration: --config flag wiring --------------------------------

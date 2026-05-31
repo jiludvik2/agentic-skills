@@ -2,11 +2,11 @@
 id: s1-t3-cli-bundle-and-delete-sarif-layer
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-migrate-adapters-and-emit-bundle
 sources: [adr-0020-thin-invocation-runner.md, s0-contract-inversion-and-bundle.md]
 created: 2026-05-30
-updated: 2026-05-30
+updated: 2026-05-31
 tags: [cli, bundle, deletion, teardown, capstone]
 ---
 
@@ -95,3 +95,49 @@ completes the strangle — after it, no SARIF-aggregation code exists.
   cheap to fix in passing, do it and note it; otherwise carry to s2.
 - This is a large, deletion-heavy diff — expect the **story-level Review** right after close
   to scrutinise the teardown for orphaned imports/dead config.
+
+## Close (2026-05-31)
+
+The strangle is complete: `polyreview run` now collects one raw `CaptureOutput` per analyzer
+into a `ReviewBundle` and emits `review-bundle.v1.json` directly — **no SARIF aggregation
+remains**. Tests-first (RED: `test_cli_bundle.py` failed against the old `analyzers`/`sarif`
+shape), then GREEN. **Net −1604 LOC** (37 files, +351/−1955).
+
+**Deleted:** `aggregator.py`, `severity.py`, `hotspots.py`, `adapters/sarif_utils.py`,
+`schemas/review-response.json`; `MetricSet` + legacy `AnalyzerOutput` from `contracts.py`;
+the `cli.py` shims (`_capture_to_legacy`/`_output_to_dict`/`_merge_metrics`); the
+`capabilities.json` `hotspots` block; 5 SARIF-layer test suites (aggregator/hotspots/
+severity/sarif_utils/cli_aggregation). `config.py` stripped to `disabled_analyzers` +
+`semgrep_rules` (dropped dedup/severity/hotspot knobs); `code-review.toml.example` + SKILL.md
+output description updated.
+
+**CLI:** `_safe_run` returns a `CaptureOutput` (adapter crash → `error` capture, `tool`=name,
+no traceback leak). **Exit code:** non-zero iff any capture is `error` **or** `timeout` (a
+timed-out tool analysed nothing — documented at `cli.py`); `unavailable`/`ok` → 0. `--output`
+summary replaced findings-count with per-status counts + total duration. Schema validation is
+non-fatal-by-warning, against the actually-emitted JSON.
+
+**s0 Minors absorbed:** #2 — a `timeout` capture is serialised + schema-validated
+(`test_review_bundle.py`). #3 — `base.run_subprocess` reaps the killed child on timeout,
+**bounded** by `asyncio.wait_for(proc.wait(), 5.0)` (an earlier unbounded `await proc.wait()`
+hung the run when a real multi-process analyzer — node/semgrep — was killed; the 5s cap fixes
+that while still silencing the GC "Event loop is closed" warning).
+
+**Gate:** `uv run pytest` **361 passed** (`-m "not integration"`) + **15 integration passed**;
+`ruff` + `mypy code_review` clean. AC deletion-grep clean on source. Real-run path proven
+manually: `polyreview run --analyzer bandit --target <file>` emits a valid bundle with
+bandit's raw JSON verbatim on `stdout`.
+
+**Verify:** PASS (all 6 ACs evidenced, no drift). **Review:** MINOR-ONLY (0 Critical/
+Important). Remediated inline: build the bundle dict once + validate the emitted bytes (perf
+nit); reworded a stale `review_bundle.py` doc comment; added two coverage tests
+(`timeout`→non-zero exit; `--output` per-status counts). The `test_cli_defaults_to_quick...`
+target was scoped from `.` to an isolated tmp dir — both Verify and Review confirmed this is
+a legitimate fix (its `--target .` scanned the vendored `node_modules`/`.venv` with the real
+toolchain, taking minutes; the assertion is only about CLI defaulting), not a weakened test.
+
+**Carried to s2:** `schemas/sarif-2.1.0.json` is now dead data — no source loads it after
+`sarif_utils.py` was deleted (eslint/trivy still emit SARIF to stdout, captured raw, but
+nothing validates against the schema). Kept (out of this task's deletion list; packaging
+tests assert it) — operator decision to retain-with-rationale or remove. Diff-path resolution
+(`resolve_diff_paths(Path.cwd(), diff)`) unchanged — still carried to s2.

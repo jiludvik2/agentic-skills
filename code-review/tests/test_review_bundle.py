@@ -108,6 +108,21 @@ def test_unavailable_capture_in_bundle() -> None:
     jsonschema.validate(d, load_bundle_schema())
 
 
+def test_bundle_includes_timeout_capture() -> None:
+    """s0 Minor #2: a `timeout` capture serialises and schema-validates in the bundle —
+    the ADR-0019 status enum admits it and the killed-tool shape (no exit code) is faithful."""
+    cap = CaptureOutput(
+        tool="slow", status="timeout", error="timed out after 0.5s", exit_code=None
+    )
+    bundle = ReviewBundle(_request(), (cap,))
+    d = bundle.to_dict()
+    out = d["outputs"][0]
+    assert out["status"] == "timeout"
+    assert out["exit_code"] is None
+    assert out["error"] == "timed out after 0.5s"
+    jsonschema.validate(d, load_bundle_schema())
+
+
 def test_raw_stdout_roundtrips() -> None:
     raw = '{not: "json"} ☃ <xml>\nsecond line\t tabbed'
     bundle = ReviewBundle(_request(), (CaptureOutput(tool="x", stdout=raw),))

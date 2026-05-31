@@ -19,9 +19,9 @@ import pytest
 from typer.testing import CliRunner
 
 import code_review.adapters as adapters_mod
-from code_review.adapters.sarif_utils import empty_sarif
+from code_review.capture import CaptureOutput
 from code_review.cli import app
-from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.contracts import ReviewRequest
 
 
 class _StatusAnalyzer:
@@ -33,11 +33,12 @@ class _StatusAnalyzer:
     name: ClassVar[str] = "fake"
     _status: ClassVar[str] = "ok"
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
-        return AnalyzerOutput(
-            sarif=empty_sarif(self.name),
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
+        return CaptureOutput(
+            tool=self.name,
             status=self._status,
             error=None if self._status == "ok" else f"{self._status} reason",
+            command=(self.name,),
         )
 
 

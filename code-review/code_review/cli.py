@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import dataclasses
 import importlib.resources
 import json
 import os
@@ -13,18 +12,17 @@ from typing import Any
 import jsonschema
 import typer
 
-from code_review.aggregator import aggregate
 from code_review.capture import CaptureOutput
 from code_review.config import ConfigError, load_config
-from code_review.contracts import AnalyzerOutput, MetricSet, ReviewRequest
+from code_review.contracts import ReviewRequest
 from code_review.diff import resolve_diff_paths
-from code_review.hotspots import compute_hotspots
+from code_review.review_bundle import ReviewBundle, bundle_to_json, load_bundle_schema
 from code_review.selector import resolve_review_selection
+from code_review.status import Status
 
 app = typer.Typer(add_completion=False)
 
 _CAPABILITIES_PATH = importlib.resources.files("code_review").joinpath("capabilities.json")
-_SCHEMA_PATH = importlib.resources.files("code_review").joinpath("schemas", "review-response.json")
 
 
 def _resolve_config_path(config_arg: Path | None) -> Path | None:
@@ -91,57 +89,13 @@ def _guard_output_in_cwd(output: str) -> None:
         raise typer.Exit(1)
 
 
-def _output_to_dict(output: AnalyzerOutput) -> dict[str, Any]:
-    return {
-        "sarif": output.sarif,
-        "metrics": dataclasses.asdict(output.metrics) if output.metrics is not None else None,
-        "duration_s": output.duration_s,
-        "status": output.status,
-        "error": output.error,
-    }
-
-
-def _capture_to_legacy(cap: CaptureOutput) -> AnalyzerOutput:
-    """Transitional shim (s1): adapters migrate to ``CaptureOutput`` (ADR-0020) while the
-    CLI still aggregates SARIF until s1-t3. Wrap a raw capture as an empty-SARIF
-    ``AnalyzerOutput`` so the legacy aggregate/metrics path holds green — migrated tools
-    contribute no findings here. Deleted in s1-t3 when the CLI emits the bundle directly.
-    """
-    return AnalyzerOutput(
-        sarif={},
-        metrics=None,
-        status=str(cap.status),
-        error=cap.error,
-        duration_s=cap.duration_s,
-    )
-
-
-async def _safe_run(adapter: Any, request: ReviewRequest) -> AnalyzerOutput:
+async def _safe_run(adapter: Any, request: ReviewRequest, name: str) -> CaptureOutput:
+    """Run one adapter, never raising: a crash becomes an ``error`` capture for ``name`` so
+    one broken analyzer cannot take down the whole run (ADR-0019/0020)."""
     try:
-        out = await adapter.run(request)
+        return await adapter.run(request)  # type: ignore[no-any-return]
     except Exception as exc:
-        return AnalyzerOutput(sarif={}, status="error", error=str(exc))
-    if isinstance(out, CaptureOutput):
-        return _capture_to_legacy(out)
-    return out  # type: ignore[no-any-return]
-
-
-def _merge_metrics(outputs: list[AnalyzerOutput]) -> MetricSet | None:
-    # Last-write-wins per file key; analyzers are expected to report disjoint files.
-    per_file: dict[str, dict[str, Any]] = {}
-    per_class: dict[str, dict[str, Any]] = {}
-    coupling: dict[str, dict[str, Any]] = {}
-    any_metrics = False
-    for out in outputs:
-        if out.metrics is None:
-            continue
-        any_metrics = True
-        per_file = {**per_file, **out.metrics.per_file}
-        per_class = {**per_class, **out.metrics.per_class}
-        coupling = {**coupling, **out.metrics.coupling}
-    if not any_metrics:
-        return None
-    return MetricSet(per_file=per_file, per_class=per_class, coupling=coupling)
+        return CaptureOutput(tool=name, status=Status.ERROR, error=str(exc))
 
 
 async def _run_analyzers(
@@ -149,22 +103,18 @@ async def _run_analyzers(
     target: str | None,
     diff: str | None = None,
     scope: str = "per-task",
-    line_tolerance: int = 3,
-    hotspot_weights: dict[str, float] | None = None,
-    severity_overrides: dict[str, str] | None = None,
     semgrep_rules: str | None = None,
-) -> dict[str, Any]:
+) -> ReviewBundle:
+    """Collect one raw ``CaptureOutput`` per selected analyzer into a ``ReviewBundle`` — the
+    thin-runner contract (ADR-0020). No SARIF aggregation, no findings parsing."""
     from code_review.adapters import REGISTRY
 
     if diff is not None:
         target_paths = await resolve_diff_paths(Path.cwd(), diff)
-        diff_files: set[str] | None = set(target_paths)
     elif target is not None:
         target_paths = (target,)
-        diff_files = None
     else:
         target_paths = (".",)
-        diff_files = None
 
     request = ReviewRequest(
         scope=scope,
@@ -176,33 +126,14 @@ async def _run_analyzers(
         },
     )
 
-    task_map: dict[str, asyncio.Task[AnalyzerOutput]] = {}
+    task_map: dict[str, asyncio.Task[CaptureOutput]] = {}
     async with asyncio.TaskGroup() as tg:
         for name in names:
-            task_map[name] = tg.create_task(_safe_run(REGISTRY[name](), request))
+            task_map[name] = tg.create_task(_safe_run(REGISTRY[name](), request, name))
 
-    per_analyzer = {name: t.result() for name, t in task_map.items()}
-    outputs = list(per_analyzer.values())
-
-    consolidated_sarif = aggregate(
-        outputs,
-        line_tolerance=line_tolerance,
-        severity_overrides=severity_overrides,
-    )
-    merged_metrics = _merge_metrics(outputs)
-    hotspots = compute_hotspots(
-        consolidated_sarif,
-        merged_metrics,
-        diff_files=diff_files,
-        weights=hotspot_weights,
-    )
-
-    return {
-        "sarif": consolidated_sarif,
-        "metrics": dataclasses.asdict(merged_metrics) if merged_metrics is not None else None,
-        "ranked_hotspots": hotspots,
-        "analyzers": {name: _output_to_dict(out) for name, out in per_analyzer.items()},
-    }
+    # Preserve selection order so the bundle is deterministic.
+    captures = tuple(task_map[name].result() for name in names)
+    return ReviewBundle(request=request, outputs=captures)
 
 
 def _resolve_depth(
@@ -377,29 +308,29 @@ def run(
             )
             raise typer.Exit(1)
 
-    result = asyncio.run(
+    bundle = asyncio.run(
         _run_analyzers(
             names,
             target,
             diff,
             timing_scope,
-            line_tolerance=config.dedup_line_tolerance,
-            hotspot_weights=config.hotspot_weights,
-            severity_overrides=config.severity_overrides,
             semgrep_rules=config.semgrep_rules,
         )
     )
-    analyzers_dict: dict[str, Any] = result["analyzers"]
-    has_error = any(v["status"] == "error" for v in analyzers_dict.values())
+    captures = bundle.outputs
+    # Exit non-zero when any tool failed to produce a usable result. `error` and `timeout`
+    # both count (a timed-out tool analysed nothing); `unavailable` is a benign clean skip
+    # (ADR-0019) and stays exit 0, as does an all-`ok` run.
+    has_error = any(c.status in (Status.ERROR, Status.TIMEOUT) for c in captures)
 
-    if _SCHEMA_PATH.is_file():
-        try:
-            schema = json.loads(_SCHEMA_PATH.read_text(encoding="utf-8"))
-            jsonschema.validate(instance=result, schema=schema)
-        except jsonschema.ValidationError as exc:
-            typer.echo(f"schema validation warning: {exc.message}", err=True)
-
-    json_content = json.dumps(result)
+    json_content = bundle_to_json(bundle)
+    # The bundle is schema-shaped by construction; validate the actually-emitted JSON
+    # defensively and warn (never crash) so a contract drift is surfaced without losing the
+    # captured output.
+    try:
+        jsonschema.validate(instance=json.loads(json_content), schema=load_bundle_schema())
+    except jsonschema.ValidationError as exc:
+        typer.echo(f"schema validation warning: {exc.message}", err=True)
 
     if output is not None:
         output_path = Path(output)
@@ -407,14 +338,15 @@ def run(
         tmp_file = output_path.parent / (output_path.name + ".tmp")
         tmp_file.write_text(json_content)
         os.rename(tmp_file, output_path)
-        n_findings = sum(
-            len(run.get("results", []))
-            for run in result.get("sarif", {}).get("runs", [])
-        )
-        total_s = sum(v.get("duration_s", 0.0) for v in analyzers_dict.values())
+        # No parsed findings now — summarise per-tool status counts + total duration instead.
+        counts: dict[str, int] = {}
+        for c in captures:
+            key = Status(c.status).value
+            counts[key] = counts.get(key, 0) + 1
+        status_summary = ", ".join(f"{k}: {counts[k]}" for k in sorted(counts))
+        total_s = sum(c.duration_s for c in captures)
         typer.echo(
-            f"analyzers: {len(analyzers_dict)} | findings: {n_findings} "
-            f"| duration: {total_s:.2f}s"
+            f"analyzers: {len(captures)} | {status_summary} | duration: {total_s:.2f}s"
         )
     else:
         typer.echo(json_content)

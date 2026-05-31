@@ -31,22 +31,17 @@ def test_example_file_exists() -> None:
 def test_example_uncomments_to_valid_toml() -> None:
     uncommented = _uncomment(EXAMPLE_PATH.read_text(encoding="utf-8"))
     data = tomllib.loads(uncommented)
-    # Spot-check all top-level sections / keys are represented.
-    assert "dedup" in data and data["dedup"]["line_tolerance"] == 3
-    assert "severity" in data and data["severity"]
-    assert "hotspots" in data and "weights" in data["hotspots"]
-    assert "disabled_analyzers" in data and data["disabled_analyzers"] == ["trivy"]
+    # The thin-runner example carries only the two surviving tunables (ADR-0020).
+    assert data["disabled_analyzers"] == ["trivy"]
+    assert data["semgrep_rules"] == "/path/to/semgrep-rules"
 
 
 def test_uncommented_example_load_config_roundtrip(tmp_path: Path) -> None:
     dst = tmp_path / "code-review.toml"
     dst.write_text(_uncomment(EXAMPLE_PATH.read_text(encoding="utf-8")), encoding="utf-8")
     cfg = load_config(dst)
-    assert cfg.dedup_line_tolerance == 3
-    assert "semgrep:python.lang.security.audit.weak-crypto" in cfg.severity_overrides
-    assert cfg.severity_overrides["semgrep:python.lang.security.audit.weak-crypto"] == "important"
-    assert cfg.hotspot_weights["severity_weighted_findings"] == 1.0
     assert cfg.disabled_analyzers == ["trivy"]
+    assert cfg.semgrep_rules == "/path/to/semgrep-rules"
 
 
 def test_shipped_example_parses_as_is() -> None:
@@ -66,4 +61,4 @@ def test_example_copied_to_cwd_is_honored_by_load_config(tmp_path: Path) -> None
         encoding="utf-8",
     )
     cfg = load_config(cwd_toml)
-    assert cfg.dedup_line_tolerance == 3  # explicit value from example
+    assert cfg.disabled_analyzers == ["trivy"]  # explicit value from example

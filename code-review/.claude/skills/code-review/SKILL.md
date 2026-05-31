@@ -1,11 +1,11 @@
 ---
 name: code-review
-description: Deterministic analyzer layer — runs Semgrep, Radon, and more scanners against a diff and emits consolidated SARIF/metrics JSON. Invoked via the code_review CLI; analyzer set selected by --review domain/subcategory and --depth quick|full.
+description: Deterministic analyzer layer — runs Semgrep, Radon, and more scanners against a diff and emits a review bundle of raw per-tool output (review-bundle.v1.json). Invoked via the code_review CLI; analyzer set selected by --review domain/subcategory and --depth quick|full.
 ---
 
 # code-review
 
-A deterministic code-analysis layer that runs one or more analyzers against a target or a diff range and returns a single consolidated JSON document — SARIF findings plus complexity/coupling metrics.
+A deterministic code-analysis layer that runs one or more analyzers against a target or a diff range and returns a single JSON **review bundle** (ADR-0020): the request echo plus one raw capture per tool (verbatim stdout/stderr + the ADR-0019 status). It does not parse, rank, or normalise findings — the agent interprets each tool's raw output.
 
 ## Invocation
 
@@ -22,8 +22,8 @@ polyreview run [--review <domain|subcategory>] [--depth quick|full]
 - **`--review`** accepts a domain name or a subcategory name (repeat for multiple). See taxonomy table below.
 - **`--depth quick|full`** selects the depth tier when `--review` names a domain. Ignored when `--review` names a subcategory. Default: `quick`.
 - **`--analyzer`** overrides `--review`/`--depth` and runs exactly those analyzers.
-- Without `--output`, the consolidated JSON is printed to stdout.
-- With `--output`, the JSON is written atomically and stdout carries only a one-line summary: `analyzers: N | findings: M | duration: T s`.
+- Without `--output`, the review bundle JSON is printed to stdout.
+- With `--output`, the bundle is written atomically and stdout carries only a one-line summary: `analyzers: N | <status>: <count>, … | duration: T s`.
 - `--output` paths must resolve inside the current working directory (sandbox compatibility).
 - `polyreview run --capabilities` prints the static capability declaration merged with runtime per-analyzer availability checks.
 

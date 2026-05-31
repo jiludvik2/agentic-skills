@@ -6,9 +6,10 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
+from code_review.capture import CaptureOutput
 from code_review.cli import app
 from code_review.config import Config
-from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.contracts import ReviewRequest
 
 runner = CliRunner()
 
@@ -23,13 +24,8 @@ class _StoryLevelOnlyAdapter:
     scope_restrictions: ClassVar[frozenset[str]] = frozenset({"story-level"})
     required_binary: ClassVar[None] = None
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
-        return AnalyzerOutput(
-            sarif={
-                "version": "2.1.0",
-                "runs": [{"tool": {"driver": {"name": "storyonly"}}, "results": []}],
-            }
-        )
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
+        return CaptureOutput(tool="storyonly", status="ok", command=("storyonly",))
 
 
 class _StubBanditAdapter:
@@ -39,13 +35,8 @@ class _StubBanditAdapter:
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
     required_binary: ClassVar[None] = None
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
-        return AnalyzerOutput(
-            sarif={
-                "version": "2.1.0",
-                "runs": [{"tool": {"driver": {"name": "bandit"}}, "results": []}],
-            }
-        )
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
+        return CaptureOutput(tool="bandit", status="ok", command=("bandit",))
 
 
 _STUB_REGISTRY: dict[str, type[Any]] = {

@@ -82,6 +82,21 @@ async def test_run_and_capture_timeout() -> None:
     assert cap.error is not None
 
 
+async def test_run_and_capture_timeout_reaps_process(recwarn: pytest.WarningsRecorder) -> None:
+    """s0 Minor #3: the timeout path must reap the killed child within the loop so its
+    transport closes cleanly — no `RuntimeError: Event loop is closed` surfacing as a
+    PytestUnraisableExceptionWarning at GC."""
+    import gc
+
+    cap = await run_and_capture(
+        "py", sys.executable, "-c", "import time; time.sleep(5)", timeout_s=0.3
+    )
+    assert cap.status == "timeout"
+    gc.collect()  # force any orphaned transport to be finalised now, in-test
+    loop_closed = [w for w in recwarn if "Event loop is closed" in str(w.message)]
+    assert not loop_closed, f"timeout path leaked an unclosed transport: {loop_closed}"
+
+
 async def test_run_and_capture_missing_binary() -> None:
     # Must classify as error and never raise, even when the binary is absent.
     cap = await run_and_capture("ghost", "this-binary-does-not-exist-polyreview")

@@ -25,7 +25,7 @@ def test_fake_adapter_no_subprocess(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not called, "FakeAnalyzer must not spawn any subprocess"
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert "fake" in data["analyzers"]
+    assert "fake" in {o["tool"] for o in data["outputs"]}
 
 
 def test_fake_adapter_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -36,5 +36,5 @@ def test_fake_adapter_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
-    assert "analyzers" in data
-    assert "fake" in data["analyzers"]
+    assert "outputs" in data
+    assert "fake" in {o["tool"] for o in data["outputs"]}

@@ -11,8 +11,9 @@ import pytest
 from typer.testing import CliRunner
 
 import code_review.adapters as adapters_mod
+from code_review.capture import CaptureOutput
 from code_review.cli import app
-from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.contracts import ReviewRequest
 from tests.conftest import FakeAnalyzer, FakeAnalyzer2, SlowFakeAnalyzer
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
@@ -20,6 +21,11 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 def _strip_ansi(text: str) -> str:
     return _ANSI_RE.sub("", text)
+
+
+def _tools(output: str) -> set[str]:
+    """Tool names from a CLI-emitted review bundle."""
+    return {o["tool"] for o in json.loads(output)["outputs"]}
 
 
 def _run(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -101,7 +107,7 @@ def test_concurrent_execution_faster_than_sequential(monkeypatch: pytest.MonkeyP
     assert elapsed < 0.35, f"Elapsed {elapsed:.3f}s suggests sequential execution"
 
 
-def test_consolidated_output_shape(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_bundle_output_shape(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", FakeAnalyzer)
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake2", FakeAnalyzer2)
 
@@ -111,9 +117,7 @@ def test_consolidated_output_shape(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
     assert result.exit_code == 0, result.output
-    data = json.loads(result.output)
-    assert "fake" in data["analyzers"]
-    assert "fake2" in data["analyzers"]
+    assert _tools(result.output) == {"fake", "fake2"}
 
 
 def test_diff_scope_excludes_unchanged_files(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -125,11 +129,10 @@ def test_diff_scope_excludes_unchanged_files(monkeypatch: pytest.MonkeyPatch) ->
         default_timeout_s = 30
         scope_restrictions: frozenset[str] = frozenset()
 
-        async def run(self, request: object) -> object:
-            from code_review.contracts import AnalyzerOutput, ReviewRequest
+        async def run(self, request: object) -> CaptureOutput:
             assert isinstance(request, ReviewRequest)
             received_paths.append(request.target_paths)
-            return AnalyzerOutput(sarif={})
+            return CaptureOutput(tool="fake", command=("fake",))
 
     async def _mock_resolve(repo_root: object, diff_range: object) -> tuple[str, ...]:
         return ("changed.py",)
@@ -152,8 +155,8 @@ def test_adapter_error_does_not_crash_cli(monkeypatch: pytest.MonkeyPatch) -> No
         default_timeout_s: ClassVar[int] = 30
         scope_restrictions: ClassVar[frozenset[str]] = frozenset()
 
-        async def run(self, request: ReviewRequest) -> AnalyzerOutput:
-            return AnalyzerOutput(sarif={}, status="ok")
+        async def run(self, request: ReviewRequest) -> CaptureOutput:
+            return CaptureOutput(tool="ok_adapter", status="ok", command=("ok_adapter",))
 
     class ErrAdapter:
         name: ClassVar[str] = "err_adapter"
@@ -161,8 +164,11 @@ def test_adapter_error_does_not_crash_cli(monkeypatch: pytest.MonkeyPatch) -> No
         default_timeout_s: ClassVar[int] = 30
         scope_restrictions: ClassVar[frozenset[str]] = frozenset()
 
-        async def run(self, request: ReviewRequest) -> AnalyzerOutput:
-            return AnalyzerOutput(sarif={}, status="error", error="missing binary: semgrep")
+        async def run(self, request: ReviewRequest) -> CaptureOutput:
+            return CaptureOutput(
+                tool="err_adapter", status="error", error="missing binary: semgrep",
+                command=("err_adapter",),
+            )
 
     monkeypatch.setitem(adapters_mod.REGISTRY, "ok_adapter", OkAdapter)
     monkeypatch.setitem(adapters_mod.REGISTRY, "err_adapter", ErrAdapter)
@@ -174,12 +180,10 @@ def test_adapter_error_does_not_crash_cli(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert result.exit_code != 0
     # JSON parse succeeds iff no Python traceback polluted stdout
-    data = json.loads(result.output)
-    assert "ok_adapter" in data["analyzers"]
-    assert "err_adapter" in data["analyzers"]
-    assert data["analyzers"]["ok_adapter"]["status"] == "ok"
-    assert data["analyzers"]["err_adapter"]["status"] == "error"
-    assert data["analyzers"]["err_adapter"]["error"]
+    by_tool = {o["tool"]: o for o in json.loads(result.output)["outputs"]}
+    assert by_tool["ok_adapter"]["status"] == "ok"
+    assert by_tool["err_adapter"]["status"] == "error"
+    assert by_tool["err_adapter"]["error"]
 
 
 def test_atomic_write_tmp_then_rename(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -197,7 +201,7 @@ def test_atomic_write_tmp_then_rename(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert not (tmp_path / "result.json.tmp").exists()
     with output_path.open() as f:
         data = json.load(f)
-    assert "analyzers" in data
+    assert "outputs" in data and data["schema"] == "polyreview/review-bundle/v1"
 
 
 def test_stdout_summary_only_when_output_flag(
@@ -214,7 +218,8 @@ def test_stdout_summary_only_when_output_flag(
 
     assert result.exit_code == 0, result.output
     summary = result.output.strip()
-    assert re.match(r"analyzers: \d+ \| findings: \d+ \| duration: .+s", summary), repr(summary)
+    # New thin-runner summary: analyzers count + per-status counts + total duration.
+    assert re.match(r"analyzers: \d+ \| .*ok: \d+.* \| duration: .+s", summary), repr(summary)
     assert "{" not in result.output
 
 
@@ -257,9 +262,9 @@ class _ScopeCapturingFake:
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
     seen: ClassVar[list[str]] = []
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
         type(self).seen.append(request.scope)
-        return AnalyzerOutput(sarif={}, status="ok")
+        return CaptureOutput(tool="fake", status="ok", command=("fake",))
 
 
 def test_timing_scope_flows_into_request(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -294,10 +299,17 @@ def test_output_creates_missing_parent_dir(monkeypatch: pytest.MonkeyPatch, tmp_
     assert not (out.parent / "result.json.tmp").exists()
 
 
-def test_cli_defaults_to_quick_whole_review_when_no_flags_given() -> None:
-    """Without --analyzer or --review/--depth the CLI defaults to --depth quick."""
+def test_cli_defaults_to_quick_whole_review_when_no_flags_given(tmp_path: Path) -> None:
+    """Without --analyzer or --review/--depth the CLI defaults to --depth quick.
+
+    Targets an isolated tmp dir (one small file) rather than '.': the real quick-review
+    toolchain runs, but pointing it at the repo root would scan the vendored node_modules /
+    .venv tree and take minutes. The assertion is about the *defaulting* (no old "required"
+    error), so the target is incidental — a tiny controlled target keeps it fast and
+    deterministic."""
+    (tmp_path / "sample.py").write_text("x = 1\n")
     runner = CliRunner()
-    result = runner.invoke(app, ["run", "--target", "."])
+    result = runner.invoke(app, ["run", "--target", str(tmp_path)])
     # Should succeed and produce JSON output (real tools run; exit code may be 1 if
     # any tool is unavailable, but the CLI must not exit with the old "required" error).
     assert "--analyzer or --language is required" not in result.output
@@ -318,9 +330,7 @@ def test_cli_auto_selects_adapters_from_language(monkeypatch: pytest.MonkeyPatch
     result = runner.invoke(app, ["run", "--language", "python", "--target", "."])
 
     assert result.exit_code == 0, result.output
-    data = json.loads(result.output)
-    for name in expected_adapters:
-        assert name in data["analyzers"], f"Expected {name} in analyzers"
+    assert set(expected_adapters) <= _tools(result.output)
 
 
 def test_semgrep_rules_from_toml_reaches_request_config(
@@ -336,9 +346,9 @@ def test_semgrep_rules_from_toml_reaches_request_config(
         default_timeout_s = 30
         scope_restrictions: frozenset[str] = frozenset()
 
-        async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+        async def run(self, request: ReviewRequest) -> CaptureOutput:
             received.append(dict(request.config))
-            return AnalyzerOutput(sarif={})
+            return CaptureOutput(tool="fake", command=("fake",))
 
     monkeypatch.setitem(adapters_mod.REGISTRY, "fake", ConfigCapturingFake)
     cfg = tmp_path / "code-review.toml"

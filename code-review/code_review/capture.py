@@ -5,9 +5,9 @@ stdout/stderr captured **verbatim** (no JSON parse, no SARIF normalisation) plus
 outcome classified into the ADR-0019 status taxonomy. ``run_and_capture`` wraps
 ``adapters.base.run_subprocess`` to produce one.
 
-This module is purely additive (s0): it runs alongside the existing
-``AnalyzerOutput``/SARIF path. s1 migrates the adapters onto it and deletes the
-normalisation layer; the optional rename to ``AnalyzerOutput`` also lands then.
+This is the analyzer layer's sole output type: every adapter returns a ``CaptureOutput``
+and the CLI collects them into a ``ReviewBundle`` (ADR-0020). The former SARIF
+normalisation layer was deleted in s1-t3.
 """
 
 from __future__ import annotations

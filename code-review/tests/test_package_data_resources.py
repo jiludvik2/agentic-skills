@@ -12,7 +12,7 @@ _BUNDLED_JSON = [
     "capabilities.json",
     "schemas/capabilities.json",
     "schemas/review-request.json",
-    "schemas/review-response.json",
+    "schemas/review-bundle.v1.json",
     "schemas/sarif-2.1.0.json",
 ]
 

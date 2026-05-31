@@ -24,12 +24,16 @@ ALL_ANALYZER_NAMES = [
 
 
 def _patch_all(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Each fake must report its own name: the bundle keys outputs by the adapter's
+    # self-reported `tool`, so a single shared FakeAnalyzer (name="fake") would collapse
+    # every selected analyzer to one output. Give each a uniquely-named subclass.
     for name in ALL_ANALYZER_NAMES:
-        monkeypatch.setitem(adapters_mod.REGISTRY, name, FakeAnalyzer)
+        cls = type(name, (FakeAnalyzer,), {"name": name})
+        monkeypatch.setitem(adapters_mod.REGISTRY, name, cls)
 
 
 def _ran(stdout: str) -> set[str]:
-    return set(json.loads(stdout)["analyzers"].keys())
+    return {o["tool"] for o in json.loads(stdout)["outputs"]}
 
 
 # ---------------------------------------------------------------------------

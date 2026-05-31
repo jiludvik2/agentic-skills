@@ -1,7 +1,4 @@
-import dataclasses
 import inspect
-
-import pytest
 
 
 def test_protocol_members_present() -> None:
@@ -17,24 +14,6 @@ def test_protocol_members_present() -> None:
     members = dict(inspect.getmembers(Analyzer))
     assert "run" in members
     assert inspect.iscoroutinefunction(members["run"])
-
-
-def test_analyzer_output_is_frozen_dataclass() -> None:
-    from code_review.contracts import AnalyzerOutput
-
-    assert dataclasses.is_dataclass(AnalyzerOutput)
-    obj = AnalyzerOutput(sarif={})
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        obj.status = "error"  # type: ignore[misc]
-
-
-def test_metric_set_fields() -> None:
-    from code_review.contracts import MetricSet
-
-    ms = MetricSet(per_file={}, per_class={}, coupling={})
-    assert ms.per_file == {}
-    assert ms.per_class == {}
-    assert ms.coupling == {}
 
 
 def test_review_request_target_paths_is_tuple() -> None:

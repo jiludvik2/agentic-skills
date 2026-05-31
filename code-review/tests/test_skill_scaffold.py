@@ -12,7 +12,7 @@ SKILL_MD = REPO_ROOT / ".claude" / "skills" / "code-review" / "SKILL.md"
 SCHEMAS = REPO_ROOT / "code_review" / "schemas"
 CAPABILITIES_SCHEMA = SCHEMAS / "capabilities.json"
 REQUEST_SCHEMA = SCHEMAS / "review-request.json"
-RESPONSE_SCHEMA = REPO_ROOT / "code_review" / "schemas" / "review-response.json"
+BUNDLE_SCHEMA = SCHEMAS / "review-bundle.v1.json"
 
 
 def _frontmatter(text: str) -> dict[str, str]:
@@ -77,34 +77,36 @@ def test_skill_md_references_schemas() -> None:
         assert ref in text, f"SKILL.md does not reference {ref}"
 
 
-@pytest.mark.parametrize("schema_path", [CAPABILITIES_SCHEMA, REQUEST_SCHEMA, RESPONSE_SCHEMA])
+@pytest.mark.parametrize("schema_path", [CAPABILITIES_SCHEMA, REQUEST_SCHEMA, BUNDLE_SCHEMA])
 def test_contract_schemas_are_valid_jsonschema(schema_path: Path) -> None:
     assert schema_path.exists(), f"missing {schema_path}"
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     jsonschema.Draft202012Validator.check_schema(schema)
 
 
-def test_review_response_schema_matches_s0_output() -> None:
-    schema = json.loads(RESPONSE_SCHEMA.read_text(encoding="utf-8"))
+def test_review_bundle_schema_matches_cli_output() -> None:
+    """The published bundle schema (ADR-0020) accepts the thin-runner CLI output shape:
+    the request echo plus one raw capture per tool, mixing the ADR-0019 statuses."""
+    schema = json.loads(BUNDLE_SCHEMA.read_text(encoding="utf-8"))
     sample = {
-        "sarif": {"version": "2.1.0", "runs": []},
-        "metrics": {"per_file": {}, "per_class": {}, "coupling": {}},
-        "ranked_hotspots": [],
-        "analyzers": {
-            "semgrep": {
-                "sarif": {"version": "2.1.0", "runs": []},
-                "metrics": None,
-                "duration_s": 0.0,
-                "status": "ok",
-                "error": None,
-            },
-            "radon": {
-                "sarif": {"version": "2.1.0", "runs": []},
-                "metrics": {"per_file": {}, "per_class": {}, "coupling": {}},
-                "duration_s": 0.0,
-                "status": "ok",
-                "error": None,
-            },
+        "schema": "polyreview/review-bundle/v1",
+        "request": {
+            "scope": "per-task",
+            "diff_range": None,
+            "target_paths": ["src/app.py"],
+            "languages": ["python"],
         },
+        "outputs": [
+            {
+                "tool": "semgrep", "status": "ok", "exit_code": 0,
+                "stdout": '{"runs": []}', "stderr": "", "error": None,
+                "command": ["semgrep", "--sarif"], "duration_s": 0.1,
+            },
+            {
+                "tool": "eslint", "status": "unavailable", "exit_code": None,
+                "stdout": "", "stderr": "", "error": "no JavaScript/TypeScript files in target",
+                "command": [], "duration_s": 0.0,
+            },
+        ],
     }
     jsonschema.validate(sample, schema)

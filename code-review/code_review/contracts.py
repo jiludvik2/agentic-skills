@@ -21,23 +21,6 @@ class Analyzer(Protocol):
 
 
 @dataclass(frozen=True)
-class MetricSet:
-    per_file: dict[str, dict[str, Any]]
-    per_class: dict[str, dict[str, Any]]
-    coupling: dict[str, dict[str, Any]]
-
-
-@dataclass(frozen=True)
-class AnalyzerOutput:
-    sarif: dict[str, Any]
-    metrics: MetricSet | None = None
-    duration_s: float = 0.0
-    status: str = "ok"
-    error: str | None = None
-    raw_output_path: str | None = None
-
-
-@dataclass(frozen=True)
 class ReviewRequest:
     scope: str
     diff_range: str | None

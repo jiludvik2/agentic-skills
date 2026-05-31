@@ -23,7 +23,7 @@ _EXPECTED_IN_WHEEL = [
     "code_review/capabilities.json",
     "code_review/schemas/capabilities.json",
     "code_review/schemas/review-request.json",
-    "code_review/schemas/review-response.json",
+    "code_review/schemas/review-bundle.v1.json",
     "code_review/schemas/sarif-2.1.0.json",
 ]
 

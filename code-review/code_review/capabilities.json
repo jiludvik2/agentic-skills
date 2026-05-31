@@ -189,19 +189,6 @@
       "scope_restriction": null
     }
   ],
-  "hotspots": {
-    "weights": {
-      "severity_weighted_findings": 1.0,
-      "cyclomatic_complexity": 0.5,
-      "coupling": 0.3
-    },
-    "severity_finding_scores": {
-      "critical": 4,
-      "important": 2,
-      "minor": 1,
-      "nit": 0
-    }
-  },
   "taxonomies": {
     "cwe": {"version": "4.14"},
     "owasp-top-10": {"version": "2021"},

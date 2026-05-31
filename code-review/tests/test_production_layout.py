@@ -74,9 +74,8 @@ def test_production_layout_review_runs_against_fixture(tmp_path: Path) -> None:
         f"--analyzer bandit failed:\nstdout={result.stdout}\nstderr={result.stderr}"
     )
     payload = json.loads(result.stdout)
-    assert "bandit" in payload["analyzers"], (
-        f"bandit not in analyzers dict; keys={list(payload['analyzers'])}"
-    )
+    tools = {o["tool"] for o in payload["outputs"]}
+    assert "bandit" in tools, f"bandit not in bundle outputs; tools={tools}"
 
 
 @pytest.mark.slow
