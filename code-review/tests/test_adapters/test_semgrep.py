@@ -215,8 +215,20 @@ async def test_semgrep_js_rules_fire_on_js_fixture(
     out = await SemgrepAdapter().run(_req((str(JS_FIXTURE_PATH),)))
     assert out.status == "ok", f"expected ok, got {out.status}: {out.error}"
     payload = json.loads(out.stdout)
-    rule_ids = [r.get("ruleId", "") for r in payload.get("runs", [{}])[0].get("results", [])]
+    results = payload.get("runs", [{}])[0].get("results", [])
+    rule_ids = [r.get("ruleId", "") for r in results]
     assert any("js-eval" in rid for rid in rule_ids), f"js-eval not fired; got {rule_ids}"
     assert any(
         "js-innerhtml-xss" in rid for rid in rule_ids
     ), f"js-innerhtml-xss not fired; got {rule_ids}"
+    # Both declared languages are exercised: the fixture has a .js and a .ts file,
+    # so the rules' `[javascript, typescript]` declaration is validated end-to-end.
+    uris = {
+        r.get("locations", [{}])[0]
+        .get("physicalLocation", {})
+        .get("artifactLocation", {})
+        .get("uri", "")
+        for r in results
+    }
+    assert any(u.endswith(".js") for u in uris), f"no .js finding; got {uris}"
+    assert any(u.endswith(".ts") for u in uris), f"no .ts finding (typescript path); got {uris}"
