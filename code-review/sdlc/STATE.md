@@ -2,12 +2,15 @@
 
 **Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). **s0–s3 DONE.** s0–s2 pushed to origin/main at 92c8b40; **s3 is local-only (4 commits ahead, unpushed).**
 **Last completed:** **Story s3** (`s3-js-semgrep-rules`, G6) — vendored `security-js.yaml` (js-eval CWE-95 ERROR, js-innerhtml-xss CWE-79 WARNING) for `[javascript, typescript]`; `vuln.js` + `vuln.ts` fixture; integration test asserting both rules fire on both languages; SKILL.md + ADR-0016 updated. Zero `code_review/` change — architecture-validation criterion ("near-trivial") proven. 385 tests green.
-**Next:** **Push s3** (4 commits: 4db34ee plan, 9aeefdc s3-t0, 36720a8 s3-t1, cc75748 story cleanup) — operator-driven, no push policy in AGENTS.md. Then **plan story s4** (unplanned).
+**Next:** **Operator approval of the s4 plan** (compiled, not yet committed) — then execute s4-t0 (ADR-0022 tool selection) → s4-t1 (adapter + wiring + docs + tests). s3 is pushed (origin/main @ 3be3eeb).
 
-## Story-boundary pause (s3 → s4)
-s4 has no operator-approved plan, so auto-cross does not apply — paused for s4 planning per the Execute verb.
+## Story s4 plan summary (awaiting approval)
+Story `s4-js-complexity-analyzer` — G8: JS/TS complexity analyzer, radon-`cc` parity. Two tasks:
+- **s4-t0** — ADR-0022: JS complexity tool selection + cc-parity scope + JS cohesion limitation (no code; resolves the stack hard-stop).
+- **s4-t1** — adapter + REGISTRY/_JS_ADAPTERS/capabilities wiring + SKILL.md docs + tests (test-first). Docs in-task: `test_every_analyzer_documented` couples REGISTRY membership to the SKILL.md table.
 
-- **s4 (G8: JS complexity analyzer)** — add a JS complexity analyzer (parity with radon); document JS cohesion as a thin-tooling limitation. UNPLANNED.
+**Key decision (hard-stop, in ADR-0022):** which JS complexity tool. Plan recommends **reusing the vendored ESLint `complexity` core rule** via an adapter-supplied config (zero new dependency; radon runs only `cc`, so eslint-complexity is exact parity). Alternatives: `eslintcc` / `ts-complex` (richer, but new npm dependency). Operator can change the choice by editing s4 before approval.
+
 - **s5 (G5: maintainability oracle QA harness)** — extend analyzer-coverage QA harness with labelled coupling fixtures asserted against the **new raw bundle**. UNPLANNED.
 
 ## Open questions / follow-ups
