@@ -84,8 +84,11 @@ migrate alongside so the green bar holds throughout.
   ships in s1; s2 teaches the agent (SKILL.md) to read each tool's native output and judge
   severity/dedup, and hardens the golden-bundle fixtures. **Folds in G2/G7** (vulture/knip
   FP handling → agent-interpretation guidance — decide at Plan).
-- **s3 — G6: vendor JS semgrep rules.** Orthogonal coverage win, now cheap; closes the
-  no-JS-SAST gap. (Already decided: vendor JS/TS rules into the ruleset, not a new tool.)
+- **s3 — G6: vendor JS semgrep rules. (done 2026-05-31)** Orthogonal coverage win, now cheap;
+  closes the no-JS-SAST gap. Shipped `security-js.yaml` (js-eval CWE-95, js-innerhtml-xss
+  CWE-79) for `[javascript, typescript]` as rule file + fixture + test, zero adapter change —
+  the architecture-validation criterion ("near-trivial") proven. (Vendored JS/TS rules into
+  the ruleset, not a new tool.)
 - **s4 — G8: JS complexity analyzer.** Add a JS complexity analyzer (parity with radon);
   document JS cohesion as a limitation (thin tooling).
 - **s5 — G5: maintainability oracle.** Extend the analyzer-coverage QA harness with

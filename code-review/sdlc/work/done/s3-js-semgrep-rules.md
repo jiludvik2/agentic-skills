@@ -2,7 +2,7 @@
 id: s3-js-semgrep-rules
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-thin-runner
 children:
   - s3-t0-js-rules-fixture-test
@@ -10,6 +10,17 @@ children:
 sources: [epic-analyzer-thin-runner.md, adr-0016-semgrep-rule-provenance.md]
 created: 2026-05-31
 updated: 2026-05-31
+closed: 2026-05-31
+close-notes: |
+  Both tasks done. s3-t0 verifier PASS / reviewer MINOR-ONLY (duplication
+  remediated); s3-t1 verifier PASS / reviewer CLEAN. Story-level review
+  MINOR-ONLY — 2 findings remediated in commit cc75748 (security.yaml stale
+  header; .ts coverage gap closed via vuln.ts + assertion). Architecture-
+  validation criterion met: JS/TS coverage shipped as rule file + fixture +
+  test with zero code_review/ change; provisioning auto-covered the new file
+  via its *.y*ml glob. 385 tests green, ruff + mypy clean. No dependency-audit
+  gate defined for this project (rule #26 n/a); s3 added no dependencies.
+  Commits: 9aeefdc (s3-t0), 36720a8 (s3-t1), cc75748 (story-level cleanup).
 tags: [semgrep, javascript, typescript, security, rules, vendored]
 ---
 
