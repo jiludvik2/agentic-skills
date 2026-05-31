@@ -2,7 +2,7 @@
 id: s1-migrate-adapters-and-emit-bundle
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-thin-runner
 children:
   - s1-t0-type-consolidation-and-status-sot
@@ -13,7 +13,7 @@ children:
   - s1-t3-cli-bundle-and-delete-sarif-layer
 sources: [epic-analyzer-thin-runner.md, adr-0020-thin-invocation-runner.md, s0-contract-inversion-and-bundle.md]
 created: 2026-05-30
-updated: 2026-05-30
+updated: 2026-05-31
 tags: [migration, adapters, bundle, strangle, supersedes-facade]
 ---
 
@@ -100,3 +100,24 @@ now satisfied across s1-t1 + s1-t1b + s1-t1c + s1-t2.
 - **s1-t1c** — migrate schemathesis (library → subprocess; auth/sandbox design).
 - **s1-t2** — migrate the 4 JS adapters (folds in G1: jscpd language scope).
 - **s1-t3** — CLI emits the bundle + delete the SARIF normalisation layer.
+
+## Close (2026-05-31)
+
+All 6 tasks done (s1-t0/t1/t1b/t1c/t2/t3), each per-task Verify-PASS + Review. The strangle
+is complete: all 12 adapters return raw `CaptureOutput`; `polyreview run` emits
+`review-bundle.v1.json`; the SARIF-normalisation layer (aggregator/severity/hotspots/
+sarif_utils/MetricSet/legacy AnalyzerOutput/the cli shims) is **deleted** (net −1604 LOC in
+the s1-t3 commit alone). ADR-0021 (Schemathesis/contracts removal) fell out of s1-t1c.
+
+**Story-level Review (2026-05-31):** 0 Critical, 3 Important, 3 Minor, 2 Nit. Code coherent
+and green; the 3 Important were stale-doc drift from the output-contract flip (README,
+AGENTS.md, `architecture-reviewer-subagent.md` still advertised consolidated SARIF +
+`sdlc_severity`) — the project's own "sweep all live surfaces" failure mode, invisible to
+per-task reviews. Remediated inline: README/AGENTS rewritten to the bundle contract;
+ADR-0020 supersession banner added to the architecture doc. Nits fixed. CI / runbooks /
+SKILL.md / reviewer.md confirmed **clean** (no consumer of the old shape). Minors → carry-overs
+(STATE): dead `schemas/sarif-2.1.0.json`; stale `sdlc/docs/qa/.../results/raw/*.json`.
+
+**Gate at close:** 361 passed (`-m "not integration"`) + 15 integration; ruff + `mypy
+code_review` clean. **Epic continues with s2** (SKILL.md teaches the agent to read raw
+per-tool output + golden-bundle hardening), then s3–s5.

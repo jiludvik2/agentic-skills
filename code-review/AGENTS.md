@@ -1,6 +1,6 @@
 # code-review (`polyreview`)
 
-Deterministic code-review skill: runs Semgrep, Radon, Bandit and friends across a diff and emits consolidated SARIF + per-finding `sdlc_severity`. Published to PyPI as **`polyreview`**; the Python import name is `code_review`. The skill bundle is consumed cross-agent (Copilot, Cursor, Codex, Claude, …) via the Agent Skills standard.
+Deterministic code-review skill: runs Semgrep, Radon, Bandit and friends across a diff and emits a **review bundle** of raw per-tool output (`review-bundle.v1.json` — one capture per analyzer with verbatim stdout/stderr + an ADR-0019 status, for an agent to interpret; ADR-0020). Published to PyPI as **`polyreview`**; the Python import name is `code_review`. The skill bundle is consumed cross-agent (Copilot, Cursor, Codex, Claude, …) via the Agent Skills standard.
 
 This file is the canonical cross-agent policy. It is read-in-spirit by any agent working in this repo; Claude Code reads `CLAUDE.md`, which redirects here.
 

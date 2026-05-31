@@ -1,10 +1,10 @@
 # polyreview
 
-Deterministic code-review skill: runs Semgrep, Radon, Bandit and friends across a diff and emits consolidated SARIF + per-finding `sdlc_severity`.
+Deterministic code-review skill: runs Semgrep, Radon, Bandit and friends across a diff and emits a **review bundle** of raw per-tool output (`review-bundle.v1.json`) — one capture per analyzer for an agent to interpret (ADR-0020).
 
 ## Status
 
-Alpha. No API stability guarantees before `1.0`. Expect breaking changes to CLI flags, config schema, and SARIF property names. The canonical version lives in `pyproject.toml`; check the installed version with `polyreview --version` once the flag lands or `python -c "import code_review; print(code_review.__version__)"`.
+Alpha. No API stability guarantees before `1.0`. Expect breaking changes to CLI flags, config schema, and the bundle contract. The canonical version lives in `pyproject.toml`; check the installed version with `polyreview --version` once the flag lands or `python -c "import code_review; print(code_review.__version__)"`.
 
 **Renamed from `claude-code-review`.** Early development used the working name `claude-code-review`; the PyPI distribution is **`polyreview`** (it was renamed before its first release, so there is no `claude-code-review` package to migrate from). The rename drops the vendor prefix because the tool is agent-agnostic — its Agent Skill bundle is read by GitHub Copilot, Cursor, Codex, and other agents, not just Claude — and `polyreview` reads as a multi-language, multi-tool reviewer rather than an Anthropic-only one. The Python import name stays `code_review`.
 
@@ -54,18 +54,18 @@ Uninstall is **marker-guarded**: it removes only a directory that is verifiably 
 polyreview run --review security --depth quick --diff HEAD~1..HEAD --output review.json
 ```
 
-Returns a SARIF document at `review.json` containing findings from every analyzer in the `security/quick` set, each annotated with an `sdlc_severity` reflecting how the SDLC treats it (Critical / Important / Minor / Nit).
+Writes a **review bundle** to `review.json` (`review-bundle.v1.json` schema): the request echo plus one entry per analyzer in the `security/quick` set, each carrying that tool's raw `stdout`/`stderr` verbatim and an ADR-0019 `status` (`ok` / `error` / `timeout` / `unavailable`). The bundle is for an agent to interpret — polyreview does not parse, rank, or merge findings.
 
 ## What it does
 
 - Deterministic analyzer layer — Semgrep, Bandit, Radon, and other rule-based scanners.
-- Emits SARIF with an `sdlc_severity` extension so downstream tools can gate on real severity, not analyzer-native rankings.
+- Emits a raw review bundle (one capture per tool) so the consuming agent reads each tool's native output directly, rather than a lossy normalised summary (ADR-0020).
 - Runs under `/sandbox` — analyzers are isolated from the host filesystem and network.
 
 ## What it doesn't do
 
 - LLM-based code review — that's the sibling `intent-review` project.
-- Cross-skill aggregation — one diff, one analyzer set, one SARIF.
+- Cross-tool aggregation, dedup, or severity ranking — it captures each tool raw; the agent interprets.
 - CI orchestration — invoke it from your existing pipeline; it doesn't replace one.
 
 ## Full reference

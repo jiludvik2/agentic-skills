@@ -338,7 +338,8 @@ def run(
         tmp_file = output_path.parent / (output_path.name + ".tmp")
         tmp_file.write_text(json_content)
         os.rename(tmp_file, output_path)
-        # No parsed findings now — summarise per-tool status counts + total duration instead.
+        # The runner emits no parsed findings — summarise per-tool status counts + total
+        # duration instead.
         counts: dict[str, int] = {}
         for c in captures:
             key = Status(c.status).value

@@ -24,7 +24,6 @@
 ## the cache is unprovisioned, the semgrep analyzer errors and names setup.sh.
 # semgrep_rules = "/path/to/semgrep-rules"
 
-## Note: the thin invocation runner (ADR-0020) emits one raw per-tool capture per
-## analyzer (review-bundle.v1.json) and does no cross-tool SARIF aggregation, so the
-## former [dedup] / [severity] / [hotspots] knobs no longer exist. The two options above
-## are the only tunables.
+## Note: the thin invocation runner (ADR-0020) emits one raw capture per analyzer
+## (review-bundle.v1.json) for the agent to interpret. The two options above are the only
+## tunables — there are no cross-tool merge/severity/ranking knobs to configure.
