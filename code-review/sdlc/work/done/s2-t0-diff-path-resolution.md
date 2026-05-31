@@ -2,7 +2,7 @@
 id: s2-t0-diff-path-resolution
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-skill-interpretation-and-golden-bundle
 sources: [adr-0020-thin-invocation-runner.md, s1-t3-cli-bundle-and-delete-sarif-layer.md]
 created: 2026-05-31

@@ -15,7 +15,7 @@ import typer
 from code_review.capture import CaptureOutput
 from code_review.config import ConfigError, load_config
 from code_review.contracts import ReviewRequest
-from code_review.diff import resolve_diff_paths
+from code_review.diff import get_repo_root, resolve_diff_paths
 from code_review.review_bundle import ReviewBundle, bundle_to_json, load_bundle_schema
 from code_review.selector import resolve_review_selection
 from code_review.status import Status
@@ -110,7 +110,8 @@ async def _run_analyzers(
     from code_review.adapters import REGISTRY
 
     if diff is not None:
-        target_paths = await resolve_diff_paths(Path.cwd(), diff)
+        repo_root = await get_repo_root(Path.cwd())
+        target_paths = await resolve_diff_paths(repo_root, diff)
     elif target is not None:
         target_paths = (target,)
     else:
