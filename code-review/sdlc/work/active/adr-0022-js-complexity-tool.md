@@ -10,7 +10,7 @@ updated: 2026-05-31
 tags: [complexity, javascript, eslint, cohesion, maintainability]
 ---
 
-# ADR-0022: JS/TS complexity analyzer — tool selection
+# ADR-0022: JS complexity analyzer — tool selection (JS-only; TS deferred)
 
 ## Status
 
@@ -122,8 +122,9 @@ Revisit either if a suitable tool/decision emerges (a future ADR/story).
 
 ## Consequences
 
-- A JS/TS review gains a complexity signal at parity with Python's, with no new dependency —
-  the cheapest possible closure of G8 and a clean second proof of the thin-runner design.
+- A JavaScript review gains a complexity signal at parity with Python's, with no new
+  dependency — the cheapest possible closure of G8's JS half and a clean second proof of the
+  thin-runner design. (TypeScript complexity is deferred — see the limitations above.)
 - The `complexity` signal for JS is cyclomatic-only; maintainability-index and Halstead are
   out of scope (radon parity). If richer JS metrics are wanted later, that is a new decision
   (reconsider `ts-complex`), not a regression here.

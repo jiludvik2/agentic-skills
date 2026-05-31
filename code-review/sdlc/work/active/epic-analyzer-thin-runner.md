@@ -90,9 +90,12 @@ migrate alongside so the green bar holds throughout.
   CWE-79) for `[javascript, typescript]` as rule file + fixture + test, zero adapter change —
   the architecture-validation criterion ("near-trivial") proven. (Vendored JS/TS rules into
   the ruleset, not a new tool.)
-- **s4 — G8: JS complexity analyzer.** Add a JS complexity analyzer (parity with radon);
-  document JS cohesion as a limitation (thin tooling). Tool choice recorded in **ADR-0022**
-  (reuse vendored ESLint `complexity` rule; zero new dependency; cc-only parity).
+- **s4 — G8: JS complexity analyzer. (done 2026-05-31)** Shipped `jscomplexity` reusing the
+  vendored ESLint `complexity` rule (zero new dependency; radon-`cc` parity). Tool choice +
+  scope in **ADR-0022**. Narrowed to **JS-only** mid-story (gate escalation): ESLint can't
+  parse TS without the unvendored `@typescript-eslint/parser`; TS complexity + JS cohesion are
+  documented limitations. New analyzer added with no existing-adapter change — G8
+  architecture-validation confirmed.
 - **s5 — G5: maintainability oracle.** Extend the analyzer-coverage QA harness with
   labelled coupling fixtures (pydeps `test_cycles`, depcruiser `__mocks__`) asserted
   against the **new raw output**.

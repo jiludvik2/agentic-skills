@@ -2,7 +2,7 @@
 id: s4-js-complexity-analyzer
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-thin-runner
 children:
   - s4-t0-adr-js-complexity-tool
@@ -10,10 +10,24 @@ children:
 sources: [epic-analyzer-thin-runner.md, g8-js-complexity-cohesion-absent.md, adr-0011-review-selection-model.md, adr-0017-node-range-and-js-toolchain-pins.md]
 created: 2026-05-31
 updated: 2026-05-31
-tags: [complexity, javascript, typescript, maintainability, eslint, radon-parity]
+closed: 2026-05-31
+close-notes: |
+  Both tasks done. s4-t0 (ADR-0022) verifier PASS / reviewer MINOR-ONLY; s4-t1
+  (adapter) verifier PASS / reviewer CLEAN. Mid-story gate escalation: ESLint
+  cannot parse TS without the unvendored @typescript-eslint/parser, so the
+  operator narrowed scope to JS-only (ADR-0022 amendment) to preserve the
+  zero-dependency rationale; TS complexity + JS cohesion are documented
+  limitations. Story-level review MINOR-ONLY — narrative-only residue (stale
+  "JS/TS"/typescript text + STATE) cleaned in the close commit; zero findings in
+  shipped code/capabilities/docs. Architecture-validation (G8) confirmed: new
+  analyzer added as one adapter + 4 wiring points + tests, no existing adapter
+  changed, no new dependency. 393 tests green, ruff + mypy clean. No
+  dependency-audit gate (rule #26 n/a); s4 added no dependencies. Commits:
+  07d38aa (ADR), 85bba09 (JS-only decision), 8073866 (impl).
+tags: [complexity, javascript, maintainability, eslint, radon-parity]
 ---
 
-# Story s4 — G8: JS/TS complexity analyzer (radon parity)
+# Story s4 — G8: JS complexity analyzer (radon-cc parity; JS-only, TS deferred)
 
 ## Why
 

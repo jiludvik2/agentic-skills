@@ -1,24 +1,15 @@
 # State — last updated 2026-05-31
 
-**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). **s0–s3 DONE.** s0–s2 pushed to origin/main at 92c8b40; **s3 is local-only (4 commits ahead, unpushed).**
-**Last completed:** **Story s3** (`s3-js-semgrep-rules`, G6) — vendored `security-js.yaml` (js-eval CWE-95 ERROR, js-innerhtml-xss CWE-79 WARNING) for `[javascript, typescript]`; `vuln.js` + `vuln.ts` fixture; integration test asserting both rules fire on both languages; SKILL.md + ADR-0016 updated. Zero `code_review/` change — architecture-validation criterion ("near-trivial") proven. 385 tests green.
-**Next:** **HALTED at s4-t1 — gate escalation (operator decision needed).** s4-t0 done (ADR-0022 @ 07d38aa, local). s3 pushed (origin/main @ 3be3eeb). s4 commits 20a9a2d (plan) + 07d38aa (ADR) are local/unpushed.
+**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). **s0–s4 DONE.** s0–s3 pushed to origin/main @ 3be3eeb; **s4 is local (commits 20a9a2d, 07d38aa, 85bba09, 8073866 + this close — unpushed).**
+**Last completed:** **Story s4** (`s4-js-complexity-analyzer`, G8) — shipped `jscomplexity`, a JS cyclomatic-complexity analyzer reusing the vendored ESLint `complexity` rule (zero new dependency; radon-`cc` parity). JS-only (ADR-0022 + gate-escalation amendment: ESLint can't parse TS without the unvendored `@typescript-eslint/parser`); TS complexity + JS cohesion documented as limitations. New analyzer with no existing-adapter change — G8 architecture-validation confirmed. 393 tests green.
+**Next:** **Push s4** (operator-driven, no push policy in AGENTS.md), then **plan story s5** (unplanned) — story-boundary pause.
 
-## ⚠️ s4-t1 BLOCKED — TS parity vs zero-dependency conflict
-Validated against the real vendored toolchain: ESLint cannot parse `.ts` (type annotations) without `@typescript-eslint/parser`, which is **not** vendored (we have `typescript@5.9.3` but not the eslint parser bridge). So ADR-0022's "reuse vendored ESLint → JS+TS at zero new dependency" holds for **JS only, not TS**. Decision needed:
-- **(Rec) JS-only now** — capabilities `languages=[javascript]`; TS complexity a documented limitation (like jscpd JS-scoping). Preserves zero-dependency; amend ADR-0022 + story AC.
-- **Add `typescript-eslint` parser dep** — full JS+TS parity; costs the zero-dependency property; ADR-0017 pin + stack-pins row + ADR-0022 amendment.
-- **Switch tool** (ts-complex/eslintcc) — also a dep; abandons the eslint-reuse elegance.
+## Story-boundary pause (s4 → s5)
+s5 has no operator-approved plan, so auto-cross does not apply — paused for s5 planning per the Execute verb.
 
-## Story s4 plan summary (awaiting approval)
-Story `s4-js-complexity-analyzer` — G8: JS/TS complexity analyzer, radon-`cc` parity. Two tasks:
-- **s4-t0** — ADR-0022: JS complexity tool selection + cc-parity scope + JS cohesion limitation (no code; resolves the stack hard-stop).
-- **s4-t1** — adapter + REGISTRY/_JS_ADAPTERS/capabilities wiring + SKILL.md docs + tests (test-first). Docs in-task: `test_every_analyzer_documented` couples REGISTRY membership to the SKILL.md table.
-
-**Key decision (hard-stop, in ADR-0022):** which JS complexity tool. Plan recommends **reusing the vendored ESLint `complexity` core rule** via an adapter-supplied config (zero new dependency; radon runs only `cc`, so eslint-complexity is exact parity). Alternatives: `eslintcc` / `ts-complex` (richer, but new npm dependency). Operator can change the choice by editing s4 before approval.
-
-- **s5 (G5: maintainability oracle QA harness)** — extend analyzer-coverage QA harness with labelled coupling fixtures asserted against the **new raw bundle**. UNPLANNED.
+- **s5 (G5: maintainability oracle QA harness)** — extend the analyzer-coverage QA harness with labelled coupling fixtures (pydeps `test_cycles`, depcruiser `__mocks__`) asserted against the **new raw bundle**. UNPLANNED. **Last story of the epic** — closing it cleanly hits the epic boundary (Document + File verbs: README reconcile, epic move to done/, ADR-0022 → docs/decisions/).
 
 ## Open questions / follow-ups
 - **s5 carry-over:** `sdlc/docs/qa/analyzer-coverage/results/raw/*.json` are pre-ADR-0020 captures (old sarif/metrics shape) — regenerate against the raw bundle before s5 uses them.
-- **Stale doc (not s3 scope):** stack-pins.md §License floor cites `scripts/license_audit.py` as the CI license gate, but that script does not exist — no dependency-audit gate is wired (rule #26 currently n/a for this project).
+- **TS complexity follow-up** (post-epic, if demanded): vendor `typescript-eslint` (v8, MIT) + widen `jscomplexity` capabilities `languages` — no adapter rewrite (ADR-0022).
+- **Stale doc (not s4 scope):** stack-pins.md §License floor cites `scripts/license_audit.py` (does not exist); no dependency-audit gate is wired (rule #26 n/a).
