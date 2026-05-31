@@ -1,55 +1,22 @@
 from __future__ import annotations
 
-import json
+import dataclasses
 import tempfile
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
-from code_review.adapters.base import run_subprocess
-from code_review.adapters.js_base import has_js_files, js_unavailable, node_binary
-from code_review.adapters.sarif_utils import empty_sarif, make_location, normalise_sarif
-from code_review.contracts import AnalyzerOutput, ReviewRequest
+from code_review.adapters.js_base import has_js_files, node_binary
+from code_review.capture import CaptureOutput, run_and_capture
+from code_review.contracts import ReviewRequest
+from code_review.status import Status
 
-
-def _to_sarif(data: dict[str, Any]) -> dict[str, Any]:
-    results = []
-    for dup in data.get("duplicates", []):
-        first = dup.get("firstFile", {})
-        second = dup.get("secondFile", {})
-        results.append(
-            {
-                "ruleId": "jscpd.duplicate-code",
-                "message": {
-                    "text": (
-                        f"Duplicate code block: {first.get('name', '?')} "
-                        f"and {second.get('name', '?')}"
-                    )
-                },
-                "locations": [
-                    make_location(first.get("name", "unknown"), first.get("start", 1))
-                ],
-                "relatedLocations": [
-                    {
-                        "id": 1,
-                        "message": {"text": "Duplicate location"},
-                        "physicalLocation": {
-                            "artifactLocation": {"uri": second.get("name", "unknown")},
-                            "region": {"startLine": second.get("start", 1)},
-                        },
-                    }
-                ],
-            }
-        )
-    return normalise_sarif(
-        {
-            "runs": [
-                {
-                    "tool": {"driver": {"name": "jscpd", "version": "4.0.5", "rules": []}},
-                    "results": results,
-                }
-            ]
-        }
-    )
+# G1 (settled in s1-t2): jscpd is intentionally JS-scoped (lang_select._JS_ADAPTERS;
+# capabilities languages=[javascript, typescript]) — duplication detection is a
+# deliberately JS-only feature. By default jscpd auto-detects ~150 formats and leaks
+# into HTML/CSS/etc. on real apps (the scope leak is in the invocation's format args,
+# not the selector). Pinning --format to exactly the JS/TS set confines detection to the
+# intended scope and nothing else.
+_JS_FORMAT = "javascript,jsx,typescript,tsx"
 
 
 class JscpdAdapter:
@@ -59,51 +26,48 @@ class JscpdAdapter:
     scope_restrictions: ClassVar[frozenset[str]] = frozenset()
     node_tool: ClassVar[str] = "jscpd"
 
-    async def run(self, request: ReviewRequest) -> AnalyzerOutput:
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
         binary = node_binary("jscpd")
         if binary is None:
-            return AnalyzerOutput(
-                sarif={}, status="error",
-                error="jscpd not found. Run scripts/setup.sh first.",
+            # Missing vendored binary → provisioning gap, not a scan failure (ADR-0019).
+            return CaptureOutput.unavailable(
+                "jscpd", "jscpd not found in vendored node_modules. Run scripts/setup.sh first."
             )
         if not request.target_paths:
-            return AnalyzerOutput(sarif=empty_sarif("jscpd"))
-        # jscpd is intentionally JS-scoped in polyreview (lang_select._JS_ADAPTERS;
-        # capabilities languages=[javascript, typescript]) — duplication detection is
-        # a deliberately JS-only feature. Skip cleanly on a no-JS target rather than
-        # run the out-of-scope language duplication jscpd is capable of (ADR-0019).
-        # Defense-in-depth for the all-analyzer / --target path that bypasses the
-        # selector's language filter; mirrors eslint/knip.
+            return CaptureOutput.unavailable("jscpd", "no target paths to analyse")
+        # JS-only by design (G1) — skip cleanly on a no-JS target rather than run the
+        # out-of-scope language duplication jscpd is capable of (ADR-0019). Defense in
+        # depth for the all-analyzer / --target path that bypasses the selector's
+        # language filter; mirrors eslint.
         if not has_js_files(request.target_paths):
-            return js_unavailable("jscpd", "no JavaScript/TypeScript files in target")
-        # jscpd treats --output as a *directory* it mkdir's and writes
-        # jscpd-report.json into; pointing it at /dev/stdout fails with EEXIST.
-        # Use a TemporaryDirectory and read the report, like trivy/gitleaks.
-        with tempfile.TemporaryDirectory(prefix="code-review-jscpd-") as _tmp:
-            report = Path(_tmp) / "jscpd-report.json"
+            return CaptureOutput.unavailable(
+                "jscpd", "no JavaScript/TypeScript files in target"
+            )
+        # jscpd's json reporter has no stdout mode: it treats --output as a *directory* it
+        # writes jscpd-report.json into (pointing it at /dev/stdout fails, and the redirect
+        # is unreliable under sandboxed/containerised environments anyway). So run it into a
+        # TemporaryDirectory and splice the report file onto the capture's stdout verbatim —
+        # the thin runner's payload for jscpd is that report (ADR-0020, no parse).
+        with tempfile.TemporaryDirectory(prefix="code-review-jscpd-") as tmp:
             cmd = (
                 "node", str(binary),
                 "--reporters", "json",
-                "--output", _tmp,
+                "--output", tmp,
+                "--format", _JS_FORMAT,  # G1 scope pin
+                "--silent",
                 *request.target_paths,
             )
-            result = await run_subprocess(*cmd, timeout_s=self.default_timeout_s)
-            if result.error is not None:
-                return AnalyzerOutput(sarif={}, status="error", error=result.error)
-            if result.timed_out:
-                return AnalyzerOutput(sarif={}, status="timeout", error="jscpd timed out")
-            if result.returncode != 0:
-                stderr = result.stderr.decode(errors="replace")
-                return AnalyzerOutput(
-                    sarif={}, status="error",
-                    error=f"jscpd exited {result.returncode}: {stderr}",
-                )
+            capture = await run_and_capture("jscpd", *cmd, timeout_s=self.default_timeout_s)
+            if capture.status is not Status.OK:
+                # Failed/timed-out run wrote no usable report — pass the raw capture through.
+                return capture
+            report = Path(tmp) / "jscpd-report.json"
             if not report.exists():
-                return AnalyzerOutput(sarif={}, status="error",
-                                      error="jscpd produced no report file")
-            try:
-                data: dict[str, Any] = json.loads(report.read_text())
-            except json.JSONDecodeError as exc:
-                return AnalyzerOutput(sarif={}, status="error",
-                                      error=f"invalid JSON: {exc}")
-        return AnalyzerOutput(sarif=_to_sarif(data))
+                # jscpd exited 0 but produced no report (e.g. a silent format mismatch). An
+                # empty stdout would read downstream as "ran, found nothing" and mask the
+                # anomaly — flip it to error so s1-t3's bundle does not serialise the silence
+                # as a clean result.
+                return dataclasses.replace(
+                    capture, status=Status.ERROR, error="jscpd produced no report file"
+                )
+            return dataclasses.replace(capture, stdout=report.read_text(errors="replace"))

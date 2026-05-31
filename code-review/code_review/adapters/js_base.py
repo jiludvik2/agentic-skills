@@ -6,8 +6,6 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from code_review.adapters.sarif_utils import empty_sarif
-from code_review.contracts import AnalyzerOutput
 from code_review.paths import node_modules_dir as _node_modules
 
 # Source extensions that mark a target as having JavaScript/TypeScript to analyse.
@@ -54,12 +52,6 @@ def has_js_files(paths: Iterable[str]) -> bool:
         elif os.path.splitext(p)[1] in _JS_EXTENSIONS:
             return True
     return False
-
-
-def js_unavailable(tool: str, reason: str) -> AnalyzerOutput:
-    """Standard ``unavailable`` output (empty SARIF + reason) for a JS analyzer that
-    has nothing it can meaningfully run against this target (ADR-0019 clean skip)."""
-    return AnalyzerOutput(sarif=empty_sarif(tool), status="unavailable", error=reason)
 
 
 def probe_js_adapter(tool: str) -> dict[str, Any]:

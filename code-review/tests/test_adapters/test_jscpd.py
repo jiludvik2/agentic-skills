@@ -1,213 +1,157 @@
+"""s1-t2 — jscpd invoke-and-capture contract (ADR-0020) + G1 scope fold-in.
+
+jscpd has no stdout-JSON reporter — its ``json`` reporter writes ``jscpd-report.json`` into
+the ``--output`` directory. So the adapter runs it into a TemporaryDirectory and splices the
+report file's contents onto ``CaptureOutput.stdout`` (verbatim, no parse).
+
+**G1 (settled here):** jscpd is intentionally JS-scoped (``lang_select._JS_ADAPTERS``;
+capabilities languages=[javascript, typescript]), but by default it auto-detects ~150
+formats and leaks into HTML/CSS/etc. on real apps. The invocation pins
+``--format javascript,jsx,typescript,tsx`` so the captured output covers exactly the
+intended JS/TS set and nothing else.
+"""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-import jsonschema
 import pytest
 
 from code_review.adapters.js_base import node_binary
+from code_review.adapters.jscpd import JscpdAdapter
+from code_review.capture import CaptureOutput
+from code_review.contracts import Analyzer, ReviewRequest
+from code_review.status import Status
 
-# A byte-identical clone pair: jscpd's token matcher needs identical tokens, so
-# the js-with-known-issues "duplicate" (renamed identifiers) falls below the
-# min-tokens threshold. This dedicated fixture is the real duplication signal.
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "js-duplication"
-SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
+
+# The settled G1 scope (see module docstring): exactly the JS/TS format set.
+_JS_FORMAT = "javascript,jsx,typescript,tsx"
+
+
+def _req(paths: tuple[str, ...]) -> ReviewRequest:
+    return ReviewRequest(scope="per-task", diff_range=None, target_paths=paths,
+                         languages=frozenset(), config={})
 
 
 def test_jscpd_protocol_conformance() -> None:
-    from code_review.adapters.jscpd import JscpdAdapter
-    from code_review.contracts import Analyzer
-
     assert isinstance(JscpdAdapter(), Analyzer)
     assert JscpdAdapter.name == "jscpd"
     assert JscpdAdapter.node_tool == "jscpd"
 
 
-async def test_jscpd_returns_error_when_binary_absent(tmp_path: Path) -> None:
-    from code_review.adapters.jscpd import JscpdAdapter
-    from code_review.contracts import ReviewRequest
+async def test_jscpd_invocation_pins_json_reporter_and_js_scope(tmp_path: Path) -> None:
+    """Pins the report-to-tempdir invocation and the G1 JS/TS ``--format`` scope."""
+    (tmp_path / "a.ts").write_text("const x = 1;\n")
+    seen: dict[str, object] = {}
 
+    async def fake(*args: str, **kwargs: object) -> CaptureOutput:
+        seen["args"] = args
+        out_dir = Path(args[args.index("--output") + 1])
+        # jscpd treats --output as a directory it writes jscpd-report.json into; it must
+        # be a real dir, alive during the call (never /dev/stdout).
+        seen["output_is_dir"] = out_dir.is_dir()
+        return CaptureOutput(tool="jscpd", exit_code=0)
+
+    with (
+        patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
+        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
+        patch("code_review.adapters.jscpd.run_and_capture", new=fake),
+    ):
+        await JscpdAdapter().run(_req((str(tmp_path),)))
+
+    args = seen["args"]
+    assert isinstance(args, tuple)
+    assert args[0] == "jscpd"
+    assert "node" in args
+    assert args[args.index("--reporters") + 1] == "json"
+    assert args[args.index("--format") + 1] == _JS_FORMAT  # G1 scope pin
+    assert "--silent" in args
+    assert seen["output_is_dir"], "--output must be a real directory, not /dev/stdout"
+
+
+async def test_jscpd_captures_report_file_as_stdout(tmp_path: Path) -> None:
+    """jscpd's payload is the report file; the adapter splices it onto stdout verbatim."""
+    (tmp_path / "a.ts").write_text("const x = 1;\n")
+    report_json = json.dumps({
+        "duplicates": [{"firstFile": {"name": "src/a.ts"}, "secondFile": {"name": "src/b.ts"}}],
+        "statistics": {"formats": {"typescript": {}}},
+    })
+
+    async def fake(*args: str, **kwargs: object) -> CaptureOutput:
+        out_dir = Path(args[args.index("--output") + 1])
+        (out_dir / "jscpd-report.json").write_text(report_json)
+        return CaptureOutput(tool="jscpd", stdout="", exit_code=0)
+
+    with (
+        patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
+        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
+        patch("code_review.adapters.jscpd.run_and_capture", new=fake),
+    ):
+        out = await JscpdAdapter().run(_req((str(tmp_path),)))
+
+    assert out.status == "ok"
+    assert out.stdout == report_json, "report file contents must land verbatim on stdout"
+
+
+async def test_jscpd_failure_passes_through_without_report(tmp_path: Path) -> None:
+    """When the run failed (no report written), the raw capture passes through unchanged."""
+    (tmp_path / "a.ts").write_text("const x = 1;\n")
+    cap = CaptureOutput(tool="jscpd", status=Status.ERROR, error="exited 1: boom", exit_code=1)
+    with (
+        patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
+        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
+        patch("code_review.adapters.jscpd.run_and_capture", new=AsyncMock(return_value=cap)),
+    ):
+        out = await JscpdAdapter().run(_req((str(tmp_path),)))
+    assert out is cap
+
+
+async def test_jscpd_missing_report_on_ok_is_error(tmp_path: Path) -> None:
+    """jscpd exited 0 but wrote no report (e.g. a silent format mismatch): an empty stdout
+    would read downstream as 'found nothing', so the adapter flips it to error rather than
+    masking the anomaly."""
+    (tmp_path / "a.ts").write_text("const x = 1;\n")
+    # Mock returns ok but writes no jscpd-report.json into the --output dir.
+    cap = CaptureOutput(tool="jscpd", status=Status.OK, stdout="", exit_code=0)
+    with (
+        patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
+        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
+        patch("code_review.adapters.jscpd.run_and_capture", new=AsyncMock(return_value=cap)),
+    ):
+        out = await JscpdAdapter().run(_req((str(tmp_path),)))
+    assert out.status == "error"
+    assert "no report" in (out.error or "").lower()
+
+
+async def test_jscpd_unavailable_when_vendored_binary_absent(tmp_path: Path) -> None:
     with patch("code_review.adapters.jscpd.node_binary", return_value=None):
-        request = ReviewRequest(
-            scope="per-task", diff_range=None,
-            target_paths=(str(tmp_path),),
-            languages=frozenset(), config={},
-        )
-        output = await JscpdAdapter().run(request)
-    assert output.status == "error"
-    assert "setup.sh" in (output.error or "")
+        out = await JscpdAdapter().run(_req((str(tmp_path),)))
+    assert out.status == "unavailable"
+    assert "setup.sh" in (out.error or "")
 
 
-async def test_jscpd_empty_target_paths() -> None:
-    from code_review.adapters.jscpd import JscpdAdapter
-    from code_review.contracts import ReviewRequest
-
-    request = ReviewRequest(
-        scope="per-task", diff_range=None,
-        target_paths=(), languages=frozenset(), config={},
-    )
+async def test_jscpd_empty_target_paths_unavailable() -> None:
     with patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")):
-        output = await JscpdAdapter().run(request)
-    assert output.status == "ok"
-
-
-def _report_writer(payload: str) -> object:
-    """Return a run_subprocess side-effect that drops the jscpd JSON report
-    into whatever directory the adapter passes as --output."""
-    from code_review.adapters.base import SubprocessResult
-
-    def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
-        arglist = list(args)
-        output_dir = Path(str(arglist[arglist.index("--output") + 1]))
-        (output_dir / "jscpd-report.json").write_text(payload)
-        return SubprocessResult(b"", b"", 0)
-
-    return fake_run
-
-
-async def test_jscpd_parses_json_to_sarif() -> None:
-    from code_review.adapters.jscpd import JscpdAdapter
-    from code_review.contracts import ReviewRequest
-
-    fake_json = json.dumps({
-        "duplicates": [
-            {
-                "firstFile": {"name": "src/a.ts", "start": 10},
-                "secondFile": {"name": "src/b.ts", "start": 20},
-            }
-        ],
-        "statistics": {"total": {"duplicatedLines": 5}},
-    })
-
-    request = ReviewRequest(
-        scope="per-task", diff_range=None,
-        target_paths=("src/",), languages=frozenset(), config={},
-    )
-    with (
-        patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
-        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
-        patch(
-            "code_review.adapters.jscpd.run_subprocess",
-            new=AsyncMock(side_effect=_report_writer(fake_json)),
-        ),
-    ):
-        output = await JscpdAdapter().run(request)
-
-    assert output.status == "ok"
-    assert output.sarif["runs"][0]["tool"]["driver"]["name"] == "jscpd"
-    results = output.sarif["runs"][0]["results"]
-    assert len(results) == 1
-    assert results[0]["ruleId"] == "jscpd.duplicate-code"
-    schema = json.loads(SARIF_SCHEMA.read_text())
-    jsonschema.validate(output.sarif, schema)
-
-
-async def test_jscpd_writes_report_to_tempdir_and_parses_it() -> None:
-    from code_review.adapters.base import SubprocessResult
-    from code_review.adapters.jscpd import JscpdAdapter
-    from code_review.contracts import ReviewRequest
-
-    fake_json = json.dumps({
-        "duplicates": [
-            {
-                "firstFile": {"name": "src/a.ts", "start": 10},
-                "secondFile": {"name": "src/b.ts", "start": 20},
-            }
-        ],
-        "statistics": {"total": {"duplicatedLines": 5}},
-    })
-    seen_output: dict[str, str] = {}
-
-    def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
-        arglist = list(args)
-        idx = arglist.index("--output")
-        output_dir = Path(str(arglist[idx + 1]))
-        # jscpd treats --output as a directory and writes jscpd-report.json into it.
-        assert output_dir.is_dir(), "--output must be a real directory, not /dev/stdout"
-        assert str(output_dir) != "/dev/stdout"
-        seen_output["dir"] = str(output_dir)
-        (output_dir / "jscpd-report.json").write_text(fake_json)
-        return SubprocessResult(b"", b"", 0)
-
-    request = ReviewRequest(
-        scope="per-task", diff_range=None,
-        target_paths=("src/",), languages=frozenset(), config={},
-    )
-    with (
-        patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
-        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
-        patch(
-            "code_review.adapters.jscpd.run_subprocess",
-            new=AsyncMock(side_effect=fake_run),
-        ),
-    ):
-        output = await JscpdAdapter().run(request)
-
-    assert output.status == "ok"
-    results = output.sarif["runs"][0]["results"]
-    assert len(results) == 1
-    assert results[0]["ruleId"] == "jscpd.duplicate-code"
-    schema = json.loads(SARIF_SCHEMA.read_text())
-    jsonschema.validate(output.sarif, schema)
-    # Temp dir is cleaned up after the run.
-    assert not Path(seen_output["dir"]).exists()
-
-
-async def test_jscpd_handles_empty_duplicates() -> None:
-    from code_review.adapters.jscpd import JscpdAdapter
-    from code_review.contracts import ReviewRequest
-
-    fake_json = json.dumps({"duplicates": [], "statistics": {}})
-
-    request = ReviewRequest(
-        scope="per-task", diff_range=None,
-        target_paths=("src/",), languages=frozenset(), config={},
-    )
-    with (
-        patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
-        patch("code_review.adapters.jscpd.has_js_files", return_value=True),
-        patch(
-            "code_review.adapters.jscpd.run_subprocess",
-            new=AsyncMock(side_effect=_report_writer(fake_json)),
-        ),
-    ):
-        output = await JscpdAdapter().run(request)
-
-    assert output.status == "ok"
-    assert output.sarif["runs"][0]["results"] == []
+        out = await JscpdAdapter().run(_req(()))
+    assert out.status == "unavailable"
 
 
 async def test_jscpd_unavailable_without_js(tmp_path: Path) -> None:
-    """jscpd is intentionally JS-scoped (lang_select._JS_ADAPTERS; capabilities
-    languages=[javascript, typescript]) — duplication detection is a deliberately
-    JS-only feature. On a no-JS target it must skip cleanly as `unavailable` rather
-    than run the out-of-scope language duplication it is capable of (story-level fix,
-    ADR-0019). Defense-in-depth for the all-analyzer / --target path that bypasses
-    language selection."""
-    from code_review.adapters.base import SubprocessResult
-    from code_review.adapters.jscpd import JscpdAdapter
-    from code_review.contracts import ReviewRequest
-
+    """jscpd is intentionally JS-scoped — a no-JS target skips cleanly (unavailable) and
+    jscpd is never invoked (ADR-0019)."""
     (tmp_path / "app.py").write_text("x = 1\n")
-    invoked = False
-
-    async def fake_run(*args: object, **kwargs: object) -> SubprocessResult:
-        nonlocal invoked
-        invoked = True
-        return SubprocessResult(b"", b"", 0)
-
-    request = ReviewRequest(scope="per-task", diff_range=None,
-                            target_paths=(str(tmp_path),), languages=frozenset(), config={})
+    mock = AsyncMock(return_value=CaptureOutput(tool="jscpd"))
     with (
         patch("code_review.adapters.jscpd.node_binary", return_value=Path("/fake/jscpd")),
-        patch("code_review.adapters.jscpd.run_subprocess", new=AsyncMock(side_effect=fake_run)),
+        patch("code_review.adapters.jscpd.run_and_capture", new=mock),
     ):
-        output = await JscpdAdapter().run(request)
-    assert output.status == "unavailable", output.error
-    assert "javascript" in (output.error or "").lower()
-    assert not invoked, "jscpd must not be invoked when there is no JS to analyse"
+        out = await JscpdAdapter().run(_req((str(tmp_path),)))
+    assert out.status == "unavailable", out.error
+    assert "javascript" in (out.error or "").lower()
+    assert not mock.called, "jscpd must not be invoked when there is no JS to analyse"
 
 
 @pytest.mark.integration
@@ -216,20 +160,18 @@ async def test_jscpd_unavailable_without_js(tmp_path: Path) -> None:
     reason="jscpd not in node_modules (run scripts/setup.sh)",
 )
 async def test_jscpd_integration() -> None:
-    from code_review.adapters.jscpd import JscpdAdapter
-    from code_review.contracts import ReviewRequest
-
+    """End-to-end on the vendored toolchain: the js-duplication fixture is a genuine clone
+    pair, so the captured report must carry a duplication — and, per G1, the detected
+    formats must stay within the JS/TS set the ``--format`` pin allows."""
     request = ReviewRequest(
-        scope="per-task",
-        diff_range=None,
-        target_paths=(str(FIXTURE),),
-        languages=frozenset({"javascript", "typescript"}),
-        config={},
+        scope="per-task", diff_range=None, target_paths=(str(FIXTURE),),
+        languages=frozenset({"javascript", "typescript"}), config={},
     )
-    output = await JscpdAdapter().run(request)
-    assert output.status == "ok"
-    # The fixture is a genuine clone pair (clone_a.ts / clone_b.ts); the AC
-    # requires the duplication to actually be reported, not just a valid SARIF.
-    assert len(output.sarif["runs"][0]["results"]) >= 1
-    schema = json.loads(SARIF_SCHEMA.read_text())
-    jsonschema.validate(output.sarif, schema)
+    out = await JscpdAdapter().run(request)
+    assert out.status == "ok", out.error
+    assert out.stdout, "expected a non-empty raw report capture"
+    report = json.loads(out.stdout)
+    assert len(report.get("duplicates", [])) >= 1, "expected the clone pair to be reported"
+    # G1: the invocation's --format must confine detection to the JS/TS set.
+    formats = report.get("statistics", {}).get("formats", {})
+    assert set(formats) <= {"javascript", "jsx", "typescript", "tsx"}, formats

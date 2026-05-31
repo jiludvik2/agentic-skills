@@ -2,11 +2,11 @@
 id: s1-t2-migrate-js-adapters
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-migrate-adapters-and-emit-bundle
 sources: [adr-0020-thin-invocation-runner.md, adr-0019-analyzer-unavailable-vs-error.md, post-coverage-eval-findings.md]
 created: 2026-05-30
-updated: 2026-05-30
+updated: 2026-05-31
 tags: [migration, adapters, javascript, capture, g1]
 ---
 
@@ -70,3 +70,40 @@ Rewrite each `tests/test_adapters/test_<tool>.py` (eslint, depcruiser, jscpd, kn
 - jscpd/eslint/knip/depcruiser remain deliberately JS-scoped (see memory) — G1 is about the
   *invocation's* file coverage, not re-scoping the product.
 - `js_base` itself (the probe) is KEPT; only the per-adapter output parsing is deleted.
+
+## Close (2026-05-31)
+
+Tests-first (RED confirmed: 23 failing across the 4 rewritten test files before impl), then
+GREEN. Full suite **415 passed** (`-m "not integration"`) + **15 integration passed** on the
+vendored toolchain; `ruff check .` and `mypy code_review` clean.
+
+**What landed:**
+- All 4 JS adapters return `CaptureOutput`; `_to_sarif`/`normalise_sarif`/json-parse deleted
+  from the JS set. Binary-absent flips **error → `unavailable`** (ADR-0019), matching
+  semgrep/trivy. Invocation detail preserved + pinned by tests: eslint
+  `NODE_PATH`+cwd-anchor+SARIF formatter (kept — eslint emits SARIF to stdout, captured
+  verbatim, the parse is what's gone); depcruiser self-supplied `--config`+`--output-type
+  json`+directory target; knip `--reporter json`+cwd; jscpd `--reporters json`+tempdir.
+- `js_base.js_unavailable` (+ its `empty_sarif`/`AnalyzerOutput` imports) removed as orphaned
+  by the migration. `probe_js_adapter`/`node_binary`/`has_js_files` kept.
+
+**G1 disposition (AC line 52):** the settled jscpd scope is **`--format javascript,jsx,
+typescript,tsx`** — exactly the JS/TS set, enforced at the invocation layer (`jscpd.py`).
+By default jscpd auto-detects ~150 formats (HTML/CSS/markup/etc.); the pin confines detection
+to JS/TS and nothing else, closing the real-app scope leak. Asserted three ways: the
+invocation test pins the `--format` value, and the integration test asserts the real report's
+`statistics.formats` ⊆ {javascript,jsx,typescript,tsx}. jscpd has no stdout-JSON reporter, so
+the adapter runs it into a TemporaryDirectory and splices the report file onto
+`CaptureOutput.stdout` verbatim.
+
+**Verify:** PASS (all 6 ACs evidenced, no ADR-0020/0019 drift). **Review:** MINOR-ONLY
+(0 Critical/Important). Remediated inline: jscpd **missing-report-on-OK now flips to `error`**
+(was silently empty stdout — both verifier and reviewer flagged it as the regression that
+would bite s1-t3's bundle emission), + a test for it; test fixture uses `Status.ERROR` not a
+bare string. Nits (string literal vs `self.name` — matches semgrep/trivy idiom; duplicated G1
+comment) dropped.
+
+**Carried to s1-t3:** knip integration test asserts `unavailable` (the
+`js-with-known-issues` fixture ships no top-level `package.json`, so the clean-skip fires
+before knip runs) rather than a populated capture — honest given the fixture, but the only
+one of the four integration tests not asserting a non-empty capture.

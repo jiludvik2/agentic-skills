@@ -1,142 +1,93 @@
+"""s1-t2 — knip invoke-and-capture contract (ADR-0020).
+
+Pins the load-bearing invocation (``--reporter json`` so unused-export findings land on
+stdout; cwd at the project dir because knip reads ./package.json from cwd), the raw stdout
+passthrough (no parse / no _to_sarif), and the availability pre-flights (missing binary →
+unavailable; no package.json → unavailable, ADR-0019).
+"""
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-import jsonschema
 import pytest
 
 from code_review.adapters.js_base import node_binary
+from code_review.adapters.knip import KnipAdapter
+from code_review.capture import CaptureOutput
+from code_review.contracts import Analyzer, ReviewRequest
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "js-with-known-issues"
-SARIF_SCHEMA = Path(__file__).parent.parent.parent / "code_review" / "schemas" / "sarif-2.1.0.json"
+
+
+def _req(paths: tuple[str, ...]) -> ReviewRequest:
+    return ReviewRequest(scope="per-task", diff_range=None, target_paths=paths,
+                         languages=frozenset(), config={})
 
 
 def test_knip_protocol_conformance() -> None:
-    from code_review.adapters.knip import KnipAdapter
-    from code_review.contracts import Analyzer
-
     assert isinstance(KnipAdapter(), Analyzer)
     assert KnipAdapter.name == "knip"
     assert KnipAdapter.node_tool == "knip"
 
 
-async def test_knip_returns_error_when_binary_absent(tmp_path: Path) -> None:
-    from code_review.adapters.knip import KnipAdapter
-    from code_review.contracts import ReviewRequest
+async def test_knip_invocation_pins_json_reporter_and_cwd(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text("{}")
+    mock = AsyncMock(return_value=CaptureOutput(tool="knip", stdout="{}", exit_code=0))
+    with (
+        patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")),
+        patch("code_review.adapters.knip.run_and_capture", new=mock),
+    ):
+        await KnipAdapter().run(_req((str(tmp_path),)))
+    args = mock.call_args.args
+    kwargs = mock.call_args.kwargs
+    assert args[0] == "knip"
+    assert "node" in args
+    assert args[args.index("--reporter") + 1] == "json"
+    # knip reads ./package.json from its cwd, so cwd must be anchored at the project dir.
+    assert kwargs["cwd"] == str(tmp_path)
+    # knip exits 0 (clean) or 1 (findings) — both tolerated.
+    assert kwargs.get("ok_exit_codes") == (0, 1)
 
+
+async def test_knip_captures_raw_stdout(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text("{}")
+    cap = CaptureOutput(tool="knip", stdout='{"files": [], "exports": []}', exit_code=0)
+    with (
+        patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")),
+        patch("code_review.adapters.knip.run_and_capture", new=AsyncMock(return_value=cap)),
+    ):
+        out = await KnipAdapter().run(_req((str(tmp_path),)))
+    assert out is cap
+
+
+async def test_knip_unavailable_when_vendored_binary_absent(tmp_path: Path) -> None:
     with patch("code_review.adapters.knip.node_binary", return_value=None):
-        request = ReviewRequest(
-            scope="per-task", diff_range=None,
-            target_paths=(str(tmp_path),),
-            languages=frozenset(), config={},
-        )
-        output = await KnipAdapter().run(request)
-    assert output.status == "error"
-    assert "setup.sh" in (output.error or "")
+        out = await KnipAdapter().run(_req((str(tmp_path),)))
+    assert out.status == "unavailable"
+    assert "setup.sh" in (out.error or "")
 
 
-async def test_knip_empty_target_paths() -> None:
-    from code_review.adapters.knip import KnipAdapter
-    from code_review.contracts import ReviewRequest
-
-    request = ReviewRequest(
-        scope="per-task", diff_range=None,
-        target_paths=(), languages=frozenset(), config={},
-    )
+async def test_knip_empty_target_paths_unavailable() -> None:
     with patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")):
-        output = await KnipAdapter().run(request)
-    assert output.status == "ok"
+        out = await KnipAdapter().run(_req(()))
+    assert out.status == "unavailable"
 
 
 async def test_knip_unavailable_without_package_json(tmp_path: Path) -> None:
-    """A Python-only target (no package.json) is 'nothing knip can run' — reported
-    as unavailable not error, and knip is never invoked (ADR-0019, s0-t2)."""
-    from code_review.adapters.base import SubprocessResult
-    from code_review.adapters.knip import KnipAdapter
-    from code_review.contracts import ReviewRequest
-
+    """A Python-only target (no package.json) is 'nothing knip can run' — unavailable, and
+    knip is never invoked (ADR-0019)."""
     (tmp_path / "app.py").write_text("x = 1\n")
-    invoked = False
-
-    async def fake_run(*cmd: str, **kwargs: object) -> SubprocessResult:
-        nonlocal invoked
-        invoked = True
-        return SubprocessResult(b"", b"", 0)
-
-    request = ReviewRequest(
-        scope="per-task", diff_range=None,
-        target_paths=(str(tmp_path),), languages=frozenset(), config={},
-    )
+    mock = AsyncMock(return_value=CaptureOutput(tool="knip"))
     with (
         patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")),
-        patch("code_review.adapters.knip.run_subprocess", new=fake_run),
+        patch("code_review.adapters.knip.run_and_capture", new=mock),
     ):
-        output = await KnipAdapter().run(request)
-    assert output.status == "unavailable", output.error
-    assert "package.json" in (output.error or "").lower()
-    assert not invoked, "knip must not be invoked when there is no package.json"
-
-
-async def test_knip_parses_json_to_sarif(tmp_path: Path) -> None:
-    from code_review.adapters.base import SubprocessResult
-    from code_review.adapters.knip import KnipAdapter
-    from code_review.contracts import ReviewRequest
-
-    fake_json = json.dumps({
-        "files": ["src/unused.ts"],
-        "exports": [{"file": "src/lib.ts", "symbol": "unusedFn"}],
-        "dependencies": [],
-    }).encode()
-
-    (tmp_path / "package.json").write_text("{}")
-    request = ReviewRequest(
-        scope="per-task", diff_range=None,
-        target_paths=(str(tmp_path),), languages=frozenset(), config={},
-    )
-    with (
-        patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")),
-        patch(
-            "code_review.adapters.knip.run_subprocess",
-            new=AsyncMock(return_value=SubprocessResult(fake_json, b"", 0)),
-        ),
-    ):
-        output = await KnipAdapter().run(request)
-
-    assert output.status == "ok"
-    assert output.sarif["runs"][0]["tool"]["driver"]["name"] == "knip"
-    results = output.sarif["runs"][0]["results"]
-    assert len(results) == 2
-    rule_ids = {r["ruleId"] for r in results}
-    assert "knip.unused-file" in rule_ids
-    assert "knip.unused-export" in rule_ids
-    schema = json.loads(SARIF_SCHEMA.read_text())
-    jsonschema.validate(output.sarif, schema)
-
-
-async def test_knip_exit_1_is_ok(tmp_path: Path) -> None:
-    from code_review.adapters.base import SubprocessResult
-    from code_review.adapters.knip import KnipAdapter
-    from code_review.contracts import ReviewRequest
-
-    fake_json = json.dumps({"files": [], "exports": [], "dependencies": []}).encode()
-
-    (tmp_path / "package.json").write_text("{}")
-    request = ReviewRequest(
-        scope="per-task", diff_range=None,
-        target_paths=(str(tmp_path),), languages=frozenset(), config={},
-    )
-    with (
-        patch("code_review.adapters.knip.node_binary", return_value=Path("/fake/knip")),
-        patch(
-            "code_review.adapters.knip.run_subprocess",
-            new=AsyncMock(return_value=SubprocessResult(fake_json, b"", 1)),
-        ),
-    ):
-        output = await KnipAdapter().run(request)
-
-    assert output.status == "ok"
+        out = await KnipAdapter().run(_req((str(tmp_path),)))
+    assert out.status == "unavailable", out.error
+    assert "package.json" in (out.error or "").lower()
+    assert not mock.called, "knip must not be invoked when there is no package.json"
 
 
 @pytest.mark.integration
@@ -145,18 +96,12 @@ async def test_knip_exit_1_is_ok(tmp_path: Path) -> None:
     reason="knip not in node_modules (run scripts/setup.sh)",
 )
 async def test_knip_integration() -> None:
-    from code_review.adapters.knip import KnipAdapter
-    from code_review.contracts import ReviewRequest
-
     request = ReviewRequest(
-        scope="per-task",
-        diff_range=None,
-        target_paths=(str(FIXTURE),),
-        languages=frozenset({"javascript", "typescript"}),
-        config={},
+        scope="per-task", diff_range=None, target_paths=(str(FIXTURE),),
+        languages=frozenset({"javascript", "typescript"}), config={},
     )
-    output = await KnipAdapter().run(request)
-    # The fixture ships no top-level package.json, so the s0-t2 guard returns
-    # `unavailable` (a clean skip) deterministically — before knip is invoked.
-    assert output.status == "unavailable", output.error
-    assert "package.json" in (output.error or "").lower()
+    out = await KnipAdapter().run(request)
+    # The fixture ships no top-level package.json, so the guard returns `unavailable`
+    # (a clean skip) deterministically — before knip is invoked.
+    assert out.status == "unavailable", out.error
+    assert "package.json" in (out.error or "").lower()
