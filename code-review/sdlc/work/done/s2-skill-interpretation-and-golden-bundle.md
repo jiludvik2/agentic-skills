@@ -2,7 +2,7 @@
 id: s2-skill-interpretation-and-golden-bundle
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-thin-runner
 children:
   - s2-t0-diff-path-resolution

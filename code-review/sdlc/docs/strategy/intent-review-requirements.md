@@ -127,8 +127,8 @@ A future project will provide the **consumer LLM** that integrates the two skill
 ## References
 
 - SARIF 2.1.0 schema — finding format. **Note (s2-t1, 2026-05-31):** `code-review` no longer carries this schema (removed per ADR-0020; nothing in `code_review/` loads it after the SARIF normalisation layer was deleted in s1-t3). `intent-review` must vendor its own copy when bootstrapped.
-- `code-review/code_review/schemas/review-response.json` — envelope format.
-- `code-review/code_review/severity.py` — SDLC severity taxonomy (mapping table + override hook).
+- `code-review/code_review/schemas/review-response.json` — envelope format. **Note (s2, 2026-05-31):** this file was removed in s1 (ADR-0020); `intent-review` must define its own envelope schema when bootstrapped.
+- ~~`code-review/code_review/severity.py`~~ — **deleted in s1 (ADR-0020)**; SDLC severity taxonomy (critical/important/minor/nit) now lives as prose in `SKILL.md § Interpreting the bundle › Severity judgment`.
 - `code-review/code_review/capabilities.json` — analyzer registry + the s5 review-selection taxonomy.
 - ADR-0010 (this repo, `sdlc/work/active/`) — the two-skill split decision.
 - The retired `s5-subagent-integration-and-design-review.md` in `sdlc/work/done/` — the original unified-reviewer ACs, preserved for traceability.
