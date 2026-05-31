@@ -2,11 +2,40 @@
 id: s5-t2-regenerate-captures-and-docs
 kind: task
 project: code-review
-status: active
+status: done
 parent: s5-maintainability-oracle
 sources: [s5-maintainability-oracle.md, s5-t1-coupling-fixtures-and-harness-migration.md, qa-analyzer-coverage.md, adr-0020-thin-invocation-runner.md]
 created: 2026-05-31
 updated: 2026-05-31
+closed: 2026-05-31
+notes: |
+  Verifier PASS / reviewer MINOR-ONLY (no Critical/Important; no fix tasks). Committed
+  @9ee69ce. The FIRST real end-to-end run of the bundle-migrated harness (unit-tested only
+  in s5-t1) scored 0/15, then 13/14 after fixes — the migration caught a cluster of real
+  regressions, documented FINDINGS F11–F15:
+  - F11 harness used the pre-`run`-subcommand CLI shape (s1-t3) → 0/15; fixed `_run_cli`.
+  - F12 trivy oracle parsed native JSON but adapter emits `--format sarif`; → count_sarif_results.
+  - F13 schemathesis still invoked after ADR-0021 registry removal; removed case + api fixture
+    + contract-testing.toml.
+  - F14 couplingpkg `VALUE_0N = 0N` SyntaxError crashed cohesion; scaffold → `$((10#${i}))`.
+  - F15 (OPEN) gitleaks emits no JSON on stdout → real adapter false-negative; reported xfail
+    via KNOWN_DEFERRED, filed follow-up `fu-gitleaks-json-output-capture` (+ recommended
+    adapter output-capture audit). Out of s5 scope.
+  Final: 13/14 pass, 1 xfail (gitleaks), 0 real failures (RC=0); both G5 precision oracles
+  (pydeps-cycles a↔b, depcruiser-mocks prod→__mocks__) PASS on real binaries — reviewer
+  independently re-ran depcruiser_has_edge_into against the committed bundle = True. All 14
+  results/raw/*.json schema-valid vs review-bundle.v1.json. README + FINDINGS reconciled.
+  Harness run outside the sandbox (operator-approved); toolchain fully provisioned. Gates:
+  391 suite + ruff + mypy clean. Resolves the STATE carry-over (raw captures were
+  pre-ADR-0020).
+
+  Minor findings captured for opportunistic cleanup (not blockers): (1) `bundle_oracle.py`
+  `count_trivy` + `count_schemathesis` are now unreferenced dead code — `count_trivy`'s
+  presence invites the F12 mistake again; annotate-as-unused or remove next QA touch.
+  (2) `_run_cli` could `try/finally` unlink the per-case `.qa_<label>.json` temp for tidiness.
+  (3) FINDINGS.md H1 title still reads "— 2026-05-29" though frontmatter + the new section are
+  dated 2026-05-31. (4) README "native JSON for …" one-liner slightly overstates gitleaks
+  (which is xfail). All cosmetic.
 tags: [qa, regenerate, docs, validation, provisioned-run]
 ---
 
