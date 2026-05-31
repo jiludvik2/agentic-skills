@@ -1,15 +1,22 @@
 # State — last updated 2026-05-31
 
-**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). **s0–s4 DONE and pushed to origin/main @ 6a59eba.** Working tree clean.
-**Last completed:** **Story s4** (`s4-js-complexity-analyzer`, G8) — shipped `jscomplexity`, a JS cyclomatic-complexity analyzer reusing the vendored ESLint `complexity` rule (zero new dependency; radon-`cc` parity). JS-only (ADR-0022 + gate-escalation amendment: ESLint can't parse TS without the unvendored `@typescript-eslint/parser`); TS complexity + JS cohesion documented as limitations. New analyzer with no existing-adapter change — G8 architecture-validation confirmed. 393 tests green.
-**Next:** **Plan story s5** (unplanned) — story-boundary pause. s5 is the last story of the epic; closing it cleanly hits the epic boundary.
+**Active focus:** **EPIC `epic-analyzer-thin-runner`** (ADR-0020, stories s0–s5). s0–s4 DONE and pushed to origin/main @ 0051d34. **s5 PLANNED (committed @ 89602f3, local), awaiting operator approval to execute.** Working tree clean.
+**Last completed:** **Story s4** (`s4-js-complexity-analyzer`, G8) — shipped `jscomplexity` (vendored-ESLint complexity rule, radon-cc parity, JS-only). 393 tests green.
+**Next:** **Execute s5-t0** once the plan is approved. s5 is the **last story of the epic**; closing it hits the epic boundary.
 
-## Story-boundary pause (s4 → s5)
-s5 has no operator-approved plan, so auto-cross does not apply — paused for s5 planning per the Execute verb.
+## s5 plan summary (awaiting approval)
+**Story `s5-maintainability-oracle` (G5).** The analyzer-coverage QA harness is **broken** post-ADR-0020: every oracle reads the deleted consolidated schema while the CLI now emits `review-bundle.v1.json`. s5 re-points the whole oracle at the bundle + adds two **precision** coupling oracles. Three tasks:
+- **s5-t0** — pure `bundle_oracle.py` module + pytest unit tests (incl. both precision oracles), in-sandbox, tests-first.
+- **s5-t1** — labelled coupling fixtures (`python/cyclepkg` a→b→a; `js/__mocks__` prod→mock edge) + `run_smoke.py` migration onto the bundle + in-sandbox pydeps integration test.
+- **s5-t2** — provisioned full-harness run: regenerate `results/raw/*.json` to bundle shape + reconcile README (heavy-toolchain task; may be operator-run outside sandbox).
 
-- **s5 (G5: maintainability oracle QA harness)** — extend the analyzer-coverage QA harness with labelled coupling fixtures (pydeps `test_cycles`, depcruiser `__mocks__`) asserted against the **new raw bundle**. UNPLANNED. **Last story of the epic** — closing it cleanly hits the epic boundary (Document + File verbs: README reconcile, epic move to done/, ADR-0022 → docs/decisions/).
+Operator-approved design decisions: **pure oracle module + pytest**; **assert the specific cycle** (precision) for the two new coupling oracles. pydeps cycle visibility in raw output verified via live probe — zero adapter change, G5 "near-trivial" holds.
 
 ## Open questions / follow-ups
-- **s5 carry-over:** `sdlc/docs/qa/analyzer-coverage/results/raw/*.json` are pre-ADR-0020 captures (old sarif/metrics shape) — regenerate against the raw bundle before s5 uses them.
-- **TS complexity follow-up** (post-epic, if demanded): vendor `typescript-eslint` (v8, MIT) + widen `jscomplexity` capabilities `languages` — no adapter rewrite (ADR-0022).
-- **Stale doc (not s4 scope):** stack-pins.md §License floor cites `scripts/license_audit.py` (does not exist); no dependency-audit gate is wired (rule #26 n/a).
+- **s5-t1 interpretive call:** depcruiser `__mocks__` planned as a **prod→`__mocks__` coupling smell** (distinct from the existing `cycle_a/cycle_b` circular case). The raw G5 source is gone; flip one s5-t1 AC if `__mocks__` was meant as a second circular fixture instead.
+- **s5-t2 heavy env:** the full harness run needs the provisioned toolchain (Node vendoring, Trivy DB, gitleaks/trivy, fastapi) and runs outside the sandbox — may be operator-driven. In-sandbox proofs (s5-t0 unit tests, s5-t1 pydeps integration) hold regardless.
+- **TS complexity follow-up** (post-epic, if demanded): vendor `typescript-eslint` + widen `jscomplexity` capabilities — no adapter rewrite (ADR-0022).
+- **Stale doc (not s5 scope):** stack-pins.md §License floor cites `scripts/license_audit.py` (does not exist); no dependency-audit gate is wired (rule #26 n/a).
+
+## Epic boundary (after s5)
+Last story of the epic. On clean close: **Document** (README reconcile for the whole thin-runner epic), **File** (epic → `done/`; relocate ADRs 0020/0021/0022 → `docs/decisions/`), publication check (rule #18).
