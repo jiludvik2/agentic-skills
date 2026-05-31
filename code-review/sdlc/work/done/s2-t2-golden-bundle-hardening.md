@@ -2,7 +2,7 @@
 id: s2-t2-golden-bundle-hardening
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-skill-interpretation-and-golden-bundle
 sources: [adr-0020-thin-invocation-runner.md, epic-analyzer-thin-runner.md]
 created: 2026-05-31

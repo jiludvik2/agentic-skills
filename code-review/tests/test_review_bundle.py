@@ -9,6 +9,7 @@ content of stdout.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import jsonschema
 import pytest
@@ -129,3 +130,119 @@ def test_raw_stdout_roundtrips() -> None:
     back = json.loads(bundle_to_json(bundle))
     # the agent must receive raw output verbatim — no parsing, no mangling
     assert back["outputs"][0]["stdout"] == raw
+
+
+def test_raw_stdout_roundtrips_non_utf8() -> None:
+    """Control chars and non-ASCII bytes round-trip verbatim (ensure_ascii=False)."""
+    raw = "line1\x00\x01\x1f\x7f\x80\xff line2 café 😀"
+    bundle = ReviewBundle(_request(), (CaptureOutput(tool="x", stdout=raw),))
+    back = json.loads(bundle_to_json(bundle))
+    assert back["outputs"][0]["stdout"] == raw
+
+
+def test_empty_outputs_bundle_valid() -> None:
+    """A bundle with no analyzer outputs is still schema-valid."""
+    bundle = ReviewBundle(_request(), ())
+    d = bundle.to_dict()
+    assert d["outputs"] == []
+    jsonschema.validate(d, load_bundle_schema())
+
+
+# ---------------------------------------------------------------------------
+# Golden-bundle regression guard
+# ---------------------------------------------------------------------------
+
+_FIXTURES = Path(__file__).parent / "fixtures"
+_GOLDEN_PATH = _FIXTURES / "golden_review_bundle.json"
+
+_GOLDEN_REQUEST = ReviewRequest(
+    scope="per-task",
+    diff_range="HEAD~3..HEAD",
+    target_paths=("/repo/src/auth.py", "/repo/src/models.py"),
+    languages=frozenset({"python"}),
+    config={},
+)
+
+# Trimmed but representative raw tool outputs spanning all three format families
+# and all four ADR-0019 statuses.
+_GOLDEN_OUTPUTS: tuple[CaptureOutput, ...] = (
+    # JSON format, ok (bandit)
+    CaptureOutput(
+        tool="bandit",
+        stdout=(
+            '{"errors":[],"metrics":{},"results":['
+            '{"filename":"/repo/src/auth.py","issue_severity":"LOW",'
+            '"issue_text":"hard-coded password","test_id":"B105"}]}'
+        ),
+        stderr="",
+        exit_code=1,
+        command=("python", "-m", "bandit", "-r", "/repo/src", "-f", "json"),
+        duration_s=0.0,
+    ),
+    # SARIF format, ok (semgrep)
+    CaptureOutput(
+        tool="semgrep",
+        stdout=(
+            '{"runs":[{"results":[{"level":"error",'
+            '"message":{"text":"SQL injection"},'
+            '"ruleId":"python.inject.sql"}]}],"version":"2.1.0"}'
+        ),
+        stderr="",
+        exit_code=0,
+        command=("semgrep", "--sarif", "--config", "p/ci"),
+        duration_s=0.0,
+    ),
+    # Plain text, ok (vulture)
+    CaptureOutput(
+        tool="vulture",
+        stdout="/repo/src/auth.py:42: unused variable 'tmp' (60% confidence)\n",
+        stderr="",
+        exit_code=0,
+        command=("vulture", "/repo/src"),
+        duration_s=0.0,
+    ),
+    # error (trivy — DB absent)
+    CaptureOutput(
+        tool="trivy",
+        stdout="",
+        stderr="FATAL: DB error: failed to open DB\n",
+        exit_code=None,
+        status="error",
+        error="exited 1: FATAL: DB error: failed to open DB",
+        command=("trivy", "fs", "--format", "sarif", "/repo"),
+        duration_s=0.0,
+    ),
+    # timeout (gitleaks)
+    CaptureOutput(
+        tool="gitleaks",
+        stdout="",
+        stderr="",
+        exit_code=None,
+        status="timeout",
+        error="timed out after 60s",
+        command=("gitleaks", "detect", "--source", "/repo"),
+        duration_s=0.0,
+    ),
+    # unavailable (radon)
+    CaptureOutput.unavailable("radon", "radon not found on PATH"),
+)
+
+
+def test_golden_bundle_byte_equal() -> None:
+    """The emitted bundle must be byte-equal to the committed golden fixture.
+
+    If the contract changes intentionally, regenerate with:
+        python -c "
+    from tests.test_review_bundle import _GOLDEN_REQUEST, _GOLDEN_OUTPUTS
+    from code_review.review_bundle import ReviewBundle, bundle_to_json
+    from pathlib import Path
+    p = Path('tests/fixtures/golden_review_bundle.json')
+    p.write_text(bundle_to_json(ReviewBundle(_GOLDEN_REQUEST, _GOLDEN_OUTPUTS)))
+    "
+    """
+    assert _GOLDEN_PATH.exists(), (
+        "golden fixture missing — generate it with the one-liner in this test's docstring"
+    )
+    bundle = ReviewBundle(_GOLDEN_REQUEST, _GOLDEN_OUTPUTS)
+    assert bundle_to_json(bundle) == _GOLDEN_PATH.read_text(encoding="utf-8")
+    jsonschema.validate(bundle.to_dict(), load_bundle_schema())

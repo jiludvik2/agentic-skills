@@ -167,6 +167,27 @@ def test_output_summary_reports_per_status_counts(
     assert "{" not in result.output  # JSON went to the file, not stdout
 
 
+class _UnavailableCapture:
+    name: ClassVar[str] = "unavail_tool"
+    kind: ClassVar[str] = "deterministic"
+    default_timeout_s: ClassVar[int] = 30
+    scope_restrictions: ClassVar[frozenset[str]] = frozenset()
+
+    async def run(self, request: ReviewRequest) -> CaptureOutput:
+        return CaptureOutput.unavailable("unavail_tool", "binary not found")
+
+
+def test_all_unavailable_run_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An all-unavailable run exits 0 — unavailable is a benign skip, not an error."""
+    monkeypatch.setitem(adapters_mod.REGISTRY, "unavail_tool", _UnavailableCapture)
+    result = runner.invoke(app, ["run", "--analyzer", "unavail_tool", "--target", "."])
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    jsonschema.validate(data, load_bundle_schema())
+    out = next(o for o in data["outputs"] if o["tool"] == "unavail_tool")
+    assert out["status"] == "unavailable"
+
+
 def test_config_error_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
     """A bad config surfaces as a clean non-zero exit, not a traceback."""
     def _raise(_path: object) -> None:
