@@ -2,7 +2,7 @@
 id: s5-maintainability-oracle
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-thin-runner
 children:
   - s5-t0-bundle-oracle-module
@@ -11,6 +11,32 @@ children:
 sources: [epic-analyzer-thin-runner.md, adr-0020-thin-invocation-runner.md, qa-analyzer-coverage.md]
 created: 2026-05-31
 updated: 2026-05-31
+closed: 2026-05-31
+close-notes: |
+  All three tasks done; each verifier PASS / reviewer MINOR-ONLY. Story-level review
+  MINOR-ONLY (ADR-0020 contract upheld — no normalization creep; fixtures regenerate with
+  zero drift; both precision oracles sound and proven against real binaries). G5
+  architecture-validation CONFIRMED: adding the two precision coupling oracles needed zero
+  adapter change — the third of three thin-runner "near-trivial" proofs (s3 ruleset, s4
+  analyzer, s5 oracle).
+
+  Delivered: pure `bundle_oracle.py` (per-tool raw-native signal extractors + pydeps
+  import-cycle and depcruiser prod→__mocks__ precision oracles), two labelled coupling
+  fixtures (cyclepkg, js/__mocks__), in-sandbox pydeps integration test, and the full
+  bundle-migration of run_smoke.py off the deleted consolidated schema. The first real
+  end-to-end run after the migration caught a cluster of real regressions (FINDINGS F11–F15:
+  CLI run-subcommand staleness, trivy SARIF-vs-native, stale schemathesis invocation,
+  couplingpkg leading-zero crash) — exactly the anti-silent-degradation property G5 adds.
+  Final harness: 13/14 pass, 1 xfail (gitleaks — real shipping-adapter defect emitting no
+  JSON on stdout, filed as fu-gitleaks-json-output-capture + recommended adapter
+  output-capture audit, out of s5 scope). All 14 results/raw/*.json schema-valid; 391-test
+  suite + ruff + mypy clean. Commits e2687c9 (t0), d3cffe4 (t1), 9ee69ce (t2), c81bbde
+  (t2 close).
+
+  Parked Minors (story-level review, opportunistic): bundle_oracle.py count_trivy +
+  count_schemathesis are now dead (trivy→count_sarif_results; schemathesis removed) — clean
+  up on next QA touch; FINDINGS.md H1 date; README "native JSON" one-liner overstates
+  gitleaks; _run_cli temp-file unlink-on-failure. None blocking.
 tags: [qa, maintainability, coupling, oracle, bundle, architecture-validation]
 ---
 
