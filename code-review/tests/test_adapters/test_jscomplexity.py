@@ -185,3 +185,59 @@ async def test_jscomplexity_reports_typescript_complexity() -> None:
     assert any(u.endswith("branchy.ts") for u in uris), f"no branchy.ts finding; got {uris}"
     messages = " ".join(r.get("message", {}).get("text", "") for r in results)
     assert "complexity" in messages.lower(), f"expected a complexity message; got {messages!r}"
+
+
+# The TS config block globs four extensions; each is a distinct ESLint language case
+# (.tsx adds JSX, .mts/.cts toggle the module system). Validate the whole advertised
+# surface so it cannot silently regress to ".ts only" — the committed branchy.ts fixture
+# covers the .ts case above; these tmp-dir variants cover the other three without bloating
+# the fixtures dir. (.cts reuses the .mts body — both are plain typed functions; only the
+# module-resolution mode differs, which the syntactic complexity rule is agnostic to.)
+_TSX_SOURCE = """\
+interface P { a: boolean; b: boolean; }
+function branchy(p: P): JSX.Element {
+  if (p.a) return <div>1</div>;
+  else if (p.b) return <div>2</div>;
+  else if (p.a && p.b) return <div>3</div>;
+  return <span>{p.a || p.b ? 4 : 5}</span>;
+}
+export { branchy };
+"""
+_MTS_SOURCE = """\
+interface P { a: boolean; b: boolean; }
+export function branchy(p: P): number {
+  if (p.a) return 1;
+  else if (p.b) return 2;
+  else if (p.a && p.b) return 3;
+  return p.a || p.b ? 4 : 5;
+}
+"""
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("filename", "source"),
+    [("branchy.tsx", _TSX_SOURCE), ("branchy.mts", _MTS_SOURCE), ("branchy.cts", _MTS_SOURCE)],
+)
+async def test_jscomplexity_covers_all_typescript_extensions(
+    tmp_path: Path, filename: str, source: str
+) -> None:
+    """jscomplexity-ts story review: the config advertises `.ts/.tsx/.mts/.cts`, so the
+    tested surface must equal the advertised surface — `.tsx` (JSX) and `.mts/.cts` (module
+    variants) each parse via @typescript-eslint/parser and fire the complexity rule."""
+    if shutil.which("node") is None:
+        pytest.skip("node not on PATH")
+    from code_review.adapters.js_base import node_binary
+
+    if node_binary("eslint") is None:
+        pytest.skip("vendored eslint not provisioned (run scripts/setup.sh)")
+
+    (tmp_path / filename).write_text(source, encoding="utf-8")
+    out = await JsComplexityAdapter().run(_req((str(tmp_path / filename),)))
+    assert out.status == "ok", f"expected ok, got {out.status}: {out.error}"
+    results = json.loads(out.stdout).get("runs", [{}])[0].get("results", [])
+    rule_ids = [r.get("ruleId", "") for r in results]
+    assert any("complexity" in rid for rid in rule_ids), (
+        f"complexity rule not fired on {filename} (parser not applied to this ext?); "
+        f"got {rule_ids}"
+    )

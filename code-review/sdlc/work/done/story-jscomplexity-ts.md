@@ -2,7 +2,7 @@
 id: story-jscomplexity-ts
 kind: story
 project: code-review
-status: active
+status: done
 children:
   - jscomplexity-ts-t0-vendor-parser
   - jscomplexity-ts-t1-enable-ts-parsing
@@ -63,3 +63,22 @@ A TypeScript review currently gets dead-code (knip), duplication (jscpd), coupli
   dep-add implied by an accepted decision; ADR-0017 governs node pins).
 - `typescript@^5` (the compiler) is already vendored for depcruiser; `@typescript-eslint/parser`
   needs `typescript` + `eslint` peers, both present.
+
+## Close notes (2026-06-01)
+
+All 5 ACs met. **t0** vendored `@typescript-eslint/parser ^8.60.0` (parser-only) + advertised
+`typescript` in capabilities + stack-pins/ADR amendment. **t1** wired the parser into the
+complexity flat config for `.ts/.tsx/.mts/.cts`, added fixture + integration tests + a
+stack-pins↔lockfile drift anchor, and reconciled all "JS-only" docs.
+
+Story-level review: **MINOR-ONLY** (no Critical/Important). Both Minors fixed inline rather
+than deferred: (a) ADR-0022 title still said "(JS-only; TS deferred)" → updated to "(TS added
+2026-06-01)"; (b) advertised glob covered 4 extensions but only `.ts` was tested → added a
+parametrized integration test for `.tsx/.mts/.cts` (empirically confirmed all four fire the
+complexity rule). The one Nit (exit-code comment) dropped per taxonomy.
+
+Gates at close: 11 jscomplexity tests green, ruff + mypy clean. Full suite shows only the 9
+documented environmental sandbox failures (wheel/console-script `uv build` exit 101; semgrep
+`--x-` exit 2) — green in CI. Rule #26 (supply-chain gate) N/A: project defines no such gate.
+
+No epic parent — standalone post-GA story. Pause at this boundary.

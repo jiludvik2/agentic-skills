@@ -10,7 +10,7 @@ updated: 2026-05-31
 tags: [complexity, javascript, eslint, cohesion, maintainability]
 ---
 
-# ADR-0022: JS complexity analyzer — tool selection (JS-only; TS deferred)
+# ADR-0022: JS/TS complexity analyzer — tool selection (TS added 2026-06-01)
 
 ## Status
 
