@@ -2,7 +2,7 @@
 id: s2-adapter-output-capture-audit
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-correctness
 children:
   - s2-t0-gitleaks-json-report

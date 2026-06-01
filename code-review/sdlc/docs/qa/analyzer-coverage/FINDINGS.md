@@ -18,6 +18,13 @@ defects). The follow-up pass added F8–F10: it ran the pytest suite with the No
 toolchain actually installed (exposing F8/F9) and audited CLI option/error
 coverage (F10). Several findings bear directly on GA readiness.
 
+> **Inventory note (2026-06-01, superseding the counts below).** The registry is now
+> **13 deterministic adapters** (schemathesis was removed by ADR-0021/F13; jscomplexity
+> added). The smoke harness runs 15 CASES (13 adapters + 2 precision variants) with **no
+> xfails** — the former `gitleaks` xfail is RESOLVED (F15, s2-t0). The historical "11/13"
+> figure and the schemathesis mention in "Passing cleanly" below are kept as the
+> point-in-time record of the run that surfaced these findings.
+
 The environment under test: macOS, Node 24.14.1, pinned Node tools
 (knip 5.0.0, jscpd 4.0.5, dependency-cruiser 16.0.0, eslint 9), semgrep/gitleaks/
 trivy on PATH, Trivy DB pre-fetched.
