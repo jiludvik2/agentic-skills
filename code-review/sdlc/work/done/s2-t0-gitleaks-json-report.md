@@ -2,7 +2,7 @@
 id: s2-t0-gitleaks-json-report
 kind: task
 project: code-review
-status: active
+status: done
 parent: s2-adapter-output-capture-audit
 sources: [s2-adapter-output-capture-audit.md, fu-gitleaks-json-output-capture.md]
 created: 2026-06-01

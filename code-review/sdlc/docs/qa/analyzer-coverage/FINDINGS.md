@@ -191,18 +191,20 @@ parse over the package raised, status=error. Latent since the couplingpkg fixtur
 was added; only surfaced now because cohesion is exercised over that tree.
 **Fixed:** `VALUE_${i} = $((10#${i}))` (strip the pad; harmless to pydeps fan-out).
 
-### F15 — `gitleaks` emits no JSON on stdout (OPEN — xfail, follow-up filed)
-The adapter runs `gitleaks detect --source X --no-git` with **no**
-`--report-format json`, so findings print to **stderr** in human format and
-captured **stdout is empty** → any bundle consumer (oracle or agent) sees zero
+### F15 — `gitleaks` emits no JSON on stdout (RESOLVED — s2-t0, 2026-06-01)
+The adapter ran `gitleaks detect --source X --no-git` with **no**
+`--report-format json`, so findings printed to **stderr** in human format and
+captured **stdout was empty** → any bundle consumer (oracle or agent) saw zero
 findings even though gitleaks found the secret (stderr: `leaks found: 1`, exit 1).
-This is a real shipping-adapter defect, exposed by the raw-capture model (the old
-facade parsed it differently). It needs an off-argv JSON report path (cf.
-`/dev/stdout`-not-writable-under-sandbox constraint). **Out of s5 scope** —
-reported as **xfail** in the harness (`KNOWN_DEFERRED`) and filed as follow-up
-`fu-gitleaks-json-output-capture`. Recommend a broader adapter output-capture
-audit: the harness only checks ≥1 signal, so any adapter emitting to stderr/file
-silently reads as 0.
+A real shipping-adapter defect, exposed by the raw-capture model (the old facade
+parsed it differently). **Fixed in s2-t0** (`epic-analyzer-correctness`): the
+adapter now writes an off-argv JSON report (`--report-format json --report-path
+<tempfile>`, sandbox-safe — not `/dev/stdout`) and splices it onto captured stdout
+(the trivy/jscpd pattern). The harness `gitleaks` case moved xfail → real pass and
+`KNOWN_DEFERRED` is now empty. The broader output-capture audit it motivated is
+tracked as s2-t1. Verified end-to-end: `polyreview run --analyzer gitleaks` on
+`python/secrets_leak.py` → bundle `outputs[].stdout` carries the JSON array,
+`count_gitleaks` = 1 (slack-bot-token).
 
 ## GA-readiness implication
 

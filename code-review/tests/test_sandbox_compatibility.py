@@ -1,10 +1,10 @@
 """
 Verify adapters do not litter the working directory with temp files.
 
-After the thin-runner migration (ADR-0020) gitleaks captures native output and trivy
-writes SARIF to stdout — neither creates any scratch file. semgrep still redirects its
-log/settings into a ``tempfile.TemporaryDirectory`` under ``$TMPDIR``, never the CWD. The
-adapters invoke through ``run_and_capture`` (patched here), so the CWD must stay untouched.
+trivy writes SARIF to stdout (no scratch file). gitleaks (s2-t0) and semgrep redirect
+their JSON report / log+settings into a ``tempfile.TemporaryDirectory`` under ``$TMPDIR``,
+auto-cleaned and never in the CWD. The adapters invoke through ``run_and_capture``
+(patched here), so the CWD must stay untouched in every case.
 """
 from __future__ import annotations
 
@@ -18,16 +18,21 @@ from code_review.capture import CaptureOutput
 
 @pytest.mark.asyncio
 async def test_gitleaks_no_temp_files_in_cwd(tmp_path: Path) -> None:
-    """GitleaksAdapter must not create any files in CWD."""
+    """GitleaksAdapter must not create any files in CWD (its JSON report goes to a
+    TemporaryDirectory under $TMPDIR, off the CWD)."""
     from code_review.adapters.gitleaks import GitleaksAdapter
     from code_review.contracts import ReviewRequest
 
-    cap = CaptureOutput(tool="gitleaks", stdout="", exit_code=0)
+    async def fake_run(tool: str, *cmd: str, **kwargs: object) -> CaptureOutput:
+        # gitleaks writes its report off-argv (under $TMPDIR, not the CWD under test).
+        Path(cmd[cmd.index("--report-path") + 1]).write_text("[]")
+        return CaptureOutput(tool="gitleaks", stdout="", exit_code=0)
+
     before = set(tmp_path.iterdir())
     with (
         patch("code_review.adapters.gitleaks.shutil.which", return_value="/x"),
         patch("code_review.adapters.gitleaks.run_and_capture",
-              new=AsyncMock(return_value=cap)),
+              new=AsyncMock(side_effect=fake_run)),
         patch("os.getcwd", return_value=str(tmp_path)),
     ):
         request = ReviewRequest(

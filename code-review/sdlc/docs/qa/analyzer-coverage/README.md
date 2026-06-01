@@ -59,7 +59,7 @@ rows assert the *specific* planted coupling defect, not just ≥1.
 |------|---------|----------------|-----------------------------------|
 | bandit | `python/sec_vuln.py` | shell=True, md5, eval, pickle | ≥1 result in bandit JSON |
 | semgrep | `python/sec_vuln.py` | eval, shell=True | ≥1 SARIF result (local rules) |
-| gitleaks | `python/secrets_leak.py` | AWS / GitHub / Slack creds | ≥1 finding in gitleaks JSON _(xfail — see below)_ |
+| gitleaks | `python/secrets_leak.py` | AWS / GitHub / Slack creds | ≥1 finding in gitleaks JSON |
 | trivy | `deps/requirements.txt` | PyYAML 5.1, requests 2.19.0 CVEs | ≥1 SARIF result (`--format sarif`) |
 | radon | `python/complex_fn.py` | high cyclomatic complexity | `max_cc ≥ 10` from `radon cc --json` |
 | vulture | `python/dead_code.py` | unused import/func/class/var | ≥1 report line |
@@ -72,12 +72,11 @@ rows assert the *specific* planted coupling defect, not just ≥1.
 | depcruiser | `js/src/cycle_a,b.ts` | circular import | ≥1 `circular: true` edge |
 | **depcruiser-mocks** | `js/src/app.ts` → `js/__mocks__/service.ts` | prod→`__mocks__` coupling | **precision:** edge from a non-mock source into `__mocks__/` present |
 
-**xfail (known-deferred).** `gitleaks` is currently reported as **xfail**: the
-adapter invokes `gitleaks detect` without `--report-format json`, so findings go
-to stderr (human format) and captured stdout is empty — the oracle counts 0. This
-is a real shipping-adapter defect (it needs an off-argv JSON report path; see
-`KNOWN_DEFERRED` in `run_smoke.py` and FINDINGS.md) tracked as a follow-up. xfail
-rows are reported but do **not** fail the run.
+**xfail (known-deferred).** None currently. `KNOWN_DEFERRED` in `run_smoke.py` is the
+authoritative list; xfail rows are reported but do **not** fail the run. The former
+`gitleaks` xfail was resolved by s2-t0: the adapter now writes an off-argv JSON report
+(`--report-format json --report-path <tempfile>`) and splices it onto captured stdout,
+so the oracle counts the real findings (≥1).
 
 ## Prerequisites
 

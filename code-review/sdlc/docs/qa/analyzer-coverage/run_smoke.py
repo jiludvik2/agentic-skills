@@ -105,12 +105,10 @@ JS = FIX / "js"
 # Labels whose failure is a known, documented, out-of-scope defect — reported as XFAIL
 # (visible, not hidden) and excluded from the exit code so the harness still goes green on
 # the documented-good state. See FINDINGS.md for each entry's rationale + follow-up.
-KNOWN_DEFERRED = {
-    # gitleaks adapter invokes `gitleaks detect` with no `--report-format json`, so findings
-    # go to stderr (human format) and captured stdout is empty → oracle counts 0. Fixing it
-    # is a shipping-adapter change (off-argv JSON report path), tracked as a follow-up.
-    "gitleaks": "adapter emits no JSON on stdout — see FINDINGS.md (output-capture follow-up)",
-}
+# Empty: the gitleaks xfail was resolved by s2-t0 (off-argv JSON report path → findings
+# now land in captured stdout, count_gitleaks asserts ≥1). New documented-but-deferred
+# defects get an entry here with a FINDINGS.md rationale + follow-up.
+KNOWN_DEFERRED: dict[str, str] = {}
 
 # (label, analyzer, cwd, target (passed to --target), check, note)
 # label names the harness row + raw file; analyzer is the --analyzer id invoked.
