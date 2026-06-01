@@ -6,9 +6,15 @@ status: active
 parent: epic-analyzer-thin-runner
 sources: [qa-analyzer-coverage-findings.md, s5-t2-regenerate-captures-and-docs.md]
 created: 2026-05-31
-updated: 2026-05-31
-tags: [adapter, gitleaks, output-capture, follow-up, post-epic]
+updated: 2026-06-01
+superseded-by: s2-adapter-output-capture-audit
+tags: [adapter, gitleaks, output-capture, follow-up, superseded]
 ---
+
+> **Superseded 2026-06-01 by `s2-adapter-output-capture-audit`** (epic-analyzer-correctness).
+> Compiled into that story after the 2026-06-01 dogfooding run confirmed the defect on
+> real repos (10 real leaks missed on pygoat, 3 on NodeGoat). Retained for provenance;
+> the live spec is s2. Do not plan/execute from this file.
 
 # Follow-up — gitleaks adapter emits no JSON on stdout (output-capture audit)
 
