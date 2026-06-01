@@ -2,7 +2,7 @@
 id: jscomplexity-ts-t0-vendor-parser
 kind: task
 project: code-review
-status: active
+status: done
 parent: story-jscomplexity-ts
 sources: [story-jscomplexity-ts.md, adr-0022-js-complexity-tool.md]
 created: 2026-06-01

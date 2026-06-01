@@ -110,6 +110,17 @@ def test_taxonomy_matches_locked_table() -> None:
         assert a["tier"] == tier, f"{aid}: expected tier={tier!r}, got {a['tier']!r}"
 
 
+def test_jscomplexity_advertises_typescript() -> None:
+    """story-jscomplexity-ts: once @typescript-eslint/parser is vendored, jscomplexity
+    covers TypeScript too — so a TS diff routes to it (was JS-only per ADR-0022 s4-t1)."""
+    caps = _load_caps()
+    jsc = next(a for a in caps["analyzers"] if a["id"] == "jscomplexity")
+    assert "typescript" in jsc["languages"], (
+        f"jscomplexity must advertise typescript; got {jsc['languages']}"
+    )
+    assert "javascript" in jsc["languages"], "JS coverage must remain"
+
+
 def test_capabilities_node_versions_match_lockfile() -> None:
     """Drift guard: advertised Node-tool versions must equal the locked versions.
 

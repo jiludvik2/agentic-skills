@@ -7,6 +7,7 @@
   "//typescript": "^5 — s3-t1 (F1): depcruise enumerates .ts/.tsx in a directory target only when a supported TypeScript transpiler is present; it supports >=2 <6, but knip drags in typescript 6.x (out of range). Vendor 5.x at top level so depcruise's default `.` full-scan sees TS files; knip keeps its own nested copy.",
   "dependencies": {
     "@microsoft/eslint-formatter-sarif": "^3",
+    "@typescript-eslint/parser": "^8.60.0",
     "dependency-cruiser": "^16.10.4",
     "eslint": "^9",
     "jscpd": "^4",

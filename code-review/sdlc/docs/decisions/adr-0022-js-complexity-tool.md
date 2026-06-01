@@ -33,6 +33,20 @@ close.
 > `languages` — no adapter rewrite. Decision 1 and the §3 selection metadata below are read
 > with `languages=[javascript]` per this amendment.
 
+> **Amendment (2026-06-01, story-jscomplexity-ts — TypeScript implemented).** The deferred
+> TS follow-up is now done. Per operator decision (2026-06-01) we vendor **`@typescript-eslint/parser`
+> only** (`^8.60.0`, MIT; locked `8.60.0`; `stack-pins.md`), **not** the full `typescript-eslint`
+> meta-package: the `complexity` rule is purely syntactic, so the parser alone suffices and no
+> lint plugin / type-aware (`parserOptions.project`/`tsconfig`) setup is needed — preserving the
+> host-config-independent determinism (`--no-config-lookup`). The adapter's complexity flat config
+> gains a TS-files block pointing `languageOptions.parser` at the vendored parser (resolved via the
+> adapter's existing `NODE_PATH`); `capabilities.languages` for `jscomplexity` becomes
+> `[javascript, typescript]`. No adapter rewrite, as forecast. Landed in two tasks: **t0**
+> vendors the parser + advertises TS (capabilities); **t1** wires the parser into the complexity
+> flat config and lands the TS integration test. The "TypeScript complexity" entry under
+> *Declared limitations* below is **lifted by t1** (when TS parsing actually works) — see that
+> section's superseded note.
+
 ## Context
 
 The `maintainability/complexity` subcategory is **Python-only**: the `radon` adapter runs

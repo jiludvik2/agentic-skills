@@ -101,7 +101,7 @@
       "domain": "maintainability",
       "subcategory": "complexity",
       "tier": "quick",
-      "languages": ["javascript"],
+      "languages": ["javascript", "typescript"],
       "rule_classes": ["complexity"],
       "taxonomies_tagged": [],
       "default_timeout_s": 90,
