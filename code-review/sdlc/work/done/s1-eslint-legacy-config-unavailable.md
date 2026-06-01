@@ -2,7 +2,7 @@
 id: s1-eslint-legacy-config-unavailable
 kind: story
 project: code-review
-status: active
+status: done
 parent: epic-analyzer-correctness
 children:
   - s1-t0-eslint-legacy-config-unavailable

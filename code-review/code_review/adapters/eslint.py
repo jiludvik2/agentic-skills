@@ -73,7 +73,7 @@ class EslintAdapter:
             return CaptureOutput.unavailable("eslint", "no target paths to analyse")
         # No JS/TS anywhere in the target → nothing for eslint to do (e.g. a
         # pure-Python review). A clean skip, not the spurious red of `eslint
-        # exited 2` (ADR-0019, s0-t2). Distinct from the no-flat-config skip below.
+        # exited 2` (ADR-0019, s0-t2). Distinct from the config skips below.
         if not has_js_files(request.target_paths):
             return CaptureOutput.unavailable(
                 "eslint", "no JavaScript/TypeScript files in target"
@@ -113,7 +113,7 @@ class EslintAdapter:
         if config_kind == "none":
             return CaptureOutput.unavailable(
                 "eslint",
-                f"no ESLint config (eslint.config.* or .eslintrc*) found under {anchor}",
+                f"no ESLint flat config (eslint.config.*) found under {anchor}",
             )
         rel_targets = tuple(os.path.relpath(p, anchor) for p in abs_targets)
         # The SARIF formatter (a vendored *package* loaded by name) is kept: eslint emits
