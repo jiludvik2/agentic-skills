@@ -90,7 +90,7 @@ A future project will provide the **consumer LLM** that integrates the two skill
 - Read `review_scope` from the SDLC skill's project-level config (`lite` / `standard` / `full`).
 - At **`lite`** — invoke `intent-review` only (LLM-only review, matching the SDLC's current reviewer behaviour).
 - At **`standard`** — invoke `code-review --depth quick` (or the relevant `--review`) **and** `intent-review`.
-- At **`full`** — invoke `code-review --depth full` **and** `intent-review`; story-level review uses `--scope story-level` to include `contracts/conformance`.
+- At **`full`** — invoke `code-review --depth full` **and** `intent-review`; story-level timing applies per the SDLC Review verb. (Note: code-review carries **no** contract-testing / `contracts` domain — removed and not planned, ADR-0021 as amended 2026-06-01.)
 - Per-task vs story-level timing dispatched per the SDLC Review verb's existing rules.
 
 ### B2. Cross-skill consumption
@@ -102,7 +102,7 @@ A future project will provide the **consumer LLM** that integrates the two skill
 
 ### B3. Capability check + escalation
 
-- Before invoking `code-review`, run `python -m code_review.cli --capabilities` to verify policy-required analyzers (e.g. `gitleaks` at standard, `schemathesis` at full+story-level) are `available`; escalate via the Autonomy gate if any are missing.
+- Before invoking `code-review`, run `python -m code_review.cli --capabilities` to verify policy-required analyzers (e.g. `gitleaks` at standard; coupling/cohesion analyzers at full) are `available`; escalate via the Autonomy gate if any are missing.
 - On `code-review` CLI non-zero exit, **do not silently close the task**; surface the failure via the Autonomy gate.
 
 ### B4. Sandbox-bypass refusal
