@@ -87,7 +87,7 @@ Per **ADR-0017**. Manifest pins are major-version floors in `package.json` at th
 - Skill code: **MIT**.
 - Python dependencies: **MIT / Apache-2.0 / BSD only**. No LGPL, GPL, or AGPL in import paths.
 - Subprocess-only tools may be GPL/LGPL when invoked as a separate process (Semgrep LGPL-2.1, gitleaks MIT, Trivy Apache-2.0). **No AGPL anywhere**, even via subprocess — TruffleHog rejected on this basis in favour of gitleaks.
-- Enforced in CI via `scripts/license_audit.py` against an allow-list.
+- Currently enforced by manual review at dependency-add time (each pin's licence checked against the allow-list above before it lands). There is **no automated CI licence gate yet** — an allow-list audit script (the previously-referenced `scripts/license_audit.py`) was specified but never built. Automating it is an open follow-up; until then the floor is policy, not a machine-checked invariant.
 
 ## Invocation conventions
 
