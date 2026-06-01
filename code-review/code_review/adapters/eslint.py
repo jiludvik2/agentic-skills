@@ -8,10 +8,14 @@ from code_review.capture import CaptureOutput, run_and_capture
 from code_review.contracts import ReviewRequest
 from code_review.paths import node_modules_dir
 
-# ESLint v9 discovers a flat config by searching UPWARD from cwd; a project with
-# none (and no legacy .eslintrc) exits 2 with "couldn't find an eslint.config file".
-# We mirror that upward walk so "nothing to lint here" is reported as `unavailable`
-# (a clean skip, ADR-0019) rather than a bare `eslint exited 2` error.
+# ESLint v9 discovers a flat config by searching UPWARD from cwd and ignores legacy
+# .eslintrc* entirely (flat-config support was dropped in v9). A target with no flat
+# config on the upward path exits 2 with "couldn't find an eslint.config file" — even
+# when a legacy .eslintrc IS present (express ships .eslintrc and nothing else). We
+# mirror that flat-only upward walk so "nothing v9 can lint here" is reported as
+# `unavailable` (a clean skip, ADR-0019) rather than a bare `eslint exited 2` error.
+# Legacy-only targets get a distinct, actionable reason; the bare exit 2 was a spurious
+# red on real repos before s1-t0.
 _FLAT_CONFIG_NAMES = (
     "eslint.config.js", "eslint.config.mjs", "eslint.config.cjs",
     "eslint.config.ts", "eslint.config.mts", "eslint.config.cts",
@@ -23,18 +27,30 @@ _LEGACY_CONFIG_NAMES = (
 _SARIF_FORMATTER = "@microsoft/eslint-formatter-sarif"
 
 
-def _has_eslint_config(anchor: str) -> bool:
-    """True if any eslint config (flat or legacy) is discoverable on the upward
-    path from ``anchor`` to the filesystem root — the same search ESLint itself
-    performs from its cwd."""
+def _discover_eslint_config(anchor: str) -> str:
+    """Classify the eslint config discoverable on the upward path from ``anchor`` to
+    the filesystem root, mirroring ESLint v9's own flat-config search:
+
+    - ``"flat"``  — a flat ``eslint.config.*`` is reachable (lintable by v9).
+    - ``"legacy"`` — no flat config, but a legacy ``.eslintrc*`` was seen on the path.
+      v9 cannot consume it (flat-config-only) — treat as unavailable, not lintable.
+    - ``"none"``  — no config of any kind on the path.
+
+    Only ``"flat"`` is lintable for the vendored v9; a nearer legacy config never
+    masks a flat config further up (v9 ignores .eslintrc and keeps searching)."""
     current = os.path.abspath(anchor)
+    saw_legacy = False
     while True:
-        for name in (*_FLAT_CONFIG_NAMES, *_LEGACY_CONFIG_NAMES):
+        for name in _FLAT_CONFIG_NAMES:
             if os.path.isfile(os.path.join(current, name)):
-                return True
+                return "flat"
+        if not saw_legacy:
+            saw_legacy = any(
+                os.path.isfile(os.path.join(current, name)) for name in _LEGACY_CONFIG_NAMES
+            )
         parent = os.path.dirname(current)
         if parent == current:
-            return False
+            return "legacy" if saw_legacy else "none"
         current = parent
 
 
@@ -81,11 +97,20 @@ class EslintAdapter:
         anchor = os.path.commonpath(abs_targets)
         if not os.path.isdir(anchor):
             anchor = os.path.dirname(anchor)
-        # No flat config (and no legacy .eslintrc) discoverable from the anchor
-        # upward → eslint has nothing it can lint here. Report it as a clean skip,
-        # not the bare `eslint exited 2` that pollutes an otherwise-green review
-        # (ADR-0019). A genuine eslint failure with a config present still → error.
-        if not _has_eslint_config(anchor):
+        # Classify the config discoverable from the anchor upward. The vendored ESLint
+        # v9 is flat-config-only, so anything but a flat config means "nothing v9 can
+        # lint here" → a clean skip (ADR-0019), not the bare `eslint exited 2` that
+        # pollutes an otherwise-green review. A genuine eslint failure WITH a flat
+        # config present still surfaces as `error` (the ok_exit_codes boundary below).
+        config_kind = _discover_eslint_config(anchor)
+        if config_kind == "legacy":
+            return CaptureOutput.unavailable(
+                "eslint",
+                f"ESLint v9 requires a flat config (eslint.config.*); target under "
+                f"{anchor} ships only a legacy .eslintrc — unsupported (add an "
+                f"eslint.config.* to enable linting)",
+            )
+        if config_kind == "none":
             return CaptureOutput.unavailable(
                 "eslint",
                 f"no ESLint config (eslint.config.* or .eslintrc*) found under {anchor}",

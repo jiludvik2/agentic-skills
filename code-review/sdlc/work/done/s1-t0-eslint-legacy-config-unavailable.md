@@ -2,7 +2,7 @@
 id: s1-t0-eslint-legacy-config-unavailable
 kind: task
 project: code-review
-status: active
+status: done
 parent: s1-eslint-legacy-config-unavailable
 sources: [s1-eslint-legacy-config-unavailable.md]
 created: 2026-06-01
