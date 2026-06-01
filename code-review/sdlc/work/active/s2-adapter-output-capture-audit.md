@@ -4,6 +4,9 @@ kind: story
 project: code-review
 status: active
 parent: epic-analyzer-correctness
+children:
+  - s2-t0-gitleaks-json-report
+  - s2-t1-output-capture-audit
 sources: [dogfood-2026-06-01-analyzer-defects.md, fu-gitleaks-json-output-capture.md]
 created: 2026-06-01
 updated: 2026-06-01

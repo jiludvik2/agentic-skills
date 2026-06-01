@@ -4,6 +4,8 @@ kind: story
 project: code-review
 status: active
 parent: epic-analyzer-correctness
+children:
+  - s1-t0-eslint-legacy-config-unavailable
 sources: [dogfood-2026-06-01-analyzer-defects.md]
 created: 2026-06-01
 updated: 2026-06-01

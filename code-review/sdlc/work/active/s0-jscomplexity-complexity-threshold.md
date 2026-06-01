@@ -7,10 +7,24 @@ parent: epic-analyzer-correctness
 sources: [dogfood-2026-06-01-analyzer-defects.md, adr-0022-js-complexity-tool.md]
 created: 2026-06-01
 updated: 2026-06-01
-tags: [analyzer, jscomplexity, eslint, noise, s4-regression]
+withdrawn-on: 2026-06-01
+tags: [analyzer, jscomplexity, withdrawn, not-a-defect]
 ---
 
-# Story — jscomplexity flags every function (threshold 0)
+> **WITHDRAWN 2026-06-01 — NOT A DEFECT (intended design).** Reading
+> `code_review/adapters/jscomplexity.py:13-24` shows the threshold-0 behaviour is
+> deliberate: *"at threshold 0 every function exceeds the limit and is reported with
+> its computed cyclomatic value, turning a violations rule into a full-coverage
+> metric"* — i.e. radon-`cc` parity per ADR-0022. The cyclomatic value is present in
+> every finding; reporting every function is the metric working as designed, the same
+> shape radon emits. The original premise (filed from a dogfooding run without
+> checking the adapter source) was wrong; see memory
+> `feedback-validate-finding-premise-against-tool-reality`. Dropped from
+> `epic-analyzer-correctness` children. Retained as an audit-trail record; do not plan
+> or execute. The residual "the SARIF message reads like a violation, an agent could
+> miscount" is at most a SKILL.md interpretation note, not a defect.
+
+# Story — jscomplexity flags every function (threshold 0) — WITHDRAWN
 
 ## Discovered
 

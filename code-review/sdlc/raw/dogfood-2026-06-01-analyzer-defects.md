@@ -14,13 +14,21 @@ analyzer layer. Targets:
 - **express / mocha / chalk / axios / webpack** — JS coupling (depcruiser):
   webpack lib = 1670 circular edges (serialization registry), others acyclic.
 
+## CORRECTION 2026-06-01
+
+The jscomplexity item below was filed as a defect, then **WITHDRAWN** after reading
+`jscomplexity.py:13-24`: threshold-0 reporting every function with its cyclomatic
+value is intended radon-cc-parity design (ADR-0022), not a defect. Lesson:
+`feedback-validate-finding-premise-against-tool-reality` — read the adapter source
+before filing. Only the eslint and gitleaks items are genuine defects (s1, s2).
+
 ## Genuine product defects (file these)
 
-1. **jscomplexity threshold-0 noise.** jscomplexity (s4, ADR-0022; reuses ESLint's
-   `complexity` rule) flags EVERY function: "Function has a complexity of N.
-   Maximum allowed is 0." NodeGoat 1259, mocha 732, express 109, chalk 45 — all
-   noise, no signal. The complexity threshold is effectively 0; should be a sane
-   default (radon-cc parity) or report metric without a 0 gate.
+1. **[WITHDRAWN — not a defect] jscomplexity threshold-0.** jscomplexity (s4,
+   ADR-0022; reuses ESLint's `complexity` rule) reports EVERY function with its
+   cyclomatic value (NodeGoat 1259, mocha 732, express 109, chalk 45). This is
+   **intended radon-cc-parity** (threshold 0 = full-coverage metric), confirmed in the
+   adapter source. Retracted; see s0-jscomplexity-complexity-threshold (withdrawn).
 
 2. **eslint exits 2 (error) on legacy-config repos.** `_has_eslint_config`
    (eslint.py) accepts legacy `.eslintrc*`, but vendored ESLint v9.39.4 is
