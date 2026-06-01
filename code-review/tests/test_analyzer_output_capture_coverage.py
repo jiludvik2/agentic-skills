@@ -27,23 +27,33 @@ _QA_DIR = Path(__file__).parent.parent / "sdlc" / "docs" / "qa" / "analyzer-cove
 
 def _load_run_smoke() -> ModuleType:
     """Load the QA harness module by path (it lives outside the package, alongside its
-    ``bundle_oracle`` sibling — which it imports via ``sys.path``)."""
-    if str(_QA_DIR) not in sys.path:
+    ``bundle_oracle`` sibling — which it imports via ``sys.path``). Restores ``sys.path``
+    so the QA dir does not leak onto it for the rest of the session (run_smoke.py inserts
+    its own dir too; we undo ours)."""
+    saved = list(sys.path)
+    try:
         sys.path.insert(0, str(_QA_DIR))
-    spec = importlib.util.spec_from_file_location("qa_run_smoke", _QA_DIR / "run_smoke.py")
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
+        spec = importlib.util.spec_from_file_location("qa_run_smoke", _QA_DIR / "run_smoke.py")
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    finally:
+        sys.path[:] = saved
 
 
 def test_every_deterministic_adapter_has_positive_signal_case() -> None:
     from code_review.adapters import REGISTRY
 
     rs = _load_run_smoke()
-    # CASES rows are (label, analyzer_id, cwd, target, check, note).
+    # CASES rows are (label, analyzer_id, cwd, target, check, note). Duplicate analyzer_ids
+    # (pydeps/depcruiser each have two precision rows) collapse in the set.
     case_analyzer_ids = {row[1] for row in rs.CASES}
-    missing = set(REGISTRY) - case_analyzer_ids
+    # Scope to deterministic adapters explicitly: the guard's contract is about tools whose
+    # findings the harness counts from stdout. A future `contract`-kind adapter (the role
+    # schemathesis held) would not belong in this set and must not force a bogus CASE.
+    deterministic = {k for k, v in REGISTRY.items() if getattr(v, "kind", None) == "deterministic"}
+    missing = deterministic - case_analyzer_ids
     assert not missing, (
         f"deterministic adapters with no positive-signal case in run_smoke.py: "
         f"{sorted(missing)} — every adapter must have a ≥1-signal-in-stdout case so a "
@@ -55,7 +65,8 @@ def test_every_deterministic_adapter_has_positive_signal_case() -> None:
 def test_known_deferred_carries_no_stdout_capture_xfail() -> None:
     """A stdout-capture defect must never be parked as an xfail again (that is exactly
     how the gitleaks false-negative hid). Any future xfail must be for a different,
-    explicitly-stated reason."""
+    explicitly-stated reason. This is a lexical proxy (it matches the reason text, not the
+    semantics) — adequate because KNOWN_DEFERRED entries are rare and human-reviewed."""
     rs = _load_run_smoke()
     offenders = {
         label: reason

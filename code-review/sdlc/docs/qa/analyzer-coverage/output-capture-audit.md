@@ -28,7 +28,7 @@ reach captured `outputs[].stdout`. All 13 registry adapters (`code_review/adapte
 | pydeps | `python -m pydeps --show-deps --no-output --noshow` | stdout (JSON) | ✅ | `--show-deps` → stdout; `--no-output/--noshow` suppress the `.svg` render only |
 | cohesion | `python -m cohesion -d/-f` | stdout (text) | ✅ | per-class report on stdout |
 | eslint | `node eslint --format <sarif-formatter>` | stdout (SARIF) | ✅ | SARIF formatter → stdout; NODE_PATH exported for formatter resolution |
-| jscpd | `node jscpd --reporters json --output <tmpdir>` | **file** | ✅ | report dir read back onto stdout (the pattern gitleaks now mirrors); missing-report-on-OK → error |
+| jscpd | `node jscpd --reporters json --output <tmpdir>` | **file** | ✅ | tool has no stdout-JSON mode → report dir read back onto stdout (the pattern gitleaks now mirrors); missing-report-on-OK → error |
 | knip | `node knip --reporter json` | stdout (JSON) | ✅ | `--reporter json` → stdout |
 | depcruiser | `node depcruise --output-type json` | stdout (JSON) | ✅ | config in a `$TMPDIR` tempfile; graph → stdout |
 | jscomplexity | `node eslint --no-config-lookup --config <tmp> --format <sarif>` | stdout (SARIF) | ✅ | ESLint `complexity` rule @ threshold 0 → SARIF on stdout (same channel as eslint) |
