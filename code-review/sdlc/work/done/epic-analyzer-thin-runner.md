@@ -2,7 +2,7 @@
 id: epic-analyzer-thin-runner
 kind: epic
 project: code-review
-status: active
+status: done
 children:
   - s0-contract-inversion-and-bundle
   - s1-migrate-adapters-and-emit-bundle
@@ -12,9 +12,23 @@ children:
   - s5-maintainability-oracle
 sources: [post-coverage-eval-findings.md, vendor-js-semgrep-rules.md, g5-maintainability-oracle-repos.md, g8-js-complexity-cohesion-absent.md]
 created: 2026-05-30
-updated: 2026-05-31
+updated: 2026-06-01
+closed: 2026-06-01
 tags: [architecture, runner, simplification, sarif, supersedes-facade]
----
+close-notes: |
+  All six stories closed (s0–s5), each with verifier PASS + reviewer MINOR-ONLY and a
+  story-level review. The analyzer layer is now a thin invocation runner: it selects
+  tools, invokes them with their exact flags, scopes to the diff, and captures raw
+  per-tool output into a review bundle (review-bundle.v1.json, ADR-0020) — the
+  SARIF-normalizing facade (aggregator/severity/hotspots/MetricSet + every _to_sarif)
+  is deleted. The whole-epic validation criterion held: each of s3 (JS semgrep rules),
+  s4 (jscomplexity), and s5 (maintainability oracle) was near-trivial on the new
+  design, with zero adapter rewrite — the architecture is right.
+  ADRs 0020/0021/0022 relocated active/ → docs/decisions/ at close. README reconciled
+  (Document): bundle/raw-capture model + jscomplexity added to the JS analyzer list.
+  Follow-up fu-gitleaks-json-output-capture was superseded by s2-adapter-output-capture-audit
+  (epic-analyzer-correctness) and retained in active/ as a record.
+  G3 (duration telemetry) retired with the deleted metrics layer; not fixed.
 
 # Epic — analyzer thin-runner re-architecture
 
