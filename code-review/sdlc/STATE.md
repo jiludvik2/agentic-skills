@@ -1,8 +1,8 @@
 # State — last updated 2026-06-01
 
-**Active focus:** none — **`epic-analyzer-correctness` CLOSED** and pushed. `work/active/` is empty.
-**Last completed:** **EPIC `epic-analyzer-correctness`** (s1 eslint legacy-config→unavailable; s2 gitleaks JSON-on-stdout + all-adapter output-capture audit + CI regression guard). All commits on `origin/main` (`…19a7073` + close commit).
-**Next:** Operator decides the next epic. Optional carry-overs: cut `code-review-v0.1.1` (patch on GA 0.1.0; no contract change) and/or start TS-complexity work (vendor `@typescript-eslint/parser`, ADR-0022).
+**Active focus:** none — **`epic-analyzer-correctness` CLOSED + released as `0.1.1`.** `work/active/` is empty; `origin/main` at `11a2ef8`.
+**Last completed:** **Released `polyreview 0.1.1`** (tag `code-review-v0.1.1`, release.yml green in 53s → PyPI). Patch on GA 0.1.0 carrying the epic's correctness fixes (s1 eslint legacy-config→unavailable; s2 gitleaks JSON-on-stdout + all-adapter output-capture audit + CI guard).
+**Next:** Operator decides the next epic. Carry-over candidate: TS-complexity (vendor `@typescript-eslint/parser`, widen `jscomplexity` to TS — ADR-0022, no adapter rewrite).
 
 ## Just closed (session 2026-06-01)
 
@@ -21,8 +21,6 @@
 
 ## Open questions / carried-forward follow-ups
 
-- Cut `code-review-v0.1.1` now? (push the tag **standalone** — memory
-  `feedback-release-tag-push-standalone`.)
 - Next epic, or pause?
 - **TS complexity** (post-epic): vendor `@typescript-eslint/parser`, widen `jscomplexity`
   to TS (ADR-0022 documented limitation) — no adapter rewrite.
