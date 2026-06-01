@@ -2,7 +2,7 @@
 id: epic-analyzer-correctness
 kind: epic
 project: code-review
-status: active
+status: done
 children:
   - s1-eslint-legacy-config-unavailable
   - s2-adapter-output-capture-audit
@@ -17,6 +17,25 @@ tags: [analyzer, adapters, correctness, dogfooding, post-ga]
 ---
 
 # Epic — analyzer output correctness (dogfooding defects)
+
+## Close notes (2026-06-01)
+
+**CLOSED.** Both stories done; commits `3388327..19a7073` pushed to `origin/main`.
+
+- **s1** — eslint legacy-only `.eslintrc*` → `unavailable` (was a spurious exit-2 `error`;
+  vendored ESLint v9 is flat-config-only). `_discover_eslint_config` → flat|legacy|none.
+- **s2** — gitleaks now writes an off-argv JSON report read back onto stdout (was a
+  stderr-banner-only silent false-negative); audited all 13 adapters (every one lands
+  findings in `outputs[].stdout`, gitleaks was the sole defect, no sibling); added a CI
+  regression guard (`tests/test_analyzer_output_capture_coverage.py`) and the
+  `output-capture-audit.md` artefact; closed the jscomplexity QA-harness coverage gap.
+
+All tasks: Verifier PASS, reviewer CLEAN/MINOR-ONLY (Minors remediated). FINDINGS F15
+RESOLVED. **Document:** README unchanged — fixes align behaviour with the already-documented
+available/unavailable model. **No QA artefacts pending relocation** — the QA docs live in
+`sdlc/docs/qa/` already. **Release tag:** none cut (operator deferred); a `code-review-v0.1.1`
+patch on GA 0.1.0 remains available if wanted.
+
 
 Post-GA correctness hardening of the shipped (0.1.0) analyzer layer. Three defects
 surfaced by running polyreview against real public repos on 2026-06-01 (pygoat,
