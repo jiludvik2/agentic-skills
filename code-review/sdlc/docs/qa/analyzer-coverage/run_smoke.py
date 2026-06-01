@@ -135,6 +135,8 @@ CASES = [
      _pydeps_cycle_check, "labelled a→b→a import cycle"),
     ("eslint", "eslint", JS, ".",
      _count_check(bo.count_sarif_results), "lint_me.js: no-unused-vars + no-debugger"),
+    ("jscomplexity", "jscomplexity", JS, ".",
+     _count_check(bo.count_sarif_results), "cyclomatic complexity per JS function (threshold 0)"),
     ("knip", "knip", REPO, str(JS),
      _count_check(bo.count_knip), "unused files (entry=src/index.ts)"),
     ("jscpd", "jscpd", REPO, str(JS / "src"),
