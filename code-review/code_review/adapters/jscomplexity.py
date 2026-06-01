@@ -10,18 +10,31 @@ from code_review.capture import CaptureOutput, run_and_capture
 from code_review.contracts import ReviewRequest
 from code_review.paths import node_modules_dir
 
-# JS complexity = radon `cc` parity for JavaScript (ADR-0022). We reuse the already-vendored
-# ESLint `complexity` core rule rather than adding a tool: at threshold 0 every function
-# exceeds the limit and is reported with its computed cyclomatic value, turning a violations
-# rule into a full-coverage metric. The adapter ships its OWN flat config (the depcruiser
-# pattern) so the host project needs none, and suppresses config lookup so the reviewed
-# project's own ESLint setup cannot perturb the complexity report. JavaScript-only: ESLint
-# cannot parse `.ts` without the unvendored @typescript-eslint/parser (ADR-0022 s4-t1
-# amendment); `.ts` targets are silently ignored by ESLint (clean no-op).
+# JS/TS complexity = radon `cc` parity for JavaScript and TypeScript (ADR-0022). We reuse the
+# already-vendored ESLint `complexity` core rule rather than adding a tool: at threshold 0
+# every function exceeds the limit and is reported with its computed cyclomatic value, turning
+# a violations rule into a full-coverage metric. The adapter ships its OWN flat config (the
+# depcruiser pattern) so the host project needs none, and suppresses config lookup so the
+# reviewed project's own ESLint setup cannot perturb the complexity report. TypeScript reaches
+# parity via a second flat-config block that points the vendored @typescript-eslint/parser at
+# `.ts/.tsx/.mts/.cts` (ADR-0022 TS follow-up); the `complexity` rule is syntactic, so no
+# tsconfig / type-aware setup is needed.
 _COMPLEXITY_CONFIG = """\
 // Adapter-supplied ESLint flat config (MIT, hand-authored — same provenance policy as the
 // depcruiser config). Threshold 0 reports the cyclomatic complexity of every function.
-module.exports = [{ rules: { complexity: ["warn", 0] } }];
+// The second block points the vendored @typescript-eslint/parser at .ts/.tsx/.mts/.cts so
+// the (syntactic) complexity rule measures TypeScript at parity with JS — no tsconfig /
+// type-aware setup (ADR-0022 TS follow-up). require() resolves the parser via the NODE_PATH
+// the adapter exports to the vendored node_modules (same mechanism as the SARIF formatter).
+const tsParser = require("@typescript-eslint/parser");
+module.exports = [
+  { rules: { complexity: ["warn", 0] } },
+  {
+    files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
+    languageOptions: { parser: tsParser },
+    rules: { complexity: ["warn", 0] },
+  },
+];
 """
 _SARIF_FORMATTER = "@microsoft/eslint-formatter-sarif"
 
@@ -44,7 +57,7 @@ class JsComplexityAdapter:
         if not request.target_paths:
             return CaptureOutput.unavailable("jscomplexity", "no target paths to analyse")
         # No JS/TS anywhere → nothing to measure (e.g. a pure-Python review). Clean skip,
-        # not a spurious error (ADR-0019). (TS targets reach eslint but are ignored — JS-only.)
+        # not a spurious error (ADR-0019). Both JS and TS targets are measured.
         if not has_js_files(request.target_paths):
             return CaptureOutput.unavailable(
                 "jscomplexity", "no JavaScript/TypeScript files in target"

@@ -2,12 +2,18 @@
 id: jscomplexity-ts-t1-enable-ts-parsing
 kind: task
 project: code-review
-status: active
+status: done
 parent: story-jscomplexity-ts
 sources: [story-jscomplexity-ts.md, adr-0022-js-complexity-tool.md]
 created: 2026-06-01
 updated: 2026-06-01
 tags: [jscomplexity, typescript, eslint, complexity, config]
+notes: >
+  Closed 2026-06-01. Verifier PASS (RED→GREEN confirmed empirically — stripping the TS
+  config block fails the TS integration test with `got []`). Reviewer MINOR-ONLY: the 1
+  Minor (assert the complexity message for JS-parity) and both Nits (stale `s4-t1` label;
+  fixture-comment overclaim) were fixed inline rather than deferred. 8 jscomplexity tests
+  green, ruff + mypy clean.
 ---
 
 # Task — enable TypeScript parsing in the complexity config

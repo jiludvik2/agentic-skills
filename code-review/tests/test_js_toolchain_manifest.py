@@ -11,6 +11,9 @@ from typing import Any
 SKILL_ROOT = Path(__file__).parent.parent / ".claude" / "skills" / "code-review"
 PACKAGE_JSON = SKILL_ROOT / "package.json"
 LOCKFILE = SKILL_ROOT / "package-lock.json"
+STACK_PINS = (
+    Path(__file__).parent.parent / "sdlc" / "docs" / "architecture" / "stack-pins.md"
+)
 
 # Caret-major pins per ADR-0017. dependency-cruiser's exact pin is delegated to
 # s3 (it must work on both Node 20 and 22), so here we only require its presence.
@@ -101,3 +104,28 @@ def test_lockfile_pins_match_manifest() -> None:
         assert locked.startswith(m.group(1) + "."), (
             f"{pkg}: manifest pin {pin} but lockfile {locked} (major mismatch)"
         )
+
+
+def test_typescript_parser_pin_matches_stack_pins() -> None:
+    """story-jscomplexity-ts drift anchor: `jscomplexity` reuses the vendored eslint
+    binary and has no `npm_package` row in capabilities, so its load-bearing
+    `@typescript-eslint/parser` pin sits outside the capabilities↔lock guard
+    (`test_capabilities_node_versions_match_lockfile`). Anchor the EXACT locked
+    version against the value `stack-pins.md` documents, so a silent parser bump
+    (which would change TS complexity parsing) trips a test rather than drifting."""
+    lock = json.loads(LOCKFILE.read_text(encoding="utf-8"))
+    entry = lock["packages"].get("node_modules/@typescript-eslint/parser")
+    assert entry is not None, "@typescript-eslint/parser absent from lockfile packages"
+    locked = entry["version"]
+
+    pins = STACK_PINS.read_text(encoding="utf-8")
+    row = next(
+        (ln for ln in pins.splitlines() if "@typescript-eslint/parser" in ln), None
+    )
+    assert row is not None, "no @typescript-eslint/parser row in stack-pins.md"
+    documented = re.findall(r"`([0-9]+\.[0-9]+\.[0-9]+)`", row)
+    assert locked in documented, (
+        f"lockfile pins @typescript-eslint/parser at {locked!r} but stack-pins.md "
+        f"documents {documented!r} — reconcile the pin (jscomplexity TS parsing "
+        "depends on this exact version)"
+    )

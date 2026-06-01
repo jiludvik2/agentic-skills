@@ -1,6 +1,6 @@
 // Fixture for s4 / G8: a JS function with unmistakable cyclomatic complexity (> 1)
 // so the vendored ESLint `complexity` rule (threshold 0) reports a stable, non-trivial
-// value. JS-only — jscomplexity does not cover TypeScript (ADR-0022 s4-t1 amendment).
+// value. The TypeScript counterpart is branchy.ts (ADR-0022 TS follow-up).
 function branchy(a, b) {
   if (a) {
     return 1;

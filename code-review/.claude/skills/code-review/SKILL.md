@@ -183,7 +183,7 @@ The CLI emits a single `review-bundle.v1.json` whose structure is:
 | **gitleaks** | plain text | Native finding output; **exit 1 = leaks present** (adapter maps to `ok`/`error` per exit code) | Any confirmed leak → Critical; treat every finding seriously |
 | **cohesion** | plain text | Per-class cohesion score (0.0–1.0); low scores indicate split-responsibility classes | < 0.5 on a large class → Minor; very low (< 0.3) → Important |
 | **radon** | JSON | `cc` subcommand: per-function complexity ranks A–F; rank A/B = simple, E/F = very complex | E/F-rank public functions → Minor/Important depending on risk surface |
-| **jscomplexity** | SARIF | JS cyclomatic complexity via the ESLint `complexity` rule (threshold 0 ⇒ one result per function); each `results[]` message names the function and its computed complexity number | High complexity (≳10) in public/critical JS functions → Minor/Important by risk surface; the radon analogue for JavaScript |
+| **jscomplexity** | SARIF | JS/TS cyclomatic complexity via the ESLint `complexity` rule (threshold 0 ⇒ one result per function); each `results[]` message names the function and its computed complexity number. TypeScript (`.ts/.tsx/.mts/.cts`) is parsed via the vendored `@typescript-eslint/parser` at parity with JS | High complexity (≳10) in public/critical JS/TS functions → Minor/Important by risk surface; the radon analogue for JavaScript and TypeScript |
 | **pydeps** | JSON | Dependency map (`stdout` is JSON with module edges); look for unexpected cycles or fan-out | Circular deps → Important; deep fan-out → Minor |
 | **jscpd** | JSON | `duplicates[]` array; each entry has `firstFile`/`secondFile` paths and `lines` count | Large duplicates (50+ lines) → Minor; very large (200+ lines) → Important |
 | **knip** | JSON | `--reporter json`: `files[]` (unused files), `exports[]` (unused exports), `dependencies[]` | High false-positive risk for public API / cross-boundary exports — corroborate before reporting |
@@ -191,7 +191,7 @@ The CLI emits a single `review-bundle.v1.json` whose structure is:
 
 ### Coverage limitations
 
-Two `maintainability` gaps are deliberate, not bugs (ADR-0022): **`jscomplexity` is JavaScript-only** — TypeScript complexity is not measured (ESLint needs an unvendored TS parser; `.ts` files are silently skipped), and **JS/TS cohesion is not provided at all** (no thin tool fits; cohesion is Python-only via `cohesion`). Absence of a complexity/cohesion signal for TS/JS is not a clean bill of health.
+One `maintainability` gap is deliberate, not a bug (ADR-0022): **JS/TS cohesion is not provided at all** (no thin tool fits; cohesion is Python-only via `cohesion`). `jscomplexity` covers both JavaScript and TypeScript (the latter via the vendored `@typescript-eslint/parser`, story-jscomplexity-ts). Absence of a cohesion signal for TS/JS is not a clean bill of health.
 
 ### Severity judgment
 

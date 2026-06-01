@@ -108,37 +108,44 @@ Candidate tools considered:
 
 3. **Selection-scheme placement (no scheme change).** `jscomplexity` slots into the existing
    ADR-0011 scheme under `domain=maintainability`, `subcategory=complexity`, `tier=quick`,
-   `languages=[javascript]` (per the s4-t1 amendment above), `rule_classes=[complexity]` —
+   `languages=[javascript, typescript]` (widened by the 2026-06-01 amendment above; was
+   `[javascript]` under the s4-t1 amendment), `rule_classes=[complexity]` —
    mirroring how `knip` (JS dead-code) mirrors `vulture` (Python dead-code). `--review
    complexity` and `--review maintainability` then cover both language families (Python via
    radon, JS via jscomplexity), with diff-language filtering selecting
    the right one.
 
-4. **No new pin.** Because the analyzer reuses vendored ESLint, `package.json` /
-   `package-lock.json` / `stack-pins.md` are unchanged. The adapter-supplied flat config is
-   hand-authored, MIT (same provenance policy as the depcruiser config and the semgrep
-   ruleset).
+4. **No new pin** *(superseded for TS by the 2026-06-01 amendment).* For the original JS-only
+   scope the analyzer reused vendored ESLint, so `package.json` / `package-lock.json` /
+   `stack-pins.md` were unchanged. Adding TypeScript (story-jscomplexity-ts t0) vendored one
+   new pin — `@typescript-eslint/parser ^8.60.0` (MIT) — recorded across all three. The
+   adapter-supplied flat config remains hand-authored, MIT (same provenance policy as the
+   depcruiser config and the semgrep ruleset).
 
 ## Declared limitations, not implemented
 
-Two scope boundaries, documented in SKILL.md and here — explicitly boundaries, not
-oversights:
+One scope boundary remains, documented in SKILL.md and here — explicitly a boundary, not an
+oversight:
 
 - **JS/TS cohesion (LCOM).** Python has `cohesion` (LCOM4). There is no maintained, thin,
   JSON-emitting JS/TS cohesion tool that fits the vendored-npm + raw-capture model. Not
   implemented for any JS/TS.
-- **TypeScript complexity.** `jscomplexity` is JavaScript-only (see the s4-t1 amendment
-  above): TS parsing needs `@typescript-eslint/parser`, which is not vendored, and adding it
-  would forfeit the zero-new-dependency rationale. TS cyclomatic complexity is therefore not
-  provided. Adding it later = vendor `typescript-eslint` + widen `capabilities`, no rewrite.
 
-Revisit either if a suitable tool/decision emerges (a future ADR/story).
+> **~~TypeScript complexity.~~ Superseded — implemented by story-jscomplexity-ts t1
+> (2026-06-01).** Previously declared a limitation (JavaScript-only, no vendored parser). The
+> 2026-06-01 amendment vendored `@typescript-eslint/parser` (t0) and wired it into the
+> complexity flat config (t1), so `jscomplexity` now reports cyclomatic complexity for
+> `.ts/.tsx/.mts/.cts` at parity with JavaScript. `capabilities.languages` is
+> `[javascript, typescript]`. See the 2026-06-01 amendment above.
+
+Revisit the remaining boundary (cohesion) if a suitable tool/decision emerges (a future ADR/story).
 
 ## Consequences
 
 - A JavaScript review gains a complexity signal at parity with Python's, with no new
   dependency — the cheapest possible closure of G8's JS half and a clean second proof of the
-  thin-runner design. (TypeScript complexity is deferred — see the limitations above.)
+  thin-runner design. (TypeScript complexity is now implemented too — story-jscomplexity-ts,
+  2026-06-01 amendment above.)
 - The `complexity` signal for JS is cyclomatic-only; maintainability-index and Halstead are
   out of scope (radon parity). If richer JS metrics are wanted later, that is a new decision
   (reconsider `ts-complex`), not a regression here.

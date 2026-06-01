@@ -111,8 +111,9 @@ def test_taxonomy_matches_locked_table() -> None:
 
 
 def test_jscomplexity_advertises_typescript() -> None:
-    """story-jscomplexity-ts: once @typescript-eslint/parser is vendored, jscomplexity
-    covers TypeScript too — so a TS diff routes to it (was JS-only per ADR-0022 s4-t1)."""
+    """story-jscomplexity-ts: with @typescript-eslint/parser vendored (t0) and wired into
+    the complexity config (t1), jscomplexity covers TypeScript too — so a TS diff routes to
+    it. Was JS-only under the ADR-0022 s4-t1 amendment; widened by the 2026-06-01 amendment."""
     caps = _load_caps()
     jsc = next(a for a in caps["analyzers"] if a["id"] == "jscomplexity")
     assert "typescript" in jsc["languages"], (

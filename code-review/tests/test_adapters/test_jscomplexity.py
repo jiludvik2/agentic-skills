@@ -1,9 +1,10 @@
 """s4-t1 — jscomplexity invoke-and-capture contract (ADR-0020 / ADR-0022).
 
-JS complexity = radon `cc` parity for JavaScript, achieved by reusing the vendored
-ESLint `complexity` core rule (threshold 0 ⇒ every function reported) via an
-adapter-supplied flat config — zero new dependency. JavaScript-only: ESLint cannot parse
-`.ts` without the unvendored `@typescript-eslint/parser` (ADR-0022 s4-t1 amendment).
+JS/TS complexity = radon `cc` parity for JavaScript and TypeScript, achieved by reusing the
+vendored ESLint `complexity` core rule (threshold 0 ⇒ every function reported) via an
+adapter-supplied flat config — zero new tool. TypeScript reaches parity through a second
+flat-config block pointing the vendored `@typescript-eslint/parser` at `.ts/.tsx/.mts/.cts`
+(ADR-0022 TS follow-up, story-jscomplexity-ts); the rule is syntactic, so no tsconfig.
 
 Pins the load-bearing invocation (`--no-config-lookup`, the adapter-supplied `--config`,
 the SARIF formatter, NODE_PATH, `ok_exit_codes=(0,1)`, anchored cwd), the raw passthrough,
@@ -148,5 +149,39 @@ async def test_jscomplexity_reports_per_function_complexity(
         for r in results
     }
     assert any(u.endswith("branchy.js") for u in uris), f"no branchy.js finding; got {uris}"
+    messages = " ".join(r.get("message", {}).get("text", "") for r in results)
+    assert "complexity" in messages.lower(), f"expected a complexity message; got {messages!r}"
+
+
+@pytest.mark.integration
+async def test_jscomplexity_reports_typescript_complexity() -> None:
+    """jscomplexity-ts-t1 (ADR-0022 follow-up): end-to-end against the real vendored
+    ESLint + @typescript-eslint/parser — the branchy.ts fixture (type-annotated, so
+    espree alone cannot parse it) yields a `complexity`-rule SARIF result naming the
+    function. Proves TS reaches complexity parity with JS via the parser-only config."""
+    if shutil.which("node") is None:
+        pytest.skip("node not on PATH")
+    from code_review.adapters.js_base import node_binary
+
+    if node_binary("eslint") is None:
+        pytest.skip("vendored eslint not provisioned (run scripts/setup.sh)")
+
+    ts_target = JS_FIXTURE / "branchy.ts"
+    out = await JsComplexityAdapter().run(_req((str(ts_target),)))
+    assert out.status == "ok", f"expected ok, got {out.status}: {out.error}"
+    payload = json.loads(out.stdout)
+    results = payload.get("runs", [{}])[0].get("results", [])
+    rule_ids = [r.get("ruleId", "") for r in results]
+    assert any("complexity" in rid for rid in rule_ids), (
+        f"complexity rule not fired on .ts (parser not wired?); got {rule_ids}"
+    )
+    uris = {
+        r.get("locations", [{}])[0]
+        .get("physicalLocation", {})
+        .get("artifactLocation", {})
+        .get("uri", "")
+        for r in results
+    }
+    assert any(u.endswith("branchy.ts") for u in uris), f"no branchy.ts finding; got {uris}"
     messages = " ".join(r.get("message", {}).get("text", "") for r in results)
     assert "complexity" in messages.lower(), f"expected a complexity message; got {messages!r}"
