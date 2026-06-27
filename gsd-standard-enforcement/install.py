@@ -258,6 +258,15 @@ def install_files(
             if len(diff) > 30:
                 print(dim(f"    ... ({len(diff) - 30} more lines)"))
 
+            # Save pristine original before overwriting (uninstall restore point)
+            if rel_path not in _NEW_FILES:
+                pristine = gsd_dir / "gsd-local-patches" / "pristine" / rel_path
+                if not pristine.exists():  # don't overwrite a pristine from a prior install
+                    if not dry_run:
+                        pristine.parent.mkdir(parents=True, exist_ok=True)
+                        pristine.write_text(dst_text, encoding="utf-8")
+                    print(dim(f"  backed up pristine {rel_path}"))
+
         if not dry_run:
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_text(src_text, encoding="utf-8")
@@ -322,6 +331,82 @@ def update_local_patches(gsd_dir: Path, dry_run: bool, gsd_version: str) -> None
     if not dry_run:
         patches_dir.mkdir(parents=True, exist_ok=True)
         meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Uninstall mode
+# ---------------------------------------------------------------------------
+
+def uninstall_files(gsd_dir: Path, dry_run: bool) -> tuple[list[str], list[str]]:
+    """Remove patched files, restoring pristine originals where available.
+
+    New files (in _NEW_FILES) are deleted. Patched upstream files are restored
+    from gsd-local-patches/pristine/ if a backup exists, otherwise deleted.
+    Returns (removed, skipped).
+    """
+    removed, skipped = [], []
+    pristine_dir = gsd_dir / "gsd-local-patches" / "pristine"
+
+    for rel_path in PATCH_FILES:
+        dst = gsd_dir / rel_path
+        if not dst.exists():
+            skipped.append(f"{rel_path} (not present)")
+            continue
+
+        if rel_path in _NEW_FILES:
+            # New file — just delete it
+            if not dry_run:
+                dst.unlink()
+                try:
+                    dst.parent.rmdir()
+                except OSError:
+                    pass
+            removed.append(rel_path)
+        else:
+            pristine = pristine_dir / rel_path
+            if pristine.exists():
+                # Restore the original upstream file
+                if not dry_run:
+                    dst.write_text(pristine.read_text(encoding="utf-8"), encoding="utf-8")
+                    pristine.unlink()
+                    for d in (pristine.parent, pristine.parent.parent, pristine_dir):
+                        try:
+                            d.rmdir()
+                        except OSError:
+                            break
+                removed.append(f"{rel_path} (restored from pristine backup)")
+            else:
+                # No pristine backup — installed on a fresh GSD or backup was lost; delete
+                if not dry_run:
+                    dst.unlink()
+                removed.append(f"{rel_path} (deleted — no pristine backup found)")
+
+    # Clean up the patched-version backups and meta left by update_local_patches()
+    patches_dir = gsd_dir / "gsd-local-patches"
+    if not dry_run:
+        for rel_path in PATCH_FILES:
+            patch_backup = patches_dir / rel_path
+            if patch_backup.exists():
+                patch_backup.unlink()
+                try:
+                    patch_backup.parent.rmdir()
+                except OSError:
+                    pass
+        meta = patches_dir / "backup-meta.json"
+        if meta.exists():
+            meta.unlink()
+        # Remove the patches dir itself if now empty
+        for d in (patches_dir / "gsd-core" / "workflows" / "discuss-phase",
+                  patches_dir / "gsd-core" / "workflows",
+                  patches_dir / "gsd-core",
+                  patches_dir / "agents",
+                  patches_dir):
+            try:
+                d.rmdir()
+            except OSError:
+                pass
+
+    return removed, skipped
 
 
 # ---------------------------------------------------------------------------
@@ -427,6 +512,11 @@ def main() -> None:
         action="store_true",
         help="Copy installed files FROM the GSD install BACK to target/ (save local edits)",
     )
+    parser.add_argument(
+        "--uninstall",
+        action="store_true",
+        help="Remove all patched files, restoring pristine originals where available",
+    )
     args = parser.parse_args()
 
     # Resolve scope
@@ -440,7 +530,12 @@ def main() -> None:
     gsd_version = read_gsd_version(gsd_dir)
 
     scope_label = f"project ({gsd_dir})" if project else f"user ({gsd_dir})"
-    mode_label = "dry run" if args.dry_run else ("update" if args.update else "install")
+    mode_label = (
+        "dry run" if args.dry_run else
+        "update" if args.update else
+        "uninstall" if args.uninstall else
+        "install"
+    )
 
     print(bold(f"\nGSD standard-enforcement — {mode_label}"))
     print(dim(f"  installer: {SCRIPT_DIR}"))
@@ -450,6 +545,17 @@ def main() -> None:
 
     if args.update:
         update_from_gsd(gsd_dir, dry_run=args.dry_run)
+        return
+
+    if args.uninstall:
+        removed, skipped = uninstall_files(gsd_dir, dry_run=args.dry_run)
+        prefix = dim("[dry-run] ") if args.dry_run else ""
+        for f in removed:
+            print(f"  {prefix}{green('✓')} removed: {f}")
+        for f in skipped:
+            print(f"  {dim('–')} skipped: {dim(f)}")
+        print()
+        print(bold(f"  uninstall: {len(removed)} removed, {len(skipped)} skipped"))
         return
 
     # Prerequisite check (project-level only — user-level has no project context)
