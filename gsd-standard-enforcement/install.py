@@ -127,22 +127,14 @@ def check_project_prerequisites(project: Path, dry_run: bool) -> None:
     if not missing_required:
         return
 
-    # Offer to create docs/adr/ if it is the only required item and we are interactive
-    adr_rel, adr_note = missing_required[0]
+    adr_rel, _adr_note = missing_required[0]
     adr_path = project / adr_rel
 
     if dry_run:
-        print(dim(f"\n  [dry-run] Would offer to create: {adr_path}/"))
-    elif sys.stdin.isatty():
-        print()
-        answer = input(f"  Create {adr_path}/ now? [y/N] ").strip().lower()
-        if answer in ("y", "yes"):
-            adr_path.mkdir(parents=True, exist_ok=True)
-            print(green(f"  Created {adr_path}/"))
-        else:
-            print(dim(f"  Skipped — create it manually: mkdir -p {adr_path}"))
+        print(dim(f"\n  [dry-run] Would create: {adr_path}/"))
     else:
-        print(dim(f"\n  Non-interactive: create manually: mkdir -p {adr_path}"))
+        adr_path.mkdir(parents=True, exist_ok=True)
+        print(green(f"  Created {adr_path}/"))
 
 
 def _print_user_level_prereq_hint(project_example: str = "path/to/project") -> None:
