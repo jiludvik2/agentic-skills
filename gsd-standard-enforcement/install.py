@@ -89,27 +89,113 @@ dim    = lambda t: _c("2",  t)
 
 
 # ---------------------------------------------------------------------------
+# Prerequisite checks
+# ---------------------------------------------------------------------------
+
+_PREREQS: list[tuple[str, bool, str]] = [
+    # (relative path, required, purpose note)
+    ("docs/adr",             True,  "ADR generation skips silently without it"),
+    ("docs/ARCHITECTURE.md", False, "enables contextual architecture review"),
+    ("docs/STANDARDS.md",    False, "enables standards enforcement in review"),
+]
+
+
+def check_project_prerequisites(project: Path, dry_run: bool) -> None:
+    """Check prerequisites in *project* and prompt to create docs/adr/ if missing."""
+    print(bold(f"\n  Checking prerequisites in {project}/"))
+
+    missing_required: list[tuple[str, str]] = []
+    missing_optional: list[tuple[str, str]] = []
+
+    for rel, required, note in _PREREQS:
+        target = project / rel
+        exists = target.exists()
+        if exists:
+            print(f"  {green('✓')} {rel}")
+        elif required:
+            print(f"  {red('✗')} {rel}  {dim('(required)')} — {dim(note)}")
+            missing_required.append((rel, note))
+        else:
+            print(f"  {yellow('○')} {rel}  {dim('(optional)')} — {dim(note)}")
+            missing_optional.append((rel, note))
+
+    if missing_optional:
+        print()
+        print(dim("  Optional files can be added later — the patches work without them,"))
+        print(dim("  but findings will be less precise."))
+
+    if not missing_required:
+        return
+
+    # Offer to create docs/adr/ if it is the only required item and we are interactive
+    adr_rel, adr_note = missing_required[0]
+    adr_path = project / adr_rel
+
+    if dry_run:
+        print(dim(f"\n  [dry-run] Would offer to create: {adr_path}/"))
+    elif sys.stdin.isatty():
+        print()
+        answer = input(f"  Create {adr_path}/ now? [y/N] ").strip().lower()
+        if answer in ("y", "yes"):
+            adr_path.mkdir(parents=True, exist_ok=True)
+            print(green(f"  Created {adr_path}/"))
+        else:
+            print(dim(f"  Skipped — create it manually: mkdir -p {adr_path}"))
+    else:
+        print(dim(f"\n  Non-interactive: create manually: mkdir -p {adr_path}"))
+
+
+def _print_user_level_prereq_hint(project_example: str = "path/to/project") -> None:
+    """Print per-project prerequisite checklist for user-level installs."""
+    print()
+    print(bold("  Per-project prerequisites (for each project that uses these patches):"))
+    print()
+    for rel, required, note in _PREREQS:
+        label = "required" if required else "optional"
+        print(f"    {dim(label):>10}  {rel}")
+        print(f"              {dim(note)}")
+    print()
+    print(dim(f"  Create docs/adr/ with:  mkdir -p {project_example}/docs/adr"))
+
+
+# ---------------------------------------------------------------------------
 # GSD detection
 # ---------------------------------------------------------------------------
 
 def detect_gsd_dir(user: bool, project: Path | None) -> Path:
-    """Return the GSD config directory and verify GSD is installed there."""
+    """Return the GSD config directory and verify GSD is installed there.
+
+    The patch must live in the same GSD install as the rest of GSD — project-level
+    patches require project-level GSD, user-level patches require user-level GSD.
+    """
+    user_gsd_dir = Path.home() / ".claude"
+    user_version_file = user_gsd_dir / "gsd-core" / "VERSION"
+
     if project is not None:
         gsd_dir = project / ".claude"
         version_file = gsd_dir / "gsd-core" / "VERSION"
         if not version_file.exists():
+            if user_version_file.exists():
+                raise SystemExit(
+                    red(
+                        f"Error: GSD is installed at user level ({user_gsd_dir}/), "
+                        f"not inside this project.\n"
+                        f"       Patches must be applied to the same GSD install.\n"
+                        f"       Run without --project to patch the user install."
+                    )
+                )
             raise SystemExit(
                 red(
-                    f"Error: No local GSD install found at {gsd_dir / 'gsd-core'}/ — "
-                    f"use --user to patch the global install"
+                    f"Error: No GSD install found at {gsd_dir / 'gsd-core'}/ or "
+                    f"{user_gsd_dir / 'gsd-core'}/ — "
+                    f"install GSD first with: npx -y @opengsd/gsd-core@latest --claude"
                 )
             )
         return gsd_dir
 
     # User level
-    gsd_dir = Path.home() / ".claude"
-    version_file = gsd_dir / "gsd-core" / "VERSION"
-    if not version_file.exists():
+    gsd_dir = user_gsd_dir
+    if not user_version_file.exists():
         raise SystemExit(
             red(
                 f"Error: GSD not found at {gsd_dir / 'gsd-core'}/ — "
@@ -366,6 +452,11 @@ def main() -> None:
         update_from_gsd(gsd_dir, dry_run=args.dry_run)
         return
 
+    # Prerequisite check (project-level only — user-level has no project context)
+    if project is not None:
+        check_project_prerequisites(project, dry_run=args.dry_run)
+        print()
+
     # Install mode
     installed, skipped, errors = install_files(gsd_dir, dry_run=args.dry_run)
 
@@ -406,6 +497,9 @@ def main() -> None:
         print(f"    {green('--audit flag')}          full-codebase review scope in /gsd-code-review")
         print(f"    {green('architecture contract')} gsd-code-reviewer loads docs/ARCHITECTURE.md + ADRs")
         print(f"    {green('ADR generation')}        discuss-phase writes ADRs for significant decisions")
+
+        if project is None:
+            _print_user_level_prereq_hint()
 
 
 if __name__ == "__main__":
