@@ -18,22 +18,14 @@ directly and backs them up to `gsd-local-patches/` so the patches survive GSD up
 
 ## Prerequisites
 
-These must be satisfied by the operator **before or after installation** — the installer does not create them.
+### 1. `docs/adr/` (created automatically on install)
 
-### 1. Create `docs/adr/` (required for ADR generation)
-
-The `write_adrs` step runs only when `docs/adr/` exists in the project root. Without
-it the step exits silently — no ADRs, no error. Create the directory and at minimum
-an initial ADR to establish the numbering scheme before using discuss-phase in projects
-where you want ADRs:
-
-```bash
-mkdir -p docs/adr
-```
+The installer creates `docs/adr/` if it does not exist. The `write_adrs` step runs
+only when this directory is present — if it is removed after installation, the step
+exits silently.
 
 ADRs are numbered with 4-digit zero-padded filenames (`0001-slug.md`, `0002-slug.md`, …).
-The step counts existing files to determine the next number — start from `0001` if the
-directory is empty or the first file is your seed.
+The step counts existing files to determine the next number.
 
 ### 2. Create architecture/standards docs (optional, recommended)
 
@@ -121,6 +113,26 @@ The step is skipped silently when `docs/adr/` doesn't exist or when
 
 ---
 
+## Uninstallation
+
+```bash
+# Uninstall from user-level GSD:
+python3 path/to/gsd-standard-enforcement/install.py --uninstall
+
+# Uninstall from a project-level GSD:
+python3 path/to/gsd-standard-enforcement/install.py --project /path/to/project --uninstall
+
+# Preview without writing anything:
+python3 path/to/gsd-standard-enforcement/install.py --uninstall --dry-run
+```
+
+Uninstall restores each patched GSD file to its pristine original (saved during
+installation), deletes `write-adrs.md` (which has no upstream original), and removes
+`gsd-local-patches/` entirely. `docs/adr/` is left in place — it may contain ADRs
+you want to keep.
+
+---
+
 ## Upgrade safety
 
 After patching, each file is backed up to `gsd-local-patches/` inside the GSD config
@@ -129,20 +141,24 @@ directory:
 ```
 ~/.claude/gsd-local-patches/
 ├── backup-meta.json                       # version, timestamp, pristine hashes
+├── pristine/                              # originals saved before patching (for --uninstall)
+│   ├── agents/gsd-code-reviewer.md
+│   └── gsd-core/workflows/
+│       ├── code-review.md
+│       └── discuss-phase.md
 ├── agents/
-│   └── gsd-code-reviewer.md
+│   └── gsd-code-reviewer.md              # patched versions (for --reapply)
 └── gsd-core/
     └── workflows/
         ├── code-review.md
         ├── discuss-phase.md
-        └── discuss-phase/
-            └── steps/
-                └── write-adrs.md
+        └── discuss-phase/steps/write-adrs.md
 ```
 
 `backup-meta.json` records the GSD version the patches were applied against and
 SHA-256 hashes of the upstream (pre-patch) file content. GSD's
-`/gsd-update --reapply` reads these backups to restore patches after a GSD upgrade.
+`/gsd-update --reapply` reads the patched-version backups to restore patches after a
+GSD upgrade.
 
 To re-apply after a GSD upgrade:
 
