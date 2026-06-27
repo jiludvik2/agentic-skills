@@ -33,6 +33,14 @@ First token is the phase number. Remaining tokens are extra flags for gsd-plan-p
 </context>
 
 <process>
+## Step 0 — Prerequisites check
+
+Before doing anything else, verify:
+
+1. **GSD initialized:** `.planning/` directory must exist and `ROADMAP.md` must be readable at the project root. If either is missing, stop and tell the user: `GSD is not initialized in this project. Run /gsd-new-project or ensure ROADMAP.md and .planning/ exist before using /api-plan.`
+
+If the check fails, stop immediately — do not proceed to Step 1.
+
 ## Step 1 — Parse arguments
 
 Split $ARGUMENTS on whitespace. The first token is the phase number. Remaining tokens are extra flags for gsd-plan-phase. If $ARGUMENTS is empty, ask the user for the phase number.

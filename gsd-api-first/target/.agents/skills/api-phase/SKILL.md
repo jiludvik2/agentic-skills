@@ -30,6 +30,16 @@ Phase number: $ARGUMENTS (required)
 <process>
 Execute every step in order. Do not skip any.
 
+## Step 0 — Prerequisites check
+
+Before doing anything else, verify:
+
+1. **Phase argument provided:** $ARGUMENTS must not be empty. If it is, stop and tell the user: `Usage: /api-phase <phase-number>`
+
+2. **GSD initialized:** `.planning/` directory must exist and `ROADMAP.md` must be readable at the project root. If either is missing, stop and tell the user: `GSD is not initialized in this project. Run /gsd-new-project or ensure ROADMAP.md and .planning/ exist before using /api-phase.`
+
+If any check fails, stop immediately — do not proceed to Step 1.
+
 ## Step 1 — Resolve phase
 
 Parse the phase number from $ARGUMENTS. Find the phase directory under `.planning/phases/`. Load ROADMAP.md to confirm the phase exists and read its description. If the phase cannot be found, ask the user.
@@ -62,92 +72,64 @@ If an OpenAPI spec was found, print a compact table of the current surface:
 
 State the committed spec version. Note established patterns (envelope shape, error format, naming). If no spec exists: note that this is a greenfield API surface.
 
-## Step 4 — Functional requirements interview
+## Step 4 — Derive design draft from project context
 
-Use AskUserQuestion. Ask one group at a time; confirm before moving to the next. The goal is to understand WHAT the API must do — not to ask the user to make API design decisions.
+Do not ask the user any questions yet. Read the context gathered in Steps 1–3 plus the
+codebase and infer every design decision using the rules below. The goal is to produce
+a complete proposed API contract before the user is asked anything.
 
-**Group A — Consumer and lifecycle (ask once; drives most downstream decisions)**
+**Consumer type** — infer from:
+- Presence of a frontend (React/Vue/Angular/Next.js files, `package.json` with browser deps) → browser/web
+- Mobile-specific directories (`ios/`, `android/`, React Native, Flutter) → mobile
+- Project description, CLAUDE.md, README describing a public or partner API → external/public
+- No frontend code, internal service or CLI project → server-to-server/internal
+- Multiple signals present → list all that apply; this affects naming convention
 
-Ask:
-1. Who are the API consumers? (Select all that apply: browser/web frontend, mobile app, server-to-server internal service, third-party partner, autonomous agent/LLM, public internet)
-2. Is this a new API, an extension of the existing one, or a replacement for an existing contract?
-3. How long must the current contract remain stable? (Prototype/throwaway — weeks; Internal service — months with coordinated upgrades; External/public — years with backward compatibility guarantees)
+**Naming convention** — infer from:
+- Existing API JSON field names: follow whatever is already in use (snake_case or camelCase)
+- If greenfield: browser/mobile consumer → `camelCase`; backend/analytics/agent/internal consumer → `snake_case`
+- URL path segments are always `kebab-case` regardless (Zalando MUST rule)
 
-*The skill derives from these answers:*
-- Naming convention (snake_case for backend/analytics/agent APIs; camelCase for JavaScript-first browser/mobile APIs)
-- Error verbosity (detailed problem+json with instance context for developers; minimal for automated consumers)
-- Versioning policy (URL versioning for external/public; date-header for long-lived multi-client; none for internal coordinatable)
-- Idempotency key requirement (important for network-unreliable mobile/external consumers)
+**Resources and operations** — derive from:
+- Phase SPEC.md or CONTEXT.md: what entities/resources does this phase introduce or change?
+- Use the domain vocabulary from those documents verbatim — do not invent generic names
+- Infer which CRUD operations the phase requires from the phase goal and UAT criteria
+- Map to HTTP methods: list → `GET /{resources}`, get one → `GET /{resources}/{id}`,
+  create → `POST /{resources}` (201 + Location header), full replace → `PUT /{resources}/{id}` (200),
+  partial update → `PATCH /{resources}/{id}` (200), delete → `DELETE /{resources}/{id}` (204)
+- Custom actions that do not fit CRUD → `POST /{resources}/{id}/{action-noun}` — never verb URLs
+- Sub-resource nesting: only propose `/{resource}/{id}/{sub-resource}` when the sub-resource
+  genuinely cannot exist without its parent; cap nesting at one level
 
-**Group B — Resources and operations (ask per resource type)**
+**Identifiers** — infer from:
+- Existing models or database schemas (UUID, integer ID, slug, composite key)
+- Domain conventions visible in the codebase
+- Default to UUID if no evidence exists
 
-For each distinct entity or resource type the phase introduces or changes, ask:
-1. What is the domain name for this resource? (Use the user's natural language — field, order, instrument, invoice — not a generic "entity")
-2. Which standard operations apply: list all, get one, create, update (full replace), update (partial), delete?
-3. Does any resource operation have a sub-resource? (e.g. `/orders/{id}/items` — only propose this if the sub-resource genuinely cannot exist independently)
-4. What are the natural identifiers? Is there a single canonical key, or multiple identifier schemes?
+**Pagination** — infer from:
+- Existing paginated endpoints: follow the same strategy already in use
+- If greenfield: apply the domain scale heuristic —
+  - Reference/catalogue data (≤1k items, rarely mutated) → unbounded with a hard row cap and documented size invariant
+  - Typical business entities (orders, invoices, users — thousands to tens of thousands) → offset/limit (`?offset=0&limit=20`, max 100)
+  - High-volume or high-mutation data (events, logs, timeseries) → cursor/keyset (`?cursor=<opaque>&limit=20`, `next_cursor` in metadata)
 
-*The skill derives from these answers:*
-- HTTP method for each operation (GET for reads, POST for create, PUT for full replace, PATCH for partial, DELETE for remove)
-- URL path structure: `/{plural-resource-name}` for collection, `/{plural-resource-name}/{id}` for item, nesting capped at `collection/item/collection`
-- URL path casing: always `kebab-case` segments (Zalando MUST rule)
-- Whether an idempotency key should be proposed for POST operations
+**Filterable and sortable fields** — infer from:
+- Fields referenced in phase UAT criteria or SPEC.md
+- Fields that appear in existing query parameters on analogous endpoints
+- Obvious domain fields (status, date range, owner/tenant ID)
 
-**Group C — Query, filter, and scale (ask per collection endpoint)**
+**Domain error conditions** — infer the obvious ones from domain context:
+- State machine violations (e.g. "cancel after shipped", "publish without content") — look for state fields or status enums in the codebase
+- Uniqueness/conflict conditions — look for unique constraints in schema or model definitions
+- Prerequisite violations visible in the phase spec
+- Mark inferred errors clearly as `[inferred]`; note any operations where domain errors are unclear
 
-For each collection endpoint:
-1. What fields should be filterable, and what comparison operations make sense for each? (equality, range, contains, etc.)
-2. What fields should the results be sortable by?
-3. What is the expected result set size in normal operation — tens, hundreds, thousands, or unbounded? How quickly does the data mutate?
-4. Does the consumer need the full result set atomically, or can it process page by page?
+**Evolution and versioning** — infer from:
+- Existing API versioning (URL prefix `/v1/`, `api-version` header, date versioning)
+- ADRs or ARCHITECTURE.md mentioning versioning policy
+- If no existing surface: internal service → no versioning (coordinate upgrades); external/public → URL versioning (`/v1/`)
 
-*The skill derives from these answers:*
-- Pagination strategy: **offset/limit** for small stable datasets; **cursor/keyset** for large or high-mutation datasets; **unbounded** only for provably-small static resources (e.g. a field catalogue with ≤100 entries) — document the decision and its size invariant
-- Filter parameter design: a repeatable `filter=<field><op><value>` predicate pattern for data-field predicates; dedicated enum params for categorical universe narrowing
-- Default and maximum page size
-
-**Group D — Domain error conditions (ask per operation)**
-
-For each operation:
-1. What business-rule violations can occur? (Not generic validation errors — those are covered by industry practice. Domain-specific conditions: "an order cannot be cancelled after it has shipped", "a portfolio cannot be rebalanced with fewer than 2 assets")
-2. For each domain error: is this condition permanent (the consumer should not retry) or transient (the consumer may retry)?
-
-*The skill derives from these answers:*
-- The appropriate HTTP status code for each error (422 for semantic validation, 409 for state conflicts, 404 for not-found)
-- The ProblemDetail `type` URI and `title` for each named error condition
-- Whether retry guidance should be included in the error response
-
-**Group E — Evolution and breaking change constraints (ask once)**
-
-1. Are there any existing clients or integrations that are coupled to the current API surface?
-2. Is there anything in the current contract that must change — and if so, what breaks for existing consumers?
-3. Does the project have an established versioning policy? If yes, what is it?
-
-## Step 5 — Derive all API design decisions
-
-From the answers in Step 4, apply industry practice to decide everything the user was not asked:
-
-**Resource naming (from Group B answers):**
-- Collection path: `/{plural-noun}` (e.g. `/orders`, `/instruments`, `/invoices`)
-- Item path: `/{plural-noun}/{id}`
-- Sub-resource (if justified): `/{plural-noun}/{id}/{plural-sub-noun}`
-- All path segments in `kebab-case` (Zalando MUST rule)
-
-**HTTP methods (from Group B operations):**
-- List all → `GET /{resources}`
-- Get one → `GET /{resources}/{id}`
-- Create → `POST /{resources}` → 201 Created + `Location: /{resources}/{new-id}`
-- Full replace → `PUT /{resources}/{id}` → 200 OK
-- Partial update → `PATCH /{resources}/{id}` → 200 OK
-- Delete → `DELETE /{resources}/{id}` → 204 No Content
-- Custom actions that do not fit CRUD → `POST /{resources}/{id}/{action-noun}` (not verb URLs)
-
-**Naming convention (from Group A consumer type):**
-- Backend/analytics/agent/internal: `snake_case` for all JSON field names and query parameters
-- Browser/mobile/JavaScript-first: `camelCase` for all JSON field names and query parameters
-- Both: `kebab-case` for URL path segments
-
-**Status codes (fixed by industry practice — not a user decision):**
+**Status codes** — fixed by industry practice, not a user decision:
 
 | Condition | Code |
 |-----------|------|
@@ -163,7 +145,7 @@ From the answers in Step 4, apply industry practice to decide everything the use
 | Rate limit exceeded | 429 |
 | Server-side fault | 500 |
 
-**Collection response envelope (fixed — never a bare array):**
+**Collection response envelope** — fixed, never a bare array:
 ```json
 {
   "data": [...],
@@ -175,42 +157,73 @@ From the answers in Step 4, apply industry practice to decide everything the use
   }
 }
 ```
-Rationale: bare array responses cannot carry pagination metadata without a breaking change. Always wrap.
 
-**Pagination (from Group C scale answer):**
-- Offset/limit: `?offset=0&limit=20` — use for small stable datasets (≤10k items, low mutation rate)
-- Cursor: `?cursor=<opaque-token>&limit=20` + `next_cursor` in metadata — use for large or high-mutation datasets
-- Unbounded: document the size invariant; enforce a hard maximum row cap with a 422 error if exceeded
-
-**Error format (fixed by RFC 9457 — not a user decision):**
+**Error format** — fixed by RFC 9457:
 ```
 Content-Type: application/problem+json
 ```
 ```json
 {
   "type": "https://{api-domain}/errors/{kebab-slug}",
-  "title": "Human-readable summary (stable — same string every time for this type)",
+  "title": "Human-readable summary (same string every time for this type)",
   "status": 422,
   "detail": "Instance-specific explanation for THIS request",
-  "errors": [
-    {"field": "quantity", "reason": "Must be a positive integer"}
-  ]
+  "errors": [{"field": "quantity", "reason": "Must be a positive integer"}]
 }
 ```
-- `type` is a stable URI — never changes for a given error condition
-- `title` never varies per instance (put instance-specific text in `detail`)
-- `errors[]` is a standard RFC 9457 extension for per-field validation failures
 
-**Null semantics (from Group D permanent/transient answer):**
-- `null` = field applies to this resource type but value is currently unavailable (transient)
-- Absent key = field is not applicable to this resource type at all (structural)
-- Sentinel string = when the distinction must be machine-readable for automated consumers (e.g. `"not_applicable"`, `"unavailable"`)
-- Decide which convention to use for each nullable field and document it in the spec
+**Null semantics** — default convention:
+- `null` = field applies but value is currently unavailable (transient)
+- Absent key = field does not apply to this resource type (structural)
+- Deviate only when the existing codebase uses a different convention — follow whatever is in use
 
-**Idempotency (from Group A consumer type):**
-- For POST operations called by mobile or external consumers: propose `Idempotency-Key` header
-- For POST operations called by internal services with retry-safe infrastructure: optional
-- Document the idempotency policy for each POST endpoint
+**Idempotency** — infer from consumer type:
+- Mobile or external consumers: propose `Idempotency-Key` header on POST operations
+- Internal services with retry-safe infrastructure: optional, do not propose by default
+
+After applying all rules, produce a complete draft contract:
+
+1. **Inferred context table** — what was inferred and from what evidence:
+
+   | Decision | Inferred value | Evidence |
+   |----------|---------------|---------|
+   | Consumer type | ... | ... |
+   | Naming convention | ... | ... |
+   | Versioning policy | ... | ... |
+   | Pagination strategy | ... | ... |
+
+2. **Proposed endpoint table**:
+
+   | Method | Path | Purpose | Success code | Notes |
+   |--------|------|---------|-------------|-------|
+   | GET | /resources | List all | 200 | offset/limit pagination |
+   | POST | /resources | Create | 201 + Location | ... |
+
+3. **Proposed domain error table** (business-rule violations only):
+
+   | Operation | Condition | Status | `type` slug | `[inferred]`? |
+   |-----------|-----------|--------|------------|--------------|
+   | ... | ... | ... | ... | ... |
+
+4. **Open questions** — list any decisions that could not be confidently inferred,
+   labelled by category (consumer type, domain errors, identifiers, etc.).
+
+## Step 5 — Confirm draft with user (single question)
+
+Present the draft from Step 4 concisely. Use AskUserQuestion with **one question**:
+
+> "Here's the proposed API design. Does anything need to change? Note any corrections,
+> additions, or missing domain error conditions — I'll incorporate them before writing
+> the spec."
+
+Also ask about any **open questions** from Step 4 in the same message (keep to a
+maximum of three; if more than three are unresolved, pick the three with the highest
+impact on the contract shape).
+
+Apply the user's corrections. If a correction introduces a genuinely new design
+decision not covered by the inference rules, apply industry practice to resolve it —
+do not open a new question round unless the user's input is contradictory or
+ambiguous.
 
 ## Step 6 — Classify every change
 
@@ -319,8 +332,10 @@ Print:
 </process>
 
 <success_criteria>
-- Only functional requirements asked of the user; all API design decisions derived from industry practice
-- Consumer type and lifecycle established before any design decisions are made
+- No more than one AskUserQuestion round before the spec is written (plus the breaking-change gate if applicable)
+- All design decisions derived from project context and industry practice before asking the user anything
+- The single confirmation question includes the complete draft contract and at most three open questions
+- User corrections applied without opening additional question rounds
 - Every proposed change classified as additive or breaking
 - Breaking changes explicitly approved with change-ledger entry recorded
 - All invariant groups checked (or violations resolved) before the spec is written
