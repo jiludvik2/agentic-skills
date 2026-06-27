@@ -73,6 +73,27 @@ git add .agents/ .claude/ CLAUDE.md
 git commit -m "chore: install gsd-api-first workflow addon"
 ```
 
+## Uninstallation
+
+```bash
+# Remove from the current directory
+python3 path/to/gsd-api-first/install.py --uninstall
+
+# Remove from a specific project
+python3 path/to/gsd-api-first/install.py --uninstall /path/to/project
+
+# Preview what would be removed
+python3 path/to/gsd-api-first/install.py --uninstall --dry-run
+```
+
+Uninstall removes all files in the table above and strips the `## API-First Workflow`
+section from `CLAUDE.md`, leaving the rest of that file intact.
+
+If `.agents/skills/gsd-discuss-phase/SKILL.md` existed before installation, the
+original is restored from `.agents/gsd-api-first-patches/` rather than deleted. If it
+was new (no backup exists), it is deleted. The backup directory is removed after
+restore.
+
 ## Workflow
 
 For phases that add or change the API surface, use this sequence instead of the
@@ -158,6 +179,9 @@ that matters, re-run the installer to refresh the patch:
 ```bash
 python3 path/to/gsd-api-first/install.py
 ```
+
+The original `gsd-discuss-phase/SKILL.md` (if any) is preserved in
+`.agents/gsd-api-first-patches/` and restored on uninstall.
 
 ## Saving local changes back to the installer
 
