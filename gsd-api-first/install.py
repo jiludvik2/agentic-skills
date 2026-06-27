@@ -47,6 +47,14 @@ Upgrade safety
   in .claude/ (project-level, not in ~/.claude/gsd-core/). GSD upgrades operate
   on ~/.claude/gsd-core/ and ~/.claude/skills/ (global). Project files are not
   touched. Re-run this script after a GSD upgrade if any files were lost.
+
+Backup / restore
+----------------
+  gsd-discuss-phase/SKILL.md is a project-local override that may already exist
+  before installation. On install, the original is backed up to:
+    .agents/gsd-api-first-patches/gsd-discuss-phase/SKILL.md
+  On --uninstall, the backup is restored. If no backup exists (the file was new),
+  the file is deleted.
 """
 
 from __future__ import annotations
@@ -73,6 +81,13 @@ FILE_MAP: list[tuple[str, str]] = [
     (".claude/api-gray-areas.md",                   ".claude/api-gray-areas.md"),
     (".claude/templates/API-SPEC.md",               ".claude/templates/API-SPEC.md"),
 ]
+
+# Files that may pre-exist and must be backed up before patching.
+# Key: dst_rel (relative to project root), value: backup path (relative to project root).
+BACKUP_MAP: dict[str, str] = {
+    ".agents/skills/gsd-discuss-phase/SKILL.md":
+        ".agents/gsd-api-first-patches/gsd-discuss-phase/SKILL.md",
+}
 
 # Marker used to detect the API-first section in CLAUDE.md
 CLAUDE_MD_MARKER = "## API-First Workflow"
@@ -159,6 +174,15 @@ def install_files(
                     print(dim(f"    {line}"))
             if len(diff) > 30:
                 print(dim(f"    ... ({len(diff) - 30} more lines)"))
+
+            # Back up original before overwriting if this file is in BACKUP_MAP
+            if dst_rel in BACKUP_MAP:
+                backup = project / BACKUP_MAP[dst_rel]
+                if not backup.exists():  # don't overwrite a backup from a prior install
+                    if not dry_run:
+                        backup.parent.mkdir(parents=True, exist_ok=True)
+                        backup.write_text(dst_text, encoding="utf-8")
+                    print(dim(f"  backed up existing {dst_rel} → {BACKUP_MAP[dst_rel]}"))
 
         if not dry_run:
             dst.parent.mkdir(parents=True, exist_ok=True)
@@ -258,16 +282,36 @@ def eject_claude_md(project: Path, dry_run: bool) -> str:
 
 
 def uninstall_files(project: Path, dry_run: bool) -> tuple[list[str], list[str]]:
-    """Remove files installed by FILE_MAP. Returns (removed, skipped)."""
+    """Remove files installed by FILE_MAP. Returns (removed, skipped).
+
+    For files in BACKUP_MAP: restores the original from backup if one exists,
+    otherwise deletes the file (it was new on install).
+    """
     removed, skipped = [], []
     for _src_rel, dst_rel in FILE_MAP:
         dst = project / dst_rel
         if not dst.exists():
             skipped.append(f"{dst_rel} (not present)")
             continue
+
+        if dst_rel in BACKUP_MAP:
+            backup = project / BACKUP_MAP[dst_rel]
+            if backup.exists():
+                # Restore the original
+                if not dry_run:
+                    dst.write_text(backup.read_text(encoding="utf-8"), encoding="utf-8")
+                    backup.unlink()
+                    for d in (backup.parent, backup.parent.parent):
+                        try:
+                            d.rmdir()
+                        except OSError:
+                            break
+                removed.append(f"{dst_rel} (restored from backup)")
+                continue
+
+        # No backup — file was new on install, just delete it
         if not dry_run:
             dst.unlink()
-            # Remove parent dir if now empty
             try:
                 dst.parent.rmdir()
             except OSError:
