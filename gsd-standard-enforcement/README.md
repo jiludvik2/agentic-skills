@@ -81,8 +81,8 @@ file differs, a short unified diff is shown before overwriting.
 ### `--audit` flag in `/gsd-code-review`
 
 Standard `/gsd-code-review <N>` reviews only files changed during the phase. The
-`--audit` flag adds a Tier 0 scope that short-circuits phase scoping and reviews the
-full codebase (scope defined in the workflow file — see [Prerequisite 1](#1-adapt-the---audit-scope-to-your-project-required-if-using---audit)):
+`--audit` flag adds a Tier 0 scope that short-circuits phase scoping and reviews all
+git-tracked files (`git ls-files`):
 
 ```
 /gsd-code-review 5 --audit
