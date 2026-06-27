@@ -20,6 +20,9 @@ Usage
   # (use when you've modified installed files and want to save the changes):
   python3 install.py --update [project-dir]
 
+  # Uninstall — remove all installed files and strip the CLAUDE.md section:
+  python3 install.py --uninstall [project-dir]
+
 What it installs
 ----------------
   .agents/skills/api-phase/SKILL.md             /api-phase slash command
@@ -202,6 +205,77 @@ def inject_claude_md(project: Path, dry_run: bool) -> str:
     return "prepended new project-overrides block"
 
 
+def eject_claude_md(project: Path, dry_run: bool) -> str:
+    """Remove the ## API-First Workflow section from CLAUDE.md. Returns status."""
+    claude_md = project / "CLAUDE.md"
+    if not claude_md.exists():
+        return "CLAUDE.md not found — nothing to remove"
+
+    text = claude_md.read_text(encoding="utf-8")
+    if CLAUDE_MD_MARKER not in text:
+        return "section not present — nothing to remove"
+
+    lines = text.splitlines(keepends=True)
+    out, inside, found = [], False, False
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if not inside and line.strip() == CLAUDE_MD_MARKER:
+            inside = True
+            found = True
+            i += 1
+            continue
+        if inside:
+            # Stop at the next ## heading or the overrides closing tag
+            if (line.startswith("## ") and line.strip() != CLAUDE_MD_MARKER) or \
+               line.strip() == OVERRIDES_END:
+                inside = False
+                # Don't consume this line — fall through to append it
+            else:
+                i += 1
+                continue
+        out.append(line)
+        i += 1
+
+    if not found:
+        return "section not present — nothing to remove"
+
+    # Collapse multiple blank lines left behind by the removal
+    cleaned: list[str] = []
+    blank_run = 0
+    for line in out:
+        if line.strip() == "":
+            blank_run += 1
+            if blank_run <= 1:
+                cleaned.append(line)
+        else:
+            blank_run = 0
+            cleaned.append(line)
+
+    if not dry_run:
+        claude_md.write_text("".join(cleaned), encoding="utf-8")
+    return "removed from CLAUDE.md"
+
+
+def uninstall_files(project: Path, dry_run: bool) -> tuple[list[str], list[str]]:
+    """Remove files installed by FILE_MAP. Returns (removed, skipped)."""
+    removed, skipped = [], []
+    for _src_rel, dst_rel in FILE_MAP:
+        dst = project / dst_rel
+        if not dst.exists():
+            skipped.append(f"{dst_rel} (not present)")
+            continue
+        if not dry_run:
+            dst.unlink()
+            # Remove parent dir if now empty
+            try:
+                dst.parent.rmdir()
+            except OSError:
+                pass
+        removed.append(dst_rel)
+    return removed, skipped
+
+
 def update_from_project(project: Path, dry_run: bool) -> None:
     """Copy files FROM the project BACK to target/ (save local changes)."""
     print(bold("Update mode — syncing project files back to installer source\n"))
@@ -287,10 +361,20 @@ def main() -> None:
         action="store_true",
         help="Copy files FROM the project BACK to this installer (save local changes)",
     )
+    parser.add_argument(
+        "--uninstall",
+        action="store_true",
+        help="Remove all installed files and strip the CLAUDE.md section",
+    )
     args = parser.parse_args()
 
     project = detect_project(Path(args.project_dir))
-    mode_label = "dry run" if args.dry_run else ("update" if args.update else "install")
+    mode_label = (
+        "dry run" if args.dry_run else
+        "update" if args.update else
+        "uninstall" if args.uninstall else
+        "install"
+    )
 
     print(bold(f"\nGSD API-first — {mode_label}"))
     print(dim(f"  installer: {SCRIPT_DIR}"))
@@ -298,6 +382,19 @@ def main() -> None:
 
     if args.update:
         update_from_project(project, dry_run=args.dry_run)
+        return
+
+    if args.uninstall:
+        removed, skipped = uninstall_files(project, dry_run=args.dry_run)
+        claude_md_status = eject_claude_md(project, dry_run=args.dry_run)
+        prefix = dim("[dry-run] ") if args.dry_run else ""
+        for f in removed:
+            print(f"  {prefix}{green('✓')} removed: {f}")
+        for f in skipped:
+            print(f"  {dim('–')} skipped: {dim(f)}")
+        print(f"  {prefix}{green('✓')} CLAUDE.md: {claude_md_status}")
+        print()
+        print(bold(f"  uninstall: {len(removed)} removed, {len(skipped)} skipped"))
         return
 
     # Install mode
