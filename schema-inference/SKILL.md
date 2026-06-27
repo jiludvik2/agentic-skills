@@ -1,7 +1,7 @@
 ---
 name: schema-inference
 description: "Use when inferring JSON schemas from raw PDF documents. Feeds documents directly to the LLM (no pre-extraction), stress-tests the schema against more documents, and refines it to capture edge cases."
-version: 1.3.0
+version: 1.5.0
 author: Hermes Agent
 license: MIT
 metadata:
@@ -22,31 +22,8 @@ existing schema knows about. Pre-extracting would only find what the
 extraction tool already knows -- the same blind spots we're trying to find.
 
 
-## Overview
+## When Not to Use
 
-When extracting data from real-world PDFs -- financial prospectuses, legal
-contracts, regulatory filings, technical reports -- a draft schema will always
-have gaps. Documents contain edge cases, nested structures, optional fields,
-and domain-specific mechanics that no initial schema captures. This skill
-provides a disciplined workflow to:
-
-1. Infer a JSON schema from scratch by analyzing raw documents
-2. Stress-test the schema against more raw documents
-3. Refine the schema to capture discovered gaps
-
-The resulting schema is used downstream by extraction tools (Marker, Docling)
-or validation pipelines.
-
-
-## When to Use
-
-- Inferring a JSON schema from a folder of raw PDF documents
-- Reviewing or auditing an existing schema for completeness
-- Stress-testing a schema against a batch of documents
-- Refining a schema to handle new edge cases
-- Normalizing field types across documents from different issuers
-
-Don't use for:
 - API request/response schema design (use OpenAPI)
 - Database schema design (use ER modeling tools)
 - Simple key-value extraction where no nesting is needed
@@ -105,6 +82,11 @@ What happens automatically:
 
 6. REVIEW + REFINE schema (round 2, iteratively)
    - The updated schema from each step is the input to the next step
+   - When refining, verify backward compatibility for each fix:
+     - New optional fields: always safe
+     - Type changes: check if existing data still validates
+     - Nesting changes: may break existing consumers -- flag explicitly
+     - Field renames: NEVER -- add aliases instead
    - Load current schema (v1.0.0.schema.json from step 5)
    - Select 11 docs NOT in used-documents.txt for first REVIEW call
    - Feed schema + 11 docs in first REVIEW call
@@ -168,57 +150,6 @@ The evolution-log.txt tracks every individual change with justification:
     ...
 
 
-## Three Modes of Operation
-
-### Mode 1: INFER -- Schema from Scratch
-
-Given one or more raw documents, produce an initial JSON schema.
-
-Steps:
-1. Analyze documents to identify all distinct data categories (parties, terms,
-   financials, dates, identifiers, etc.)
-2. For each category, list concrete fields found in the documents
-3. Distinguish: required vs optional, single-value vs array, flat vs nested
-4. Assign strongly-typed JSON Schema types (string, number, integer, boolean,
-   object, array) with format annotations where applicable
-5. Identify fields that appear in some documents but not others -- mark optional
-6. Apply reusable patterns from the Pattern Library (see below)
-7. Output the complete schema with inline documentation ($comment fields)
-
-### Mode 2: REVIEW -- Schema Audit
-
-Given an existing schema and one or more raw documents, identify gaps and
-structural weaknesses.
-
-Steps:
-1. Map each data point in the documents to a schema path
-2. For each data point that does NOT map cleanly, record:
-   - What the document contains (the challenge)
-   - Why the schema fails to capture it (the gap)
-   - A concrete fix (add field X, change type Y to Z, nest A under B)
-3. Check for structural anti-patterns (see Anti-Patterns section)
-4. Check for missing regulatory/classification metadata
-5. Output a prioritized gap list ordered by:
-   - Data loss severity (critical fields missing > nice-to-have)
-   - Frequency (gap appears in N of M documents)
-
-### Mode 3: REFINE -- Schema Fix
-
-Given an existing schema and a gap list, apply fixes and output the
-updated schema.
-
-Steps:
-1. Apply each fix from the gap list
-2. For each fix, verify backward compatibility:
-   - New optional fields: always safe
-   - Type changes: check if existing data still validates
-   - Nesting changes: may break existing consumers -- flag explicitly
-   - Field renames: NEVER -- add aliases instead
-3. Add $comment annotations explaining why each field exists and what it captures
-4. Validate the updated schema is valid JSON Schema (draft-07 or 2020-12)
-5. Output the complete updated schema
-
-
 ## Anti-Patterns to Detect and Fix
 
 1. HARDCODED KEYS -- Using specific values as object keys instead of arrays.
@@ -232,15 +163,18 @@ Steps:
    Good: { "issuer_call": { "date", "price", "notice_days" }, "investor_put": { ... } }
    Reason: grouping conveys semantics; avoids namespace collisions.
 
-3. STRINGLY-TYPED NUMBERS -- Financial amounts, rates, or dates stored as
-   plain strings without format or pattern constraints.
-   Bad:  { "coupon_rate": { "type": "string" } }
-   Good:  { "coupon_rate": { "type": "number", "format": "decimal", "minimum": 0 } }
-   Reason: prevents downstream parsing errors, enables validation.
+3. UNCONSTRAINED OR FLOAT-PRECISION NUMBERS -- Precise quantitative metrics
+   (financial amounts, rates, coordinates) stored as unconstrained strings,
+   OR as floats where rounding error is unacceptable.
+   Bad:  { "coupon_rate": { "type": "string" } }              (no constraint)
+   Bad:  { "coupon_rate": { "type": "number" } }              (float precision loss)
+   Good: { "coupon_rate": { "type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?$" } }
+   Reason: prevents downstream parsing errors AND floating-point precision loss.
+   See "Precise Numeric Values" in Schema Design Rules.
 
 4. MISSING UNITS/CURRENCY -- Numeric values without unit context.
    Bad:  { "face_value": { "type": "number" } }
-   Good:  { "face_value": { "type": "object", "properties": { "amount": { "type": "number" }, "currency": { "type": "string", "enum": ["USD","EUR","GBP","JPY"] } } } }
+   Good:  { "face_value": { "type": "object", "properties": { "amount": { "type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?$" }, "currency": { "type": "string", "pattern": "^[A-Z]{3}$" } } } }
 
 5. SINGLE-VALUE WHERE MULTI IS POSSIBLE -- A field that should be an array
    because documents vary, but is typed as a single value.
@@ -295,21 +229,24 @@ DATE PATTERN:
 
 MONETARY PATTERN:
   { "type": "object", "properties": {
-    "amount": { "type": "number" },
+    "amount": { "type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?$" },
     "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
-  }, "required": ["amount", "currency"] }
+  }, "required": ["amount", "currency"], "additionalProperties": false }
+  Note: amount is a pattern-constrained string, NOT a float, to prevent
+  floating-point precision loss on monetary values.
 
 RATE PATTERN:
   { "type": "object", "properties": {
-    "value": { "type": "number", "minimum": 0 },
+    "value": { "type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?$" },
     "basis": { "type": "string", "enum": ["percent", "basis_points", "decimal"] }
-  }, "required": ["value", "basis"] }
+  }, "required": ["value", "basis"], "additionalProperties": false }
+  Note: value is a pattern-constrained string to preserve exact precision.
 
 IDENTIFIER PATTERN:
   { "type": "object", "properties": {
     "value": { "type": "string" },
     "scheme": { "type": "string", "description": "ISIN, CUSIP, SEDOL, LEI, etc." }
-  }, "required": ["value", "scheme"] }
+  }, "required": ["value", "scheme"], "additionalProperties": false }
 
 STRICT IDENTIFIER PATTERNS (apply when scheme is known):
   ISIN:        { "type": "string", "pattern": "^[A-Z]{2}[A-Z0-9]{9}[0-9]$" }
@@ -327,7 +264,7 @@ RATING PATTERN:
     "agency": { "type": "string", "enum": ["S&P", "Moody's", "Fitch", "DBRS", "AM Best"] },
     "date": { "type": "string", "format": "date" },
     "outlook": { "type": "string", "enum": ["stable", "positive", "negative", "developing"] }
-  }, "required": ["grade", "agency"] }
+  }, "required": ["grade", "agency"], "additionalProperties": false }
 
 PARTY PATTERN:
   { "type": "object", "properties": {
@@ -335,7 +272,7 @@ PARTY PATTERN:
     "role": { "type": "string" },
     "identifiers": { "type": "array", "items": { "$ref": "#/$defs/identifier" } },
     "address": { "type": "string" }
-  }, "required": ["name", "role"] }
+  }, "required": ["name", "role"], "additionalProperties": false }
 
 
 ## Output Format
@@ -349,7 +286,7 @@ After the call completes:
 If a call exceeds 60s without response:
   [progress] Still waiting... (free tier queuing is normal for large inputs)
 
-For MODE 2 (REVIEW), output gaps as:
+For REVIEW, output gaps as:
 
 BATCH [N] SCHEMA STRESS TEST
 
@@ -364,7 +301,7 @@ Gap [1]: <short name>
 
 ---
 
-For MODE 3 (REFINE), output the complete updated JSON schema.
+For REFINE, output the complete updated JSON schema.
 Do NOT truncate. Include all $defs, all properties, all annotations.
 Include a $comment on every field explaining its purpose.
 
@@ -423,23 +360,22 @@ regardless of what document type you are inferring a schema from.
 - This makes the schema self-documenting about what data points exist in the domain
 - Example: "esg_framework_details": null signals this is a known field that
   simply does not apply to this particular document
+- To declare a nullable field, use a type array -- "type": ["string", "null"] --
+  NOT a verbose oneOf with a separate { "type": "null" } branch. Type arrays are
+  cleaner, faster to validate, and more readable.
 
 ### Free Text vs Enums
 - Use free-form strings for values that vary too much across documents for an
   enum to be useful (e.g., business_day_convention, calculation_method)
 - Use enums only for truly closed sets that are stable across the corpus
 - When in doubt, start with string and tighten to enum after seeing 10+ docs
-
-### Ratings and Assessments
-- Nest ratings/assessments under the entity they belong to (issuer, document)
-- Include a scope or context field to distinguish what is being rated
-- Include an outlook or trend direction when available
-
-### Parties and Roles
-- Use the actual role strings from documents, not normalized enums
-- Include a flat quick-access field for the most important role
-  (e.g., lead_manager, calculation_agent) in addition to the full parties array
-- Party names should be flat strings; addresses can be nested objects
+- When you DO use an enum to enforce an industry/system standard, do NOT put
+  verbatim source text in it. Enforce the normalized standard value in the enum
+  and add a companion [field_name]_raw string capturing the original text for
+  auditability and debugging (see "Raw Value Companion Fields")
+- If an enum includes "Other"/"Custom"/"Miscellaneous", pair it with an optional
+  [field_name]_description string, conditionally required when the fallback is
+  selected (see "The 'Other' Loophole")
 
 ### Dates and Amounts
 - Distinguish between conceptually distinct dates even if they are often the same
@@ -447,12 +383,6 @@ regardless of what document type you are inferring a schema from.
 - Distinguish between conceptually distinct amounts
   (e.g., nominal_amount vs minimum_denomination vs calculation_amount)
 - Use ISO 8601 date format strings
-
-### Monetary Values
-- Use {amount, currency} objects for values where currency matters
-- Use plain numbers only when currency is fixed or implicit
-- Include a flat currency_code field alongside the object when the currency is
-  frequently queried on its own
 
 ### Generalization Over Memorization
 - Do NOT hardcode document-specific values as field names or enums unless
@@ -465,13 +395,16 @@ regardless of what document type you are inferring a schema from.
 
 ### Strict Semantic Typing (No Defaulting to Strings)
 - Do NOT lazily default to type: "string". Infer strict semantic type from context:
-  - Money: structured monetary object {amount, currency}
+  - Money: structured monetary object {amount, currency} (amount is a
+    pattern-constrained string -- see Precise Numeric Values)
   - Dates: { "type": "string", "format": "date" }
   - Date-time: { "type": "string", "format": "date-time" }
   - Lists of options: strictly use "enum" arrays
   - Yes/no clauses: use "boolean"
   - Percentages/rates: use structured rate object {value, basis}
   - Quantities with units: use {value, unit}
+  - Precise numeric metrics (money, rates, coordinates): pattern-constrained
+    string, NOT float -- this is the one intentional "string" exception
 - If a field could be typed multiple ways across documents, choose the
   strictest type that covers all occurrences.
 
@@ -485,7 +418,7 @@ regardless of what document type you are inferring a schema from.
 - Good: "monetary_amount" in $defs, then "$ref": "#/$defs/monetary_amount"
   everywhere it appears.
 - This is MANDATORY for: monetary values, rates, identifiers, parties/ratings,
-  addresses, contact information.
+  addresses, contact information, audit/timestamp objects, and location objects.
 
 ### Polymorphic / Mutually Exclusive Structures
 - Documents often describe scenarios like "If Fixed Rate... If Floating Rate..."
@@ -499,20 +432,67 @@ regardless of what document type you are inferring a schema from.
     the corresponding type_of_note value applies
 - The parent schema should have a discriminator field (e.g., type_of_note)
   that controls which sub-schema applies.
+- Enforce the exclusivity with Draft-07+ if/then/else, NOT comments: when the
+  discriminator is "Type A", require Type A's properties and explicitly forbid
+  Type B's with "not": { "required": [...] }. Never rely on schema comments or
+  documentation to convey that fields are mutually exclusive.
 - NEVER create a single object where 80% of fields are optional because the
   object tries to cover multiple mutually exclusive scenarios.
+
+### Precise Numeric Values (No Floating-Point)
+- Never use "type": "number" for precise quantitative metrics where rounding
+  error is unacceptable -- financial amounts, rates, high-precision scientific
+  measurements, exact geospatial coordinates.
+- Represent these as "type": "string" with an exact-decimal regex:
+  { "type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?$" }
+- "type": "number" is acceptable ONLY for values where float rounding is
+  harmless (counts, approximate quantities, display-only figures).
+
+### Raw Value Companion Fields
+- Do NOT populate enums with raw, verbatim source text. Enforce the strict
+  industry/system standard in the enum, and capture the original input in a
+  companion [field_name]_raw string for auditability and debugging.
+- Example: day_count_convention (enum, normalized) alongside
+  day_count_convention_raw (string, verbatim as it appeared in the document).
+
+### The "Other" Loophole
+- Whenever an enum includes "Other", "Custom", or "Miscellaneous", pair it with
+  an optional [field_name]_description string.
+- Make that description mandatory via if/then when the fallback is selected:
+  "if":   { "properties": { "category": { "const": "Other" } } },
+  "then": { "required": ["category_description"] }
+
+### Symmetrical Completeness
+- When modeling opposing actions, state changes, or multi-actor workflows
+  (request vs. response, buyer vs. seller, issuer call vs. investor put,
+  start vs. stop), flesh out BOTH sides to equal operational depth.
+- If one side carries execution dates, metadata, and state flags, its
+  counterpart object must mirror that same depth -- do not model one richly and
+  the other as a bare string.
+
+### Operationalize Processes and Workflows
+- Do NOT merely capture the name of a process, algorithm, or state. Include the
+  mechanical fields a downstream system needs to actually execute or evaluate it:
+  input parameters, threshold triggers, execution delays, dependency flags.
+- Example: a "make_whole" redemption is not just a label -- model the discount
+  rate, spread, and reference benchmark needed to compute the price.
+
+### Contextual Dependencies (if/then)
+- Avoid leaving critical arrays/objects universally optional. Use if/then to
+  enforce dependencies on sibling fields.
+- Example: if status is "Rejected", require the rejection_reasons array;
+  if is_callable is true, require the call_provisions array.
+
+### Object Boundaries
+- Set "additionalProperties": false on every object to prevent undocumented
+  fields from being injected by downstream systems or data entry.
+- The only exception is an object deliberately designed as an open-ended
+  metadata dictionary or unstructured payload -- mark those explicitly.
 
 ### Financial Identifier Validation
 - When inferring financial identifiers (ISIN, CUSIP, LEI, SEDOL, CFI,
   Common Code), always apply strict regex pattern validation immediately
-  instead of leaving them as plain strings.
-- Known patterns:
-  - ISIN:  { "type": "string", "pattern": "^[A-Z]{2}[A-Z0-9]{9}[0-9]$" }
-  - CUSIP: { "type": "string", "pattern": "^[0-9A-Z]{9}$" }
-  - LEI:   { "type": "string", "pattern": "^[A-Z0-9]{18}[0-9]{2}$" }
-  - SEDOL: { "type": "string", "pattern": "^[0-9A-Z]{7}$" }
-  - Common Code: { "type": "string", "pattern": "^[0-9]{9}$" }
-  - CFI:   { "type": "string", "pattern": "^[A-Z]{6}$" }
+  instead of leaving them as plain strings (see Pattern Library for patterns).
 - If an identifier in the document doesn't match any known pattern, still
   use { "type": "string", "pattern": "..." } with the best-guess pattern
   from the observed values, rather than leaving it unrestricted.
@@ -530,25 +510,6 @@ regardless of what document type you are inferring a schema from.
 - If a group has more than 12 properties, split it into sub-objects with
   clear names (e.g., "interest_calculation", "interest_payment",
   "interest_adjustment" under the interest group).
-
-
-## Workflow Integration
-
-Typical iterative cycle:
-
-1. Start with INFER from 3-5 representative documents
-2. Run REVIEW against a new batch of 5-10 documents
-3. Apply REFINE based on the gap list
-4. Repeat from step 2 with additional document batches
-5. After 3-4 cycles, the schema should stabilize
-
-When the schema stops finding new critical/high gaps across a full
-document batch, it is considered stable.
-
-Schema files should be saved as .schema.json and versioned:
-  v1.0.0 -- initial schema from INFER
-  v1.1.0 -- non-breaking additions from REFINE
-  v2.0.0 -- breaking structural changes from REFINE
 
 
 ## Document Dedup Tracking
@@ -602,7 +563,7 @@ the LLM. Use a stratified sampling approach:
    - Round 1 (INFER): 3-5 docs, one per major category
    - Round 2 (REVIEW): 10-15 docs, edge cases within each category
 3. AUTOMATED BATCH VALIDATION (for rounds 3+):
-   - Use an extraction tool or script to extract ALL 600 docs against the schema
+   - Use an extraction tool or script to extract ALL docs against the schema
    - Validate with jsonschema Python library
    - Cluster errors by type
    - Review representative docs from each cluster
@@ -617,12 +578,6 @@ from discovery to validation. Rounds 1-2 must be raw.
 
 Primary model:
   nvidia/nemotron-3-super-120b-a12b:free
-
-Capabilities:
-  - 1M context (fits ~11 documents of 300KB/~88K tokens each)
-  - Structured output (response_format) for valid JSON Schema generation
-  - Reasoning toggle for systematic gap analysis
-  - Tool calling for file I/O and validation commands
 
 Rate limits (with $10+ OpenRouter credits):
   - 20 requests/minute on :free variants
@@ -672,11 +627,6 @@ this text -- not by any pre-defined schema mapping.
 
 ## Throughput and Progress
 
-Free models may queue behind paid requests. At 88K tokens/doc, expect:
-  - Round 1 (5 docs, ~440K tokens input): 30-90 seconds
-  - Round 2 per call (up to 11 docs, ~970K tokens input): 60-180 seconds
-  - Total rounds 1-2: 2-8 minutes wall time
-
 Batch splitting for free models:
   Free models (especially on OpenRouter) may timeout with >500K input tokens.
   Split round 2 into batches of ~8 documents each. Run each batch as a
@@ -704,55 +654,37 @@ For background execution of long REVIEW runs:
 
 ## Common Pitfalls
 
-1. Pre-extracting before rounds 1-2. This defeats the purpose. The LLM
-   must see raw text to discover unknown fields. Only pre-extract in
-   round 3+ when the schema is stable and you're validating, not discovering.
-
-2. Over-nesting. Every level of nesting adds extraction complexity. Nest
-   when fields share lifecycle/optionality, not just because they seem related.
-
-3. Premature enums. Don't close a set (use enum) until you've seen enough
-   documents to be confident the set is complete. Start with string + pattern,
-   tighten to enum after 10+ documents.
-
-4. Ignoring document metadata. Always capture source document reference
+1. Ignoring document metadata. Always capture source document reference
    (filename, page range, extraction timestamp) in the output schema.
 
-5. Mixing concerns. Keep the extraction schema (what comes out of the PDF)
-   separate from the storage schema (what goes in the database). Extraction
-   schema should be permissive; storage schema should be strict.
+2. Mixing concerns. Keep the extraction schema (what comes out of the PDF)
+   separate from the storage schema (what goes in the database). The extraction
+   schema should be permissive about optionality (most fields optional) but
+   still lock its boundaries with additionalProperties: false; the storage
+   schema should additionally be strict about requiredness.
 
-6. Forgetting optional markers. In JSON Schema, required is an array of
-   property names. Everything NOT in required is optional. Be explicit.
-
-7. No examples. Add examples to field definitions. They serve as
-   documentation and test data.
-
-8. Trusting model JSON output. Always validate with jsonschema library
-   before accepting a generated schema.
-
-9. Default max_tokens too small for schema generation. Free models on
+3. Default max_tokens too small for schema generation. Free models on
    OpenRouter often default to 4096-8192 output tokens, which truncates
    schemas mid-property. Always set max_tokens=65000 (or at least 32000)
    for schema generation calls. Check finish_reason in the response: if it
    says "length", increase max_tokens and retry.
 
-10. $comment misplacement by model. Models frequently place $comment strings
-    inside the properties dict (as a sibling of property definitions) instead
-    of at the object level. This causes jsonschema metaschema validation to
-    fail because it treats $comment as a property name that must be a schema
-    (object/boolean), not a string. Post-process: scan for $comment keys
-    inside properties dicts and move them to the parent object level.
+4. $comment misplacement by model. Models frequently place $comment strings
+   inside the properties dict (as a sibling of property definitions) instead
+   of at the object level. This causes jsonschema metaschema validation to
+   fail because it treats $comment as a property name that must be a schema
+   (object/boolean), not a string. Post-process: scan for $comment keys
+   inside properties dicts and move them to the parent object level.
 
-11. Free-tier timeout budget. OpenRouter free models regularly queue for
-    2-5 minutes on large inputs (>50K tokens). Use timeout=600 (not the
-    default 300) for model calls. If a call times out, retry with the same
-    payload -- free tier queuing is transient, not permanent.
+5. Free-tier timeout budget. OpenRouter free models regularly queue for
+   2-5 minutes on large inputs (>50K tokens). Use timeout=600 (not the
+   default 300) for model calls. If a call times out, retry with the same
+   payload -- free tier queuing is transient, not permanent.
 
-12. $defs nesting. Some models place $defs inside a nested object (e.g.,
-    inside the "issue" property) instead of at the schema root. This breaks
-    $ref resolution. After generation, verify $defs is at the top level of
-    the schema object. If not, move it up one level.
+6. $defs nesting. Some models place $defs inside a nested object (e.g.,
+   inside the "issue" property) instead of at the schema root. This breaks
+   $ref resolution. After generation, verify $defs is at the top level of
+   the schema object. If not, move it up one level.
 
 
 ## Verification Checklist
@@ -775,3 +707,14 @@ For background execution of long REVIEW runs:
 - [ ] Mutually exclusive scenarios use separate objects or oneOf/anyOf
 - [ ] Financial identifiers have strict regex pattern validation
 - [ ] Schema has logical groupings with max 4 levels of nesting
+- [ ] Precise numeric values (money, rates, coordinates) are pattern-constrained
+      strings, not floats
+- [ ] Normalized enums have a companion [field]_raw verbatim string
+- [ ] Every "Other"/"Custom" enum option has a conditionally-required
+      [field]_description
+- [ ] Mutual exclusivity is enforced with if/then/else + not:required, not comments
+- [ ] Contextual dependencies are enforced with if/then (e.g. status -> reasons)
+- [ ] Opposing actions/workflows are modeled with symmetrical depth
+- [ ] Processes/states include the mechanical fields needed to execute them
+- [ ] Nullable fields use type arrays ["x","null"], not oneOf-with-null
+- [ ] Objects set additionalProperties: false (except open metadata dictionaries)
