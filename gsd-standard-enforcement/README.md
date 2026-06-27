@@ -1,6 +1,6 @@
 # gsd-standard-enforcement
 
-A GSD addon that patches three GSD core workflows to enforce architecture contracts,
+A GSD addon that patches GSD core workflows to enforce architecture contracts,
 generate Architecture Decision Records, and enable full-codebase code review audits.
 
 Unlike project-skill addons (e.g. `gsd-api-first`), this addon patches GSD core files
@@ -15,6 +15,13 @@ directly and backs them up to `gsd-local-patches/` so the patches survive GSD up
 | `gsd-core/workflows/discuss-phase.md` | Adds `write_adrs` step — generates ADRs for significant architectural decisions captured during discuss-phase |
 | `gsd-core/workflows/discuss-phase/steps/write-adrs.md` | Lazy-loaded step that implements ADR generation (new file, not in upstream GSD) |
 | `agents/gsd-code-reviewer.md` | Adds architecture/standards contract loading — reviewer reads `docs/ARCHITECTURE.md`, `docs/STANDARDS.md`, and all active ADRs before reviewing |
+| `CLAUDE.md` (project root) | Inserts a marker-wrapped block instructing every agent to read `docs/ARCHITECTURE.md`, `docs/STANDARDS.md`, and `docs/adr/*.md` before any structural work |
+
+The `CLAUDE.md` block always targets the **project** file (the instructions reference
+project-relative docs): `PATH/CLAUDE.md`, or `./CLAUDE.md` when `--project` is omitted.
+It is created if absent, replaced in place on re-install (idempotent via the
+`<!-- gsd-standard-enforcement:begin/end -->` markers), and removed on `--uninstall`
+without disturbing the rest of the file.
 
 ## Prerequisites
 
@@ -41,30 +48,31 @@ None of these are required — if absent, the reviewer proceeds with generic rev
 Their value compounds over time: the more decisions you capture, the more precisely the
 reviewer enforces your project's choices rather than generic best practices.
 
-### 3. GSD installed
+### 3. Project-level GSD installed
 
-A working GSD install is required at the target scope:
-
-- User level (`--user`): `~/.claude/gsd-core/VERSION` must exist.
-- Project level (`--project PATH`): `PATH/.claude/gsd-core/VERSION` must exist.
+This addon is **project-scoped only** — it patches a project's GSD install and seeds
+that project's `CLAUDE.md`. There is no user-level install mode. A project-level GSD
+install is required: `PATH/.claude/gsd-core/VERSION` must exist (install with
+`npx -y @opengsd/gsd-core@latest --claude` run inside the project).
 
 ---
 
 ## Installation
 
 ```bash
-# Install at user level (patches ~/.claude/ — applies to all projects):
+# Install into the current project (patches ./.claude/ and ./CLAUDE.md):
 python3 path/to/gsd-standard-enforcement/install.py
 
-# Install at project level (patches {project}/.claude/ — that project only):
+# Install into another project (patches {project}/.claude/ and {project}/CLAUDE.md):
 python3 path/to/gsd-standard-enforcement/install.py --project /path/to/project
 
 # Preview without writing anything:
 python3 path/to/gsd-standard-enforcement/install.py --dry-run
 ```
 
-The installer is idempotent — files already matching the patch are skipped. When a
-file differs, a short unified diff is shown before overwriting.
+`--project` defaults to the current directory. The installer is idempotent — files
+already matching the patch are skipped. When a file differs, a short unified diff is
+shown before overwriting.
 
 ---
 
@@ -116,10 +124,10 @@ The step is skipped silently when `docs/adr/` doesn't exist or when
 ## Uninstallation
 
 ```bash
-# Uninstall from user-level GSD:
+# Uninstall from the current project:
 python3 path/to/gsd-standard-enforcement/install.py --uninstall
 
-# Uninstall from a project-level GSD:
+# Uninstall from another project:
 python3 path/to/gsd-standard-enforcement/install.py --project /path/to/project --uninstall
 
 # Preview without writing anything:
@@ -127,9 +135,10 @@ python3 path/to/gsd-standard-enforcement/install.py --uninstall --dry-run
 ```
 
 Uninstall restores each patched GSD file to its pristine original (saved during
-installation), deletes `write-adrs.md` (which has no upstream original), and removes
-`gsd-local-patches/` entirely. `docs/adr/` is left in place — it may contain ADRs
-you want to keep.
+installation), deletes `write-adrs.md` (which has no upstream original), removes
+`gsd-local-patches/` entirely, and strips the contract block from the project
+`CLAUDE.md` (deleting the file only if the block was its sole content). `docs/adr/`
+is left in place — it may contain ADRs you want to keep.
 
 ---
 

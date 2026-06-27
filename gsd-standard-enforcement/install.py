@@ -8,20 +8,23 @@ so they survive future GSD upgrades (re-apply with /gsd-update --reapply).
 
 Idempotent: safe to run multiple times.
 
+Project-scoped only: this addon patches a project's GSD install and seeds a
+CLAUDE.md block that references project-relative docs, so there is no user-level
+install mode.
+
 Usage
 -----
-  # Install at user level (patches ~/.claude/):
+  # Install into the current project (patches ./.claude/ and ./CLAUDE.md):
   python3 install.py
-  python3 install.py --user
 
-  # Install at project level (patches {project}/.claude/):
+  # Install into another project (patches {project}/.claude/ and {project}/CLAUDE.md):
   python3 install.py --project /path/to/project
 
   # Dry run — show what would change without writing anything:
-  python3 install.py [--user | --project PATH] --dry-run
+  python3 install.py [--project PATH] --dry-run
 
   # Update mode — copy installed files BACK to target/ (save local edits):
-  python3 install.py [--user | --project PATH] --update
+  python3 install.py [--project PATH] --update
 
 What it patches
 ---------------
@@ -34,6 +37,12 @@ What it patches
   agents/gsd-code-reviewer.md               Adds architecture/standards contract
                                               loading (reads docs/ARCHITECTURE.md,
                                               docs/STANDARDS.md, docs/adr/)
+  CLAUDE.md (project root)                   Inserts a marker-wrapped block telling
+                                              every agent to read the architecture
+                                              contracts before structural work.
+                                              Target: PATH/CLAUDE.md (or ./CLAUDE.md
+                                              when --project is omitted). Created if
+                                              absent; removed cleanly on --uninstall.
 
 Upgrade safety
 --------------
@@ -69,6 +78,25 @@ PATCH_FILES: list[str] = [
 
 # write-adrs.md is a new file with no upstream counterpart — no pristine hash
 _NEW_FILES: frozenset[str] = frozenset({"gsd-core/workflows/discuss-phase/steps/write-adrs.md"})
+
+# ---------------------------------------------------------------------------
+# CLAUDE.md contract block
+# ---------------------------------------------------------------------------
+# The block points at project-relative docs (docs/ARCHITECTURE.md, docs/adr/, …),
+# so it always belongs in the *project* CLAUDE.md — never a global user one.
+# Target: PATH/CLAUDE.md, or ./CLAUDE.md when --project is omitted.
+
+_CLAUDE_MD_BEGIN = "<!-- gsd-standard-enforcement:begin -->"
+_CLAUDE_MD_END = "<!-- gsd-standard-enforcement:end -->"
+
+_CLAUDE_MD_BODY = """## Architecture contracts
+
+Before any structural work (new modules, schema, endpoints, extraction logic), read:
+- `docs/ARCHITECTURE.md` — live orientation doc: components, boundaries, invariants, API design, testing strategy.
+- `docs/STANDARDS.md` — code-level conventions: naming, module shape, data contracts, error handling, SQL safety, logging, complexity.
+- `docs/adr/` — all ADRs (Architecture Decision Records). Glob `docs/adr/*.md` and read every file present. ADRs are binding decisions; they override any conflicting guidance in CONTEXT.md or REQUIREMENTS.md."""
+
+_CLAUDE_MD_BLOCK = f"{_CLAUDE_MD_BEGIN}\n{_CLAUDE_MD_BODY}\n{_CLAUDE_MD_END}"
 
 
 # ---------------------------------------------------------------------------
@@ -137,61 +165,36 @@ def check_project_prerequisites(project: Path, dry_run: bool) -> None:
         print(green(f"  Created {adr_path}/"))
 
 
-def _print_user_level_prereq_hint(project_example: str = "path/to/project") -> None:
-    """Print per-project prerequisite checklist for user-level installs."""
-    print()
-    print(bold("  Per-project prerequisites (for each project that uses these patches):"))
-    print()
-    for rel, required, note in _PREREQS:
-        label = "required" if required else "optional"
-        print(f"    {dim(label):>10}  {rel}")
-        print(f"              {dim(note)}")
-    print()
-    print(dim(f"  Create docs/adr/ with:  mkdir -p {project_example}/docs/adr"))
-
-
 # ---------------------------------------------------------------------------
 # GSD detection
 # ---------------------------------------------------------------------------
 
-def detect_gsd_dir(user: bool, project: Path | None) -> Path:
-    """Return the GSD config directory and verify GSD is installed there.
+def detect_gsd_dir(project: Path) -> Path:
+    """Return the project's GSD config dir and verify project-level GSD is installed.
 
-    The patch must live in the same GSD install as the rest of GSD — project-level
-    patches require project-level GSD, user-level patches require user-level GSD.
+    This addon is project-scoped only: it patches GSD core files and seeds a
+    CLAUDE.md block that references project-relative docs, so it must be applied
+    to a project-level GSD install (PATH/.claude/), never the user-level one.
     """
-    user_gsd_dir = Path.home() / ".claude"
-    user_version_file = user_gsd_dir / "gsd-core" / "VERSION"
-
-    if project is not None:
-        gsd_dir = project / ".claude"
-        version_file = gsd_dir / "gsd-core" / "VERSION"
-        if not version_file.exists():
-            if user_version_file.exists():
-                raise SystemExit(
-                    red(
-                        f"Error: GSD is installed at user level ({user_gsd_dir}/), "
-                        f"not inside this project.\n"
-                        f"       Patches must be applied to the same GSD install.\n"
-                        f"       Run without --project to patch the user install."
-                    )
-                )
+    gsd_dir = project / ".claude"
+    version_file = gsd_dir / "gsd-core" / "VERSION"
+    if not version_file.exists():
+        user_version_file = Path.home() / ".claude" / "gsd-core" / "VERSION"
+        if user_version_file.exists():
             raise SystemExit(
                 red(
-                    f"Error: No GSD install found at {gsd_dir / 'gsd-core'}/ or "
-                    f"{user_gsd_dir / 'gsd-core'}/ — "
-                    f"install GSD first with: npx -y @opengsd/gsd-core@latest --claude"
+                    f"Error: GSD is installed at user level ({Path.home() / '.claude'}/), "
+                    f"not inside this project ({project}).\n"
+                    f"       This addon is project-scoped — install GSD into the project "
+                    f"first with:\n"
+                    f"         npx -y @opengsd/gsd-core@latest --claude   (run inside {project})"
                 )
             )
-        return gsd_dir
-
-    # User level
-    gsd_dir = user_gsd_dir
-    if not user_version_file.exists():
         raise SystemExit(
             red(
-                f"Error: GSD not found at {gsd_dir / 'gsd-core'}/ — "
-                f"install GSD first with: npx -y @opengsd/gsd-core@latest --claude"
+                f"Error: No project-level GSD install found at {gsd_dir / 'gsd-core'}/ — "
+                f"install GSD into this project first with:\n"
+                f"         npx -y @opengsd/gsd-core@latest --claude   (run inside {project})"
             )
         )
     return gsd_dir
@@ -323,6 +326,83 @@ def update_local_patches(gsd_dir: Path, dry_run: bool, gsd_version: str) -> None
     if not dry_run:
         patches_dir.mkdir(parents=True, exist_ok=True)
         meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# CLAUDE.md contract block — install / remove
+# ---------------------------------------------------------------------------
+
+def resolve_claude_md(project: Path) -> Path:
+    """Return the project CLAUDE.md to patch (PATH/CLAUDE.md)."""
+    return project / "CLAUDE.md"
+
+
+def _strip_block(text: str) -> str:
+    """Remove an existing marker-wrapped block (and its surrounding blank lines)."""
+    start = text.find(_CLAUDE_MD_BEGIN)
+    if start == -1:
+        return text
+    end = text.find(_CLAUDE_MD_END, start)
+    if end == -1:
+        # Begin marker without a matching end — strip from begin to EOF defensively
+        return text[:start].rstrip() + "\n"
+    end += len(_CLAUDE_MD_END)
+    return (text[:start].rstrip() + "\n" + text[end:].lstrip()).strip() + "\n"
+
+
+def patch_claude_md(project: Path, dry_run: bool) -> None:
+    """Ensure the project CLAUDE.md contains the architecture-contract block.
+
+    Idempotent: replaces an existing marker-wrapped block, appends if absent,
+    creates the file if missing.
+    """
+    target = resolve_claude_md(project)
+    prefix = dim("[dry-run] ") if dry_run else ""
+
+    if target.exists():
+        current = target.read_text(encoding="utf-8")
+        if _CLAUDE_MD_BEGIN in current:
+            body = _strip_block(current).strip()
+            new_text = (f"{body}\n\n" if body else "") + _CLAUDE_MD_BLOCK + "\n"
+            if new_text == current:
+                print(f"  {dim('–')} CLAUDE.md contract block already current: {dim(str(target))}")
+                return
+            action = "updated contract block in"
+        else:
+            new_text = current.rstrip() + "\n\n" + _CLAUDE_MD_BLOCK + "\n"
+            action = "appended contract block to"
+    else:
+        new_text = _CLAUDE_MD_BLOCK + "\n"
+        action = "created with contract block"
+
+    if not dry_run:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(new_text, encoding="utf-8")
+    print(f"  {prefix}{green('✓')} {action}: {target}")
+
+
+def unpatch_claude_md(project: Path, dry_run: bool) -> None:
+    """Remove the contract block from the project CLAUDE.md, if present."""
+    target = resolve_claude_md(project)
+    prefix = dim("[dry-run] ") if dry_run else ""
+
+    if not target.exists():
+        print(f"  {dim('–')} CLAUDE.md not present: {dim(str(target))}")
+        return
+
+    current = target.read_text(encoding="utf-8")
+    if _CLAUDE_MD_BEGIN not in current:
+        print(f"  {dim('–')} no contract block in CLAUDE.md: {dim(str(target))}")
+        return
+
+    new_text = _strip_block(current)
+    if not dry_run:
+        if new_text.strip():
+            target.write_text(new_text, encoding="utf-8")
+        else:
+            # Block was the only content — remove the file we created
+            target.unlink()
+    print(f"  {prefix}{green('✓')} removed contract block from: {target}")
 
 
 # ---------------------------------------------------------------------------
@@ -482,17 +562,13 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    scope = parser.add_mutually_exclusive_group()
-    scope.add_argument(
-        "--user",
-        action="store_true",
-        help="Patch the user-level GSD install at ~/.claude/ (default)",
-    )
-    scope.add_argument(
+    parser.add_argument(
         "--project",
         metavar="PATH",
         type=Path,
-        help="Patch a project-level GSD install at PATH/.claude/",
+        default=None,
+        help="Project to patch (defaults to the current directory). "
+             "Patches PATH/.claude/ and PATH/CLAUDE.md.",
     )
     parser.add_argument(
         "--dry-run",
@@ -511,17 +587,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Resolve scope
-    project: Path | None = None
-    if args.project is not None:
-        project = args.project.resolve()
-        if not project.is_dir():
-            raise SystemExit(red(f"Error: '{project}' is not a directory."))
+    # Resolve project scope (project-only addon — defaults to the current directory)
+    project = (args.project if args.project is not None else Path.cwd()).resolve()
+    if not project.is_dir():
+        raise SystemExit(red(f"Error: '{project}' is not a directory."))
 
-    gsd_dir = detect_gsd_dir(user=args.user, project=project)
+    gsd_dir = detect_gsd_dir(project)
     gsd_version = read_gsd_version(gsd_dir)
 
-    scope_label = f"project ({gsd_dir})" if project else f"user ({gsd_dir})"
+    scope_label = f"project ({project})"
     mode_label = (
         "dry run" if args.dry_run else
         "update" if args.update else
@@ -546,14 +620,14 @@ def main() -> None:
             print(f"  {prefix}{green('✓')} removed: {f}")
         for f in skipped:
             print(f"  {dim('–')} skipped: {dim(f)}")
+        unpatch_claude_md(project, dry_run=args.dry_run)
         print()
         print(bold(f"  uninstall: {len(removed)} removed, {len(skipped)} skipped"))
         return
 
-    # Prerequisite check (project-level only — user-level has no project context)
-    if project is not None:
-        check_project_prerequisites(project, dry_run=args.dry_run)
-        print()
+    # Prerequisite check
+    check_project_prerequisites(project, dry_run=args.dry_run)
+    print()
 
     # Install mode
     installed, skipped, errors = install_files(gsd_dir, dry_run=args.dry_run)
@@ -565,6 +639,10 @@ def main() -> None:
         mode="install",
         dry_run=args.dry_run,
     )
+
+    # Ensure the project CLAUDE.md carries the architecture-contract instruction
+    print()
+    patch_claude_md(project, dry_run=args.dry_run)
 
     if errors:
         print(red(f"\n  {len(errors)} error(s) — check the installer package is intact."))
@@ -595,9 +673,7 @@ def main() -> None:
         print(f"    {green('--audit flag')}          full-codebase review scope in /gsd-code-review")
         print(f"    {green('architecture contract')} gsd-code-reviewer loads docs/ARCHITECTURE.md + ADRs")
         print(f"    {green('ADR generation')}        discuss-phase writes ADRs for significant decisions")
-
-        if project is None:
-            _print_user_level_prereq_hint()
+        print(f"    {green('CLAUDE.md contract')}    {resolve_claude_md(project)} reminds agents to read the contracts")
 
 
 if __name__ == "__main__":
