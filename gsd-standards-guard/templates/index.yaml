@@ -1,0 +1,57 @@
+# docs/adr/index.yaml — machine-readable ADR rule index.
+#
+# The selector the code-review hook and /standards-audit consume, and the mirror
+# of the standing-rule ledger in docs/ARCHITECTURE.md. Single source, two
+# renderings. Authored per project; the gsd-standards-guard package ships this
+# SEED (schema + empty buckets) — replace the examples with your own rows.
+#
+# The engine reads a scoped YAML subset (this schema), not arbitrary YAML. Keep
+# the shape below; run `node .agents/skills/gsd-standards-guard/engine.js --lint`
+# after every edit.
+#
+# ── Schema ────────────────────────────────────────────────────────────────
+# version:   schema version (integer).
+# adr_dir:   where the ADR files live (repo-root-relative).
+# rules[]:   one entry per LIVE standing rule.
+#   adr:     ADR id as a string, matching the file prefix ("024" or "0024").
+#   area:    short group key; /standards-audit chunks semantic passes by it.
+#   rule:    the enforceable one-liner (what a reviewer checks without opening the ADR).
+#   globs[]: repo-root-relative selectors; a diff touching any match triggers the rule.
+#   check:   OPTIONAL deterministic tier. Present ⇒ the engine mechanically verifies it.
+#            forbid_pattern / require_absent : file in in_globs must NOT contain the literal.
+#            require_present                 : file in in_globs MUST contain the literal.
+#            in_globs[]                      : path set to check (defaults to the rule's globs).
+#            Keep this vocabulary tiny — literal substring within a path set. Anything
+#            needing real judgment stays a SEMANTIC rule (omit check:).
+# superseded{}: adr -> "→ successor (why)". Never read. Steers reviewers away.
+# historical{}: adr -> "one-line reason". Context only, no standing rule.
+#
+# Invariant (enforced by --lint): every ADR on disk appears in EXACTLY ONE bucket.
+
+version: 1
+adr_dir: docs/adr
+
+rules:
+  # --- Example: a deterministic rule (delete once you author real rows) -------
+  # - adr: "024"
+  #   area: persistence
+  #   rule: "View DDL runs at the composition root, not in a repository."
+  #   globs:
+  #     - "backend/src/**/repositories/**"
+  #   check:
+  #     forbid_pattern: "CREATE VIEW"
+  #     in_globs:
+  #       - "backend/src/**/repositories/**"
+  #
+  # --- Example: a semantic rule (no check — the reviewer judges compliance) ----
+  # - adr: "042"
+  #   area: charts
+  #   rule: "Chart components read units from series metadata, never hardcoded."
+  #   globs:
+  #     - "frontend/components/answer-types/**"
+
+superseded: {}
+  # "015": "→ 024 (composition-root DDL)"
+
+historical: {}
+  # "001": "Initial architecture context — no standing rule."

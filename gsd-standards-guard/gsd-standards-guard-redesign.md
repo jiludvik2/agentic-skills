@@ -18,6 +18,16 @@
 > command, so full-codebase compliance survives GSD upgrades like everything else. `index.yaml`
 > gains an optional per-rule `check:` field (§5.7) for the deterministic tier. Still pending: the
 > engine + hook, `/standards-audit`, `/write-adr`, CLAUDE.md block, installer, migration.
+>
+> **Rev. 4 change (reconciliation):** two layers are now separated explicitly (§5 intro, §7) — the
+> **reusable package** (this repo: engine, hook, `/write-adr`, `/standards-audit`, `install.sh`, the
+> `index.yaml` *schema* and the ARCHITECTURE.md *authoring contract* + lint) versus the **project
+> instance** (per adopting project: the populated `index.yaml` rule corpus and ARCHITECTURE.md
+> ledger). The "already built" ledger + `index.yaml` are the **reference instance** (the
+> funding_data backend), included to illustrate the schema — **not** package contents; a fresh
+> project starts from a seed and authors its own rows. And `/write-adr` numbering now **detects the
+> existing ADR-prefix width** rather than hard-coding 3 digits — the earlier "4-digit defect" was a
+> width *mismatch* against one project's files, not a universal error (§2, §5.2, AC3).
 
 ## 1. Problem
 
@@ -76,8 +86,12 @@ Backups sit in `.claude/gsd-local-patches/` with a `backup-meta.json`
   classifies as GSD-managed (`gsd-managed` marker / command signature; verified in
   `src/runtime-hooks-surface.cts`, branch `next`). ⇒ Our PreToolUse entry survives `gsd-update`
   untouched — **no residual overwrite risk**, and no verify check required (§6).
-- **ADR numbering is 3-digit zero-padded** (`001`…`065`). The patched `write-adrs.md` greps
-  `^[0-9]{4}` (4-digit) — a latent defect to fix in the port.
+- **ADR-prefix width is project-specific.** The reference instance is 3-digit zero-padded
+  (`001`…`065`); the shipped `write-adrs.md` payload documents and greps a **4-digit** convention
+  (`0001`…) — a *different* project's house style. Neither width is universally correct, so the real
+  defect is that the port pins a **fixed** `^[0-9]{4}` grep, which silently mismatches any project
+  not on 4 digits (against a 3-digit tree it finds nothing and restarts at `0001`, colliding). The
+  fix is width **detection**, not a swap to a different hard-coded width (§5.2).
 - **The ADR corpus triages cleanly.** Of 65 ADRs: **46 carry a standing code rule**, **15 are
   dead** (superseded/reversed — never read), **4 are historical/process** (no standing rule). A
   typical diff triggers **2–6 rules**, not the whole set. This is what makes selective,
@@ -100,7 +114,10 @@ Backups sit in `.claude/gsd-local-patches/` with a `backup-meta.json`
 - Changing ADR *content* or the house Nygard format.
 - Guaranteeing review *verdict correctness* — the mechanism guarantees the rules are **in
   context** (and, in strict mode, gates the output); acting on them remains model judgment.
-- Rewriting `docs/STANDARDS.md` (separate task; it may carry similar drift — see §9).
+- Rewriting an existing `docs/STANDARDS.md` (separate task; it may carry similar drift — see §9).
+  *(The installer does seed a STANDARDS.md **skeleton** when one is absent, so a fresh project's
+  enforcement directive — which cites STANDARDS.md as binding — has a real target; it never
+  overwrites an existing file.)*
 - **Cross-agent portability.** This skill targets **Claude Code only** — native `PreToolUse`
   hooks wired through `.claude/settings.json`. Support for other agents (Copilot, Gemini, Cursor,
   …) is explicitly out of scope. Project-owned files still live under `.agents/` purely for
@@ -121,6 +138,24 @@ a shared rule engine (`gsd-standards-guard`) called by a selective code-review h
 manual whole-codebase audit (5.8), a `/write-adr` skill (5.2), the ARCHITECTURE.md + ADR
 rule-index contract (5.3, 5.7), a CLAUDE.md backstop (5.4), and the installer (§6). Claude Code
 only (§3).
+
+**Two layers — package vs. project instance.** This spec describes a *reusable package* that ships
+from the `agentic-skills` repo and installs into any adopting GSD project; the concrete rule corpus
+is *per-project data* authored once per project. Keep them distinct:
+
+- **Package (shipped by this repo, identical everywhere):** the rule engine (§5.1), the hook (§5.1),
+  `/write-adr` (§5.2), `/standards-audit` (§5.8), `install.sh` (§6), the CLAUDE.md directive block
+  (§5.4/§5.6), the **`index.yaml` schema** (§5.7), and the **ARCHITECTURE.md authoring contract +
+  lint** (§5.3).
+- **Project instance (authored per adopting project):** the populated `docs/adr/index.yaml` rule
+  rows, the filled-in `docs/ARCHITECTURE.md` ledger, and the ADRs themselves. Globs, ADR numbers,
+  and counts are project-specific.
+
+Everything marked *(built)* / *(reference instance)* below — the 46/15/4 corpus, the migrated
+ledger, the `backend/src/funding_data/**` globs, the specific ADR numbers (024, 042/043, 066) — is
+the **reference instance** (the funding_data backend), included to illustrate the schema, **not**
+part of what the package installs. A fresh project starts with a seed `index.yaml` and authors its
+own rows against the schema.
 
 **Code vs prompt.** The engine (`gsd-standards-guard`), the hook, and the installer (`install.sh`)
 are **code** — plain scripts, not agent-run prompts. Only `/standards-audit` and `/write-adr` are
@@ -185,17 +220,22 @@ callers **cannot drift** in what they enforce, and neither depends on the other.
 - **Location:** `.agents/skills/write-adr/SKILL.md` (+ `rules/` if the template grows).
 - **Content:** the house Nygard format and section headings ported **verbatim** from the
   current patched `write-adrs.md` — ADR output does not change.
-- **Numbering:** next = `max(existing 3-digit prefix) + 1`, zero-padded to **3 digits**
-  (fix the 4-digit `^[0-9]{4}` defect). Skip-if-`docs/adr/`-absent guard retained.
+- **Numbering (width-detecting):** read the existing prefix width from `docs/adr/` (the digit-count
+  of the current highest-numbered ADR), then next = `max(existing numeric prefix) + 1`, zero-padded
+  to **that same width** — `066` in the 3-digit reference instance, `0067` in a `0001`-style project.
+  This replaces the old fixed `^[0-9]{4}` grep, which silently mismatches any project not on 4
+  digits (§2). Skip-if-`docs/adr/`-absent guard retained; when `docs/adr/` is present but empty, fall
+  back to a documented default width (3) starting at `001`.
 - **Invocation:** manual, at discuss/ship time (`/write-adr`), reading the phase
   `CONTEXT.md`/decision log. Trade-off vs the old auto-fire inside `/gsd-discuss-phase`: an
   explicit-but-reliable step replaces an auto step that silently dies on upgrade — net positive.
 - **Optional convenience:** a `SessionStart`/CLAUDE.md reminder to run `/write-adr` when a
   phase logged load-bearing decisions.
 
-### 5.3 ARCHITECTURE.md authoring contract — standing-rule ledger  *(built)*
+### 5.3 ARCHITECTURE.md authoring contract — standing-rule ledger  *(contract = package; reference ledger built)*
 
-The skill defines and lints the shape of `docs/ARCHITECTURE.md` (already migrated to this form):
+The package defines and lints the shape of `docs/ARCHITECTURE.md`; each project authors its own
+content to that shape (the reference instance is already migrated to this form):
 
 - **Sections, and only these:** (a) governance banner (authority order + drift discipline),
   (b) context/pipeline sketch, (c) repo layout, (d) serving-layer boundary table,
@@ -246,9 +286,10 @@ upgrade-proof. **No relocation.** The ADRs are the binding decision record; glob
 *(In the CLAUDE.md backstop, "injected below" becomes "the rules in `docs/adr/index.yaml` whose
 globs match the files you are changing.")*
 
-### 5.7 ADR rule index — `docs/adr/index.yaml`  *(built)*
+### 5.7 ADR rule index — `docs/adr/index.yaml`  *(schema = package; reference index built)*
 
-The machine-readable mirror of the §5.3 ledger and the selector the §5.1 hook consumes.
+The machine-readable mirror of the §5.3 ledger and the selector the §5.1 hook consumes. The package
+ships the **schema and validator**; each project authors the **content** (rows/globs/checks).
 
 - **Location:** `docs/adr/index.yaml` (project-owned, upgrade-proof).
 - **Schema:** `version`, `adr_dir`, then three buckets:
@@ -271,9 +312,11 @@ The machine-readable mirror of the §5.3 ledger and the selector the §5.1 hook 
   file agree row-for-row.
 - **Consumers:** the enforcement hook (§5.1, selective injection) and humans via the rendered
   ledger in ARCHITECTURE.md. Single source, two renderings.
-- **Current contents:** 46 standing rules, 15 superseded, 4 historical (full 65-ADR coverage,
-  validated). The answer-harness rows (026/027/031/037-039) involved supersession-chain judgment
-  calls, placed by where current code points — flagged for spot-check (§9).
+- **Reference instance (funding_data), for illustration — not shipped by the package:** 46 standing
+  rules, 15 superseded, 4 historical (full 65-ADR coverage, validated). The answer-harness rows
+  (026/027/031/037-039) involved supersession-chain judgment calls, placed by where current code
+  points — flagged for spot-check (§9). A fresh adopting project ships a seed `index.yaml` (schema
+  header + empty buckets) and authors its own rows against this schema.
 
 ### 5.8 Whole-codebase audit — manual `/standards-audit` command
 
@@ -318,7 +361,9 @@ scheduled, or CI). It **re-homes the old installer's `--audit` flag** — which 
      merge writer preserves it);
   3. inserts the marked directive block into `CLAUDE.md`;
   4. verifies `docs/adr/index.yaml` exists and parses (fail loud otherwise);
-  5. never touches any file under `.claude/gsd-core/` or `.claude/agents/`.
+  5. seeds `docs/ARCHITECTURE.md` + `docs/STANDARDS.md` skeletons **only if absent** (never
+     overwrites authored docs), so the enforcement directive's cited files always resolve;
+  6. never touches any file under `.claude/gsd-core/` or `.claude/agents/`.
   All the patch/backup/pristine/`--reapply` machinery of the old `install.py` is **deleted** —
   with zero vendor patches there is nothing to back up or reapply.
 - **Idempotency:** the `CLAUDE.md` edit is delimited by `# >>> gsd-standards-guard >>>` /
@@ -349,19 +394,33 @@ scheduled, or CI). It **re-homes the old installer's `--audit` flag** — which 
 
 ## 7. File layout & ownership
 
-| Path | Owner | Upgrade-safe | Role |
-|---|---|---|---|
-| `.agents/skills/gsd-standards-guard/` | project | ✅ (not in manifest) | **shared rule engine** — glob-match + deterministic `check:` tier; sole authority (§5.1) |
-| `.agents/hooks/gsd-standards-guard.js` | project | ✅ (not in manifest) | thin `PreToolUse` caller → engine `--scope=diff` |
-| `.agents/skills/standards-audit/` | project | ✅ | manual whole-codebase audit → engine `--scope=all` (§5.8) |
-| `.claude/settings.json` → PreToolUse JSON entry | project | ✅ not manifested; GSD merges & preserves foreign hooks | wires the hook |
-| `.agents/skills/write-adr/` | project | ✅ | ADR generator (Nygard, 3-digit) |
-| `install.sh` + `skills/` + `templates/` (package) | project | ✅ | thin shell installer + this spec |
-| `CLAUDE.md` → marked block | project | ✅ | main-agent backstop directive |
-| `docs/ARCHITECTURE.md` | project | ✅ | standing-rule ledger (**built**) |
-| `docs/adr/index.yaml` | project | ✅ | machine-readable rule index — hook selector (**built**) |
-| `docs/STANDARDS.md`, `docs/adr/*` | project | ✅ | binding standards + decisions |
-| ~~`.claude/gsd-core/**`, `.claude/agents/gsd-code-reviewer.md`~~ | GSD | n/a | **no longer patched** |
+Split by layer (§5 intro). Every row is project-owned at rest and upgrade-safe (none sit in GSD's
+manifest); the split is about *who authors the content*, not who owns the file.
+
+**Package — installed identically into every adopting project (this repo is the single source):**
+
+| Path | Layer | Role |
+|---|---|---|
+| `.agents/skills/gsd-standards-guard/` | package | **shared rule engine** — glob-match + deterministic `check:` tier; sole authority (§5.1) |
+| `.agents/hooks/gsd-standards-guard.js` | package | thin `PreToolUse` caller → engine `--scope=diff` |
+| `.agents/skills/standards-audit/` | package | manual whole-codebase audit → engine `--scope=all` (§5.8) |
+| `.agents/skills/write-adr/` | package | ADR generator (Nygard, **width-detecting** — §5.2) |
+| `.claude/settings.json` → PreToolUse JSON entry | package (installer-written) | wires the hook; GSD merges & preserves foreign hooks |
+| `CLAUDE.md` → marked block | package (installer-written) | main-agent backstop directive (fixed text, §5.6) |
+| `install.sh` + `skills/` + `templates/` | package (repo) | thin shell installer + this spec |
+
+**Instance — authored once per adopting project (the package ships the schema/contract, not the content):**
+
+| Path | Layer | Role |
+|---|---|---|
+| `docs/adr/index.yaml` | instance content · package schema (§5.7) | machine-readable rule index — hook/audit selector |
+| `docs/ARCHITECTURE.md` | instance content · package contract + lint (§5.3) | standing-rule ledger |
+| `docs/STANDARDS.md`, `docs/adr/*` | instance | binding standards + decisions |
+
+The reference instance (funding_data) has the two authored artifacts **built**; a fresh project
+authors its own from the seed.
+
+~~`.claude/gsd-core/**`, `.claude/agents/gsd-code-reviewer.md`~~ — GSD-owned, **no longer patched**.
 
 ## 8. Acceptance criteria
 
@@ -376,8 +435,10 @@ scheduled, or CI). It **re-homes the old installer's `--audit` flag** — which 
 - **AC2c — index integrity:** `index.yaml` parses; all `001..N` ADRs appear in exactly one bucket;
   every `rules` glob resolves to a real path; the MD ledger and `index.yaml` agree row-for-row.
   *(Currently passing: 46/15/4, 65-ADR coverage.)*
-- **AC3 — ADRs generate:** `/write-adr` produces `docs/adr/066-*.md` matching the existing house
-  format, correctly numbered (3-digit, `066`).
+- **AC3 — ADRs generate (width-preserving):** `/write-adr` produces the next ADR matching the
+  existing house format and **preserving the project's prefix width** — `docs/adr/066-*.md` in the
+  3-digit reference instance, `docs/adr/0067-*.md` in a 4-digit project. A single hard-coded width
+  fails this AC against one of the two.
 - **AC4 — clean uninstall:** after uninstall, `git diff` of `.claude/gsd-core/` and
   `.claude/agents/` against the GSD manifest is empty, and no `gsd-standards-guard` markers
   remain in `settings.json`/`CLAUDE.md`.

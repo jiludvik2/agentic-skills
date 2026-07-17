@@ -6,12 +6,18 @@ generates and audits those decisions. Enforcement is **deterministic** (a native
 not a discretionary instruction), **selective** (only the rules a given diff can violate), and
 **survives arbitrary GSD upgrades** because it patches **zero** vendor files.
 
-> **Status — redesign (rev. 3).** This replaces the old **patch-based installer** that
+> **Status — redesign (rev. 4), built.** This replaces the old **patch-based installer** that
 > content-patched four GSD-owned files. The full design is specified in
 > [`gsd-standards-guard-redesign.md`](./gsd-standards-guard-redesign.md) — that document is the
-> source of truth. The AC5 mechanism (below) is validated; the components are being built. Until the
-> migration (see *Migrating from the patched installer*) is run, the legacy `install.py` +
-> `target/` tree in this repo still describe the old patch approach.
+> source of truth. The package is implemented: engine, hook, `/write-adr`, `/standards-audit`,
+> `install.sh`, and templates, with a test suite (`node --test tests/*.test.js`). Deploy into a project with
+> `./install.sh`; migrate an already-patched project per *Migrating from the patched installer*.
+
+> **Two layers — package vs. project instance.** This repo ships the **reusable package** (the
+> engine, hook, skills, `install.sh`, the `index.yaml` *schema*, and the ARCHITECTURE.md *authoring
+> contract*). The **rule corpus** (the populated `docs/adr/index.yaml` and `docs/ARCHITECTURE.md`
+> ledger) is *per-project data* — each adopting project authors its own rows against the schema.
+> `install.sh` seeds an empty `index.yaml` + a contract skeleton; `/write-adr` grows them.
 
 > **Claude Code only.** This addon targets Claude Code — native `PreToolUse` hooks wired through
 > `.claude/settings.json`. Support for other agents is out of scope. (Project-owned files live under
@@ -60,7 +66,7 @@ Both tiers run at both scopes.
 | `.agents/skills/gsd-standards-guard/` | shared rule engine — glob-match + deterministic `check:` tier |
 | `.agents/hooks/gsd-standards-guard.js` | thin `PreToolUse` caller → engine `--scope=diff` |
 | `.agents/skills/standards-audit/` | manual whole-codebase audit → engine `--scope=all` |
-| `.agents/skills/write-adr/` | ADR generator (house Nygard format, 3-digit numbering) |
+| `.agents/skills/write-adr/` | ADR generator (house Nygard format, width-detecting numbering) |
 | `.claude/settings.json` → PreToolUse JSON entry | wires the hook |
 | `CLAUDE.md` → marked block | main-agent backstop directive |
 | `docs/ARCHITECTURE.md` | standing-rule ledger (authored) |
@@ -115,8 +121,8 @@ add-or-replace, so re-running is idempotent.
   (e.g. *"violates ADR-024 — view DDL must run at the composition root, not in a repository"*).
 - **`/standards-audit`** — manual whole-codebase compliance sweep. Runs the deterministic checks over
   the tree (hard pass/fail, CI-gateable) and spawns the reviewer per area for the semantic rules.
-- **`/write-adr`** — generate an ADR in `docs/adr/` (house Nygard format, next 3-digit number) from
-  the current phase's decision log.
+- **`/write-adr`** — generate an ADR in `docs/adr/` (house Nygard format, next number with the
+  project's existing prefix width auto-detected) from the current phase's decision log.
 
 ## Upgrade safety
 
@@ -139,6 +145,27 @@ If the old patch-based installer was applied to a project:
    `--reapply` no longer targets it.
 3. Run `./install.sh`.
 4. Verify (see the acceptance criteria in the spec).
+
+## Developing this package
+
+```
+gsd-standards-guard/
+  install.sh                         # thin Bash installer (+ --uninstall)
+  skills/gsd-standards-guard/        # the rule engine (engine.js) — code, not a prompt-skill
+  skills/write-adr/                  # /write-adr prompt-skill
+  skills/standards-audit/            # /standards-audit prompt-skill
+  hooks/gsd-standards-guard.js       # PreToolUse hook (thin engine caller)
+  templates/                         # index.yaml seed, ARCHITECTURE.md + STANDARDS.md skeletons, CLAUDE.md block, merge-settings.js
+  tests/engine.test.js               # engine regression suite (AC2/AC2b/AC2c/AC8 + degrade)
+  gsd-standards-guard-redesign.md    # the source-of-truth spec
+```
+
+`install.sh` maps `skills/*` and `hooks/*` into the target project's `.agents/`, wires the
+PreToolUse entry via `templates/merge-settings.js`, and seeds the docs contract. Run the tests with:
+
+```bash
+node --test tests/*.test.js
+```
 
 ## See also
 
