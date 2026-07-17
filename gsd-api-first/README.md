@@ -1,8 +1,12 @@
 # gsd-api-first
 
 A GSD addon that adds contract-first API design to the standard workflow. For any phase
-that touches the API surface, it inserts a structured design step between discuss-phase
-and planning — producing a locked HTTP contract before the planner runs.
+that touches the API surface, it inserts one design step — `/api-spec` — between
+discuss-phase and planning, producing a locked HTTP contract before the planner runs.
+
+The addon is **purely additive**: it ships one new skill and a template and adds a small
+fenced block to the project's agent-instructions file (`CLAUDE.md` or `AGENTS.md`). It does
+not modify or shadow any GSD skill, so GSD upgrades never touch it.
 
 ## Design authorities
 
@@ -26,26 +30,19 @@ strategy — is decided by the skill.
 
 | File | Purpose |
 |------|---------|
-| `.agents/skills/api-phase/SKILL.md` | `/api-phase <N>` — design HTTP contract from functional requirements |
-| `.agents/skills/api-plan/SKILL.md` | `/api-plan <N>` — run gsd-plan-phase with the contract auto-ingested |
-| `.agents/skills/gsd-discuss-phase/SKILL.md` | Project-local patch — surfaces API gray areas in discuss-phase for API-touching phases |
-| `.claude/api-gray-areas.md` | Reference doc read by the patched discuss-phase skill |
-| `.claude/templates/API-SPEC.md` | Template used by `/api-phase` to write the design contract |
-| `CLAUDE.md` | Injects the `## API-First Workflow` reference section |
+| `.agents/skills/api-spec/SKILL.md` | `/api-spec <N>` — design the HTTP contract (new or existing API) and register it in `CONTEXT.md` `<canonical_refs>` for the planner |
+| `.claude/templates/API-SPEC.md` | Template `/api-spec` fills to write the design contract |
+| `CLAUDE.md` / `AGENTS.md` | A fenced `## API-First Workflow` routing block, added to whichever of these already exists |
+
+Nothing here shadows or edits a GSD skill, so there are no backups, no restore step, and
+no "re-apply after a GSD upgrade" dance.
 
 ## Prerequisites
-
-The following must be in place before the installed skills will run:
 
 - **GSD initialized:** `ROADMAP.md` and `.planning/` must exist in the project root.
   Run `/gsd-new-project` or `/gsd-new-milestone` if they do not.
 - **Active phase:** the phase number you pass must exist in `ROADMAP.md`. Create phases
-  with `/gsd-phase add` before running `/api-phase`.
-- **Base `gsd-discuss-phase` skill** (for the discuss-phase patch only): the skill
-  must be discoverable at `.claude/skills/gsd-discuss-phase/SKILL.md`,
-  `~/.claude/skills/gsd-discuss-phase/SKILL.md`, or
-  `~/.agents/skills/gsd-discuss-phase/SKILL.md`. The patch stops with an error message
-  if none of these paths exists.
+  with `/gsd-phase add` before running `/api-spec`.
 
 The installer does not create phases or initialize GSD — those are operator
 responsibilities.
@@ -54,69 +51,76 @@ responsibilities.
 
 ```bash
 # Install into the current directory
-python3 path/to/gsd-api-first/install.py
+./install.sh
 
 # Install into a specific project
-python3 path/to/gsd-api-first/install.py /path/to/project
-
-# Preview what would be installed
-python3 path/to/gsd-api-first/install.py --dry-run
+./install.sh /path/to/project
 ```
 
-The installer is idempotent — safe to run multiple times. It injects into an existing
-`CLAUDE.md` rather than replacing it.
+`install.sh` copies the two files into the project and appends the fenced
+`## API-First Workflow` block to the project's agent-instructions file. It is tool-neutral:
+it updates `CLAUDE.md` and/or `AGENTS.md` when they exist, adds the block only if it isn't
+already there (checked by marker and by heading, so re-running never duplicates it), and
+**never creates** an instructions file — if neither exists it installs the skill and prints
+a warning telling you to add the block manually.
+
+The installer only ever adds the current payload; it does not delete anything. If you
+installed a pre-release version, remove any leftover `api-plan`, `api-phase`, or
+`gsd-discuss-phase` skills and `.claude/api-gray-areas.md` by hand — `git` makes that a
+one-step review and revert.
 
 After installing, commit the added files:
 
 ```bash
-git add .agents/ .claude/ CLAUDE.md
-git commit -m "chore: install gsd-api-first workflow addon"
+git add .agents .claude CLAUDE.md
+git commit -m "chore: install gsd-api-first addon"
 ```
 
 ## Uninstallation
 
+There is no uninstall command — removal is two steps:
+
 ```bash
-# Remove from the current directory
-python3 path/to/gsd-api-first/install.py --uninstall
-
-# Remove from a specific project
-python3 path/to/gsd-api-first/install.py --uninstall /path/to/project
-
-# Preview what would be removed
-python3 path/to/gsd-api-first/install.py --uninstall --dry-run
+rm -rf <project>/.agents/skills/api-spec <project>/.claude/templates/API-SPEC.md
 ```
 
-Uninstall removes all files in the table above and strips the `## API-First Workflow`
-section from `CLAUDE.md`, leaving the rest of that file intact.
-
-If `.agents/skills/gsd-discuss-phase/SKILL.md` existed before installation, the
-original is restored from `.agents/gsd-api-first-patches/` rather than deleted. If it
-was new (no backup exists), it is deleted. The backup directory is removed after
-restore.
+Then delete the block between `<!-- gsd-api-first:start -->` and
+`<!-- gsd-api-first:end -->` in whichever of `CLAUDE.md` / `AGENTS.md` the installer updated.
+Everything is git-tracked, so `git diff` / `git checkout` will show and revert exactly what
+changed.
 
 ## Workflow
 
-For phases that add or change the API surface, use this sequence instead of the
-standard GSD flow:
+For phases that add or change the API surface, insert one step — `/api-spec` — into the
+standard GSD flow. There is no replacement planner; `/api-spec` registers the contract
+where `/gsd-plan-phase` already looks.
 
 ```
 /gsd-spec-phase <N>      lock WHAT (functional requirements)
-/gsd-discuss-phase <N>   lock HOW decisions; API gray areas surface automatically
-/api-phase <N>           design HTTP contract from functional requirements
-/api-plan <N>            plan with the contract auto-ingested
+/gsd-discuss-phase <N>   lock HOW decisions
+/api-spec <N>            design HTTP contract; register it in CONTEXT.md <canonical_refs>
+/gsd-plan-phase <N>      standard GSD planner; reads the contract via <canonical_refs>
 /gsd-execute-phase <N>   execute; Wave 0 must regenerate the OpenAPI spec
 /gsd-verify-work <N>     UAT against the locked contract
 ```
 
-For phases with no API surface change, use the standard GSD sequence — `/api-phase`
-and `/api-plan` are not needed.
+For phases with no API surface change, use the standard GSD sequence — `/api-spec` is
+not needed.
 
-### `/api-phase`
+### `/api-spec`
 
 Reads the project context — existing OpenAPI spec, codebase, phase SPEC.md/CONTEXT.md,
 ADRs, architecture docs — and derives a complete proposed API contract before asking
 the user anything. The interaction is one round: the skill presents the draft and asks
 for corrections, then writes the spec.
+
+It works for both a **new API surface** and a **change to an existing one**. It first
+determines the mode: with no committed baseline it designs greenfield from industry
+practice and defaults; with a baseline present it treats the established conventions
+(naming, envelope, error format, versioning, pagination) as binding constraints, diffs the
+proposal against the current surface, tags each endpoint NEW / MODIFIED / DEPRECATED /
+UNCHANGED, and classifies every change as additive or breaking (breaking changes are gated
+and recorded with migration notes).
 
 Design decisions derived automatically from context:
 
@@ -139,55 +143,30 @@ opening additional question rounds. If any proposed change is **breaking**, a se
 gate asks for explicit approval and a change-ledger entry.
 
 Produces `{phase_dir}/XX-API-SPEC.md` with concrete JSON examples for every endpoint
-and error condition, validated against a REST/HTTP invariant checklist, and commits it
-atomically.
+and error condition, validated against a REST/HTTP invariant checklist. It then registers
+that spec's path in the phase `CONTEXT.md` `<canonical_refs>` block and commits the spec and
+the registration together atomically.
 
-### `/api-plan`
+### Planning (no wrapper)
 
-A thin wrapper around `gsd-plan-phase` that auto-discovers the phase's `API-SPEC.md`
-and any project API governance documents (ADRs, architecture docs, prior contracts from
-earlier phases) and injects them as `--ingest` sources so the planner sees the locked
-contract without manual flag passing.
+There is no separate planning command. Once `/api-spec` has registered the contract in
+`CONTEXT.md` `<canonical_refs>`, you plan the phase with the ordinary `/gsd-plan-phase <N>`.
 
-**Problem solved:** without this wrapper, the planner only sees governance docs if you
-remember `--ingest` on every API phase. Under pressure that step gets dropped, and the
-planner makes implementation decisions that conflict with the design contract. This
-wrapper makes that omission structurally impossible.
+GSD requires planning and implementing agents to read every file listed in
+`<canonical_refs>` before planning or implementing, so the planner, `gsd-phase-researcher`,
+and `gsd-plan-checker` all pick up `API-SPEC.md` automatically — no wrapper command, no
+`--ingest` flag, and nothing extra to remember. Because the reference lives in the phase's
+own sealed context, it can't be bypassed by forgetting a flag or typing the wrong command:
+the only way to plan the phase is through the context that already points at the contract.
 
-Emits an escalating warning if `API-SPEC.md` is missing, and asks the user to confirm
-before proceeding without a contract. All `gsd-plan-phase` flags (`--auto`,
-`--skip-research`, `--tdd`, `--mvp`, etc.) are forwarded verbatim.
-
-### discuss-phase patch
-
-The patched `gsd-discuss-phase` skill reads `.claude/api-gray-areas.md` and surfaces
-its items as additional gray areas when the phase goal involves API changes. The base
-`gsd-discuss-phase` skill is discovered and executed at runtime — project-local GSD
-installs and global installs are both supported. If the base skill cannot be found, the
-patch stops immediately with a clear error message.
-
-The `.claude/api-gray-areas.md` file installed alongside the patch documents the common
-API design gray areas (versioning trigger, idempotency key obligation, bulk endpoint
-decision, error granularity) that should be discussed before planning any API phase.
+The registration is written idempotently, so re-running `/api-spec` (after corrections or a
+breaking-change gate) updates the entry in place rather than adding a duplicate. It is the
+one sanctioned edit to the discuss-owned `CONTEXT.md`; every other block is left untouched.
 
 ## Upgrade safety
 
-The installed files live in `.agents/skills/` and `.claude/`, neither of which is
-touched by GSD core upgrades. If a GSD upgrade changes `gsd-discuss-phase` in a way
-that matters, re-run the installer to refresh the patch:
-
-```bash
-python3 path/to/gsd-api-first/install.py
-```
-
-The original `gsd-discuss-phase/SKILL.md` (if any) is preserved in
-`.agents/gsd-api-first-patches/` and restored on uninstall.
-
-## Saving local changes back to the installer
-
-If you modify any installed file in the project and want to save those changes back
-to the installer source:
-
-```bash
-python3 path/to/gsd-api-first/install.py --update
-```
+The addon is purely additive and shadows no GSD skill, so a GSD upgrade cannot break or
+overwrite it. The `/api-spec` skill lives in `.agents/skills/` and the template in
+`.claude/`, both git-tracked in your project and outside GSD's managed paths
+(`~/.claude/gsd-core/`, `~/.claude/skills/`). Re-run the installer any time to pull the
+latest addon version into a project; use git to review or revert the change.

@@ -1,6 +1,7 @@
 # API Design Contract — Phase {XX}: {Phase Name}
 
-<!-- Produced by /api-phase before planning. Commit this file before running /api-plan.   -->
+<!-- Produced by /api-spec before planning. Its path is registered in CONTEXT.md          -->
+<!-- <canonical_refs>, so /gsd-plan-phase reads it automatically. Commit before planning.  -->
 <!-- All API design decisions are derived from REST/HTTP industry practice by the skill.  -->
 <!-- The user provided only functional requirements; this spec records the derived design. -->
 

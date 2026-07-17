@@ -1,6 +1,6 @@
 ---
-name: api-phase
-description: "Design a complete HTTP API contract from functional requirements. The user provides WHAT the API must do; the skill derives HOW from REST/HTTP industry practice (Google AIP, Zalando, RFC 9457, OpenAPI). Run before /api-plan or /gsd-plan-phase for any phase that adds or changes the API surface."
+name: api-spec
+description: "Design the HTTP API contract for a phase — a new API surface or a change to an existing one — then register it in the phase CONTEXT.md <canonical_refs> so the planner reads it automatically. The user provides WHAT the API must do; the skill derives HOW from REST/HTTP industry practice (Google AIP, Zalando, RFC 9457, OpenAPI), conforming to any existing conventions and classifying every change as additive or breaking. Run before /gsd-plan-phase for any phase that adds or changes the API surface."
 argument-hint: "<phase>"
 allowed-tools:
   - Read
@@ -12,7 +12,11 @@ allowed-tools:
 ---
 
 <objective>
-Produce a locked HTTP API design contract (API-SPEC.md) before the planner runs.
+Produce a locked HTTP API design contract (API-SPEC.md) before the planner runs — whether
+this phase creates a **new API surface** or **changes an existing one**. Both are first-class:
+for a new surface the design is derived from industry practice and defaults; for an existing
+surface the skill conforms to the established conventions, diffs the proposal against the
+current surface, and classifies every change as additive or breaking.
 
 **The user's job:** Describe the functional requirements — what resources exist, what operations are needed, who the consumers are, and what the domain-specific error conditions are.
 
@@ -20,7 +24,7 @@ Produce a locked HTTP API design contract (API-SPEC.md) before the planner runs.
 
 **Design authority:** Google API Design Guide, Zalando RESTful API Guidelines, Microsoft Azure REST API Best Practices, RFC 9457 (Problem Details), OpenAPI Specification best practices.
 
-**Position in workflow:** spec-phase → discuss-phase → **api-phase** → api-plan → execute-phase → verify
+**Position in workflow:** spec-phase → discuss-phase → **api-spec** → gsd-plan-phase → execute-phase → verify
 </objective>
 
 <context>
@@ -34,9 +38,9 @@ Execute every step in order. Do not skip any.
 
 Before doing anything else, verify:
 
-1. **Phase argument provided:** $ARGUMENTS must not be empty. If it is, stop and tell the user: `Usage: /api-phase <phase-number>`
+1. **Phase argument provided:** $ARGUMENTS must not be empty. If it is, stop and tell the user: `Usage: /api-spec <phase-number>`
 
-2. **GSD initialized:** `.planning/` directory must exist and `ROADMAP.md` must be readable at the project root. If either is missing, stop and tell the user: `GSD is not initialized in this project. Run /gsd-new-project or ensure ROADMAP.md and .planning/ exist before using /api-phase.`
+2. **GSD initialized:** `.planning/` directory must exist and `ROADMAP.md` must be readable at the project root. If either is missing, stop and tell the user: `GSD is not initialized in this project. Run /gsd-new-project or ensure ROADMAP.md and .planning/ exist before using /api-spec.`
 
 If any check fails, stop immediately — do not proceed to Step 1.
 
@@ -62,21 +66,46 @@ Read whichever of these exist. Do not assume any specific paths — check each p
 
 Note what was found. Derive the project's established patterns from any existing API surface (envelope shape, error format, naming convention). Where no pattern is established yet, the skill decides based on consumer type (Step 4).
 
-## Step 3 — Summarise existing API surface
+## Step 3 — Determine mode and summarise the existing surface
 
-If an OpenAPI spec was found, print a compact table of the current surface:
+**Determine the mode** from what Step 2 found, and state it explicitly — it drives Steps 4, 6, and 9:
 
-| Path | Method(s) | Brief purpose |
-|------|-----------|---------------|
-| ...  | ...       | ...           |
+- **NEW API** — no committed OpenAPI baseline and no prior `*-API-SPEC.md` covers the
+  resources this phase touches. The design is derived from industry practice and defaults.
+- **EXISTING API** — a committed baseline (OpenAPI spec and/or a prior contract) exists and
+  this phase adds to or modifies that surface. Established conventions become **hard
+  constraints**, and every change is diffed against the baseline and classified (Steps 6–7).
 
-State the committed spec version. Note established patterns (envelope shape, error format, naming). If no spec exists: note that this is a greenfield API surface.
+A phase is EXISTING even when it only adds brand-new endpoints: if a baseline exists, the new
+endpoints must conform to it. A single phase can also be mixed (some endpoints modify existing
+ones, others are new) — treat it as EXISTING and mark each endpoint's status in Steps 6 and 9.
+
+**Summarise the baseline.** If an OpenAPI spec and/or prior contract was found, print a
+compact table of the current surface relevant to this phase:
+
+| Path | Method(s) | Brief purpose | Relationship to this phase |
+|------|-----------|---------------|----------------------------|
+| ...  | ...       | ...           | new / modified / unchanged |
+
+State the committed spec version and the established patterns (envelope shape, error format,
+naming convention, versioning, pagination). If no baseline exists, state: **mode = NEW API
+(greenfield surface)** and skip the table.
 
 ## Step 4 — Derive design draft from project context
 
 Do not ask the user any questions yet. Read the context gathered in Steps 1–3 plus the
 codebase and infer every design decision using the rules below. The goal is to produce
 a complete proposed API contract before the user is asked anything.
+
+**Mode drives the rules below.** In **EXISTING API** mode the established conventions from
+Step 3 (naming, envelope, error format, versioning, pagination, identifiers) are **binding
+constraints** — match them exactly even where a different greenfield default would otherwise
+apply, and reuse existing request/response shapes for anything the change extends. The
+greenfield defaults and heuristics below apply in **NEW API** mode, or to a genuinely new,
+independent resource group within an existing API that shares no shape with current
+endpoints. Never silently introduce a second convention into an existing surface; if the
+existing surface violates a best practice, conform to it and record the deviation as a note
+rather than "fixing" it inside an unrelated change (a convention migration is its own phase).
 
 **Consumer type** — infer from:
 - Presence of a frontend (React/Vue/Angular/Next.js files, `package.json` with browser deps) → browser/web
@@ -225,9 +254,14 @@ decision not covered by the inference rules, apply industry practice to resolve 
 do not open a new question round unless the user's input is contradictory or
 ambiguous.
 
-## Step 6 — Classify every change
+## Step 6 — Classify every change against the baseline
 
-For any change to the existing API surface, apply this taxonomy:
+In **NEW API** mode there is no baseline, so every endpoint is new and additive by
+definition — state that and skip the breaking-change gate (Step 7).
+
+In **EXISTING API** mode, diff every proposed endpoint, parameter, response field, status
+code, and error against the baseline captured in Steps 2–3, and classify each using this
+taxonomy:
 
 **ADDITIVE (safe — no gate required):**
 - New endpoint not in the current spec
@@ -308,27 +342,81 @@ Apply these checks to the proposed contract. Flag violations as blockers.
 
 Fill the `.claude/templates/API-SPEC.md` template (if it exists in the project) or use the standard sections listed in the template. Write to `{phase_dir}/XX-API-SPEC.md`.
 
-Include:
+State the **mode** (NEW API / EXISTING API) at the top of the spec. Then include:
+- Every endpoint the phase touches, each tagged with its status — **NEW**, **MODIFIED**,
+  **DEPRECATED**, or **UNCHANGED (referenced)**. Unchanged endpoints are referenced by path
+  for context so the planner sees the whole surface, not redefined in full.
 - A concrete JSON example for every new or changed endpoint — use realistic values, not placeholder strings
 - One ProblemDetail example per named error condition
 - The derived design decisions (HTTP methods, status codes, envelope shape, naming convention) as explicit statements, not implicit
 - All null semantics decisions as a table
 - The invariant sign-off checklist
 
-## Step 10 — Commit atomically
+**In EXISTING API mode**, also include a **"Changes to existing surface"** section: the
+additive/breaking classification table from Step 6 and, for every breaking change, the
+change-ledger entry plus a short migration/deprecation note (what consumers must do, and any
+versioning or sunset plan). For MODIFIED endpoints, show the before → after so the planner
+can see the delta, not just the new state. In NEW API mode, state that there is no prior
+surface and this section is not applicable.
+
+## Step 10 — Register the contract in CONTEXT.md (`<canonical_refs>`)
+
+This is what makes `gsd-plan-phase` pick up the contract with **no wrapper and no
+`--ingest`**. The planner does not auto-discover arbitrary documents; it reads the phase
+`CONTEXT.md` and treats the file paths listed in its `<canonical_refs>` block as required
+reading (GSD rule: "agents must read listed files before planning or implementing").
+Registering the spec there routes it to the planner, the researcher, and the
+plan-checker automatically.
+
+`CONTEXT.md` is normally a sealed, discuss-owned artifact. This one entry is the single
+sanctioned exception — keep the edit surgical and touch nothing else.
+
+1. **Locate** the phase context at `{phase_dir}/XX-CONTEXT.md`.
+   - If it does not exist, warn:
+     `CONTEXT.md not found for phase XX — run /gsd-discuss-phase XX first so the contract can be registered for the planner.`
+     Then skip the rest of this step (the spec is still written and committed in Step 11).
+
+2. **Read** `CONTEXT.md` and find the `<canonical_refs> … </canonical_refs>` block.
+   - If the block is missing, insert one immediately after the `<decisions>` block (or at
+     end of file if `<decisions>` is absent), with the standard header comment and the
+     single entry from step 3.
+
+3. **Build the entry** — a bullet in the block's existing style, with the path RELATIVE
+   to the project root:
+   ``- `{project-relative path to XX-API-SPEC.md}` — Locked HTTP API design contract for this phase (produced by /api-spec)``
+
+4. **Write idempotently** — this step may run again (corrections, breaking-change gate,
+   re-derivation):
+   - If a line already references this phase's `XX-API-SPEC.md`, **replace that line in
+     place** — never add a duplicate.
+   - Otherwise, append the entry as the last item inside `<canonical_refs>`.
+   - Do **not** reorder, reformat, or modify any other entry or block. Preserve all
+     existing content, spacing, and the `<canonical_refs>` header comment exactly.
+
+5. Report: `Registered {project-relative path} in CONTEXT.md <canonical_refs>`.
+
+## Step 11 — Commit atomically
+
+Commit the spec and the CONTEXT.md registration together so the contract and its planner
+hand-off land in one revision:
 
 ```bash
-git add {phase_dir}/XX-API-SPEC.md
+git add {phase_dir}/XX-API-SPEC.md {phase_dir}/XX-CONTEXT.md
 git commit -m "contract(phase-XX): API design contract — <one-line summary>"
 ```
 
-## Step 11 — Report and next step
+(If CONTEXT.md was absent and Step 10 was skipped, `git add` the spec only.)
+
+## Step 12 — Report and next step
 
 Print:
 - N additive changes, M breaking changes
 - Gate result
 - Path of written spec
-- Next step: `/api-plan <phase>` — auto-discovers ADR/governance docs and this spec, passes them to the planner
+- Whether the contract was registered in `CONTEXT.md <canonical_refs>` (or the warning if CONTEXT.md was missing)
+- Next step: `/gsd-plan-phase <phase>` — the standard GSD planner. It reads this contract
+  automatically via the `<canonical_refs>` entry; no `/api-plan`, wrapper, or `--ingest`
+  flag is needed.
 </process>
 
 <success_criteria>
@@ -336,10 +424,13 @@ Print:
 - All design decisions derived from project context and industry practice before asking the user anything
 - The single confirmation question includes the complete draft contract and at most three open questions
 - User corrections applied without opening additional question rounds
-- Every proposed change classified as additive or breaking
-- Breaking changes explicitly approved with change-ledger entry recorded
+- Mode (NEW API vs EXISTING API) determined and stated; in EXISTING API mode the established conventions are treated as binding constraints and the proposal is diffed against the baseline
+- Every proposed change classified as additive or breaking (in NEW API mode, all endpoints are new/additive and the breaking-change gate is skipped)
+- Endpoints in the spec tagged NEW / MODIFIED / DEPRECATED / UNCHANGED, with before→after deltas for modified endpoints in EXISTING API mode
+- Breaking changes explicitly approved with change-ledger entry recorded, and migration/deprecation notes captured in the spec
 - All invariant groups checked (or violations resolved) before the spec is written
 - Concrete JSON examples for every endpoint and error condition
-- API-SPEC.md committed atomically
-- User knows next step is `/api-plan <phase>`
+- The written API-SPEC.md path registered in the phase `CONTEXT.md <canonical_refs>` block (idempotently; no duplicate entry on re-run), or a clear warning if CONTEXT.md was absent
+- API-SPEC.md and the CONTEXT.md registration committed atomically
+- User knows next step is `/gsd-plan-phase <phase>`, which reads the contract automatically via `<canonical_refs>`
 </success_criteria>
