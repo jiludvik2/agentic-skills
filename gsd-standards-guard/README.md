@@ -17,7 +17,8 @@ not a discretionary instruction), **selective** (only the rules a given diff can
 > engine, hook, skills, `install.sh`, the `index.yaml` *schema*, and the ARCHITECTURE.md *authoring
 > contract*). The **rule corpus** (the populated `docs/adr/index.yaml` and `docs/ARCHITECTURE.md`
 > ledger) is *per-project data* — each adopting project authors its own rows against the schema.
-> `install.sh` seeds an empty `index.yaml` + a contract skeleton; `/write-adr` grows them.
+> `install.sh` seeds an empty `index.yaml` + `ARCHITECTURE.md`/`STANDARDS.md` skeletons (only when
+> absent); `/write-adr` grows them.
 
 > **Claude Code only.** This addon targets Claude Code — native `PreToolUse` hooks wired through
 > `.claude/settings.json`. Support for other agents is out of scope. (Project-owned files live under
@@ -107,16 +108,19 @@ project-owned files; the installer only performs the edits that touch shared con
 2. adds/replaces our `hooks.PreToolUse` **JSON entry** in `.claude/settings.json` (keyed by the hook
    command — strict JSON, so no comment markers; GSD's own merge writer preserves it);
 3. inserts the marked directive block into `CLAUDE.md`;
-4. verifies `docs/adr/index.yaml` exists and parses (fail loud otherwise);
+4. seeds `docs/adr/index.yaml`, `docs/ARCHITECTURE.md`, and `docs/STANDARDS.md` skeletons **only if
+   absent** (never overwriting authored docs), then validates that `index.yaml` parses + lints;
 5. never touches any file under `.claude/gsd-core/` or `.claude/agents/`.
 
-The `CLAUDE.md` edit is delimited by `# >>> gsd-standards-guard >>>` / `# <<< gsd-standards-guard <<<`
-comment markers; the `settings.json` edit is a JSON entry matched by command path. Both are
+The `CLAUDE.md` edit is delimited by `<!-- gsd-standards-guard:begin -->` /
+`<!-- gsd-standards-guard:end -->` HTML-comment markers (invisible in rendered Markdown; matches the
+`gsd-api-first` convention rather than the spec's original `# >>>` sketch); the `settings.json` edit
+is a JSON entry matched by the hook-command path (matcher `Read|Grep|Glob|Edit|Write`). Both are
 add-or-replace, so re-running is idempotent.
 
 ## Usage
 
-- **Automatic** — every `/gsd:code-review` run: the hook injects the standing rules whose file-globs
+- **Automatic** — every `/gsd-code-review` run: the hook injects the standing rules whose file-globs
   match the changed files, plus the enforcement directive. Findings cite the source
   (e.g. *"violates ADR-024 — view DDL must run at the composition root, not in a repository"*).
 - **`/standards-audit`** — manual whole-codebase compliance sweep. Runs the deterministic checks over
