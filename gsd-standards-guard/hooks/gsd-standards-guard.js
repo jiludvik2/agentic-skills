@@ -106,7 +106,7 @@ function main() {
 
   let engine;
   try {
-    engine = require(path.join(projectDir, '.agents', 'skills', 'gsd-standards-guard', 'engine.js'));
+    engine = require(path.join(projectDir, '.claude', 'skills', 'gsd-standards-guard', 'engine.js'));
   } catch {
     return; // engine not installed — fail open
   }

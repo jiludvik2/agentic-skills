@@ -123,7 +123,7 @@ writing it:
 Then validate:
 
 ```bash
-node .agents/skills/gsd-standards-guard/engine.js --lint --pretty
+node .claude/skills/gsd-standards-guard/engine.js --lint --pretty
 ```
 
 ### 5. Register in CONTEXT.md and report

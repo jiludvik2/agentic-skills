@@ -21,9 +21,10 @@ not a discretionary instruction), **selective** (only the rules a given diff can
 > absent); `/write-adr` grows them.
 
 > **Claude Code only.** This addon targets Claude Code — native `PreToolUse` hooks wired through
-> `.claude/settings.json`. Support for other agents is out of scope. (Project-owned files live under
-> `.agents/` purely for upgrade-safety — that tree sits outside GSD's file manifest — not for
-> cross-agent reach.)
+> `.claude/settings.json`, and skills discovered from `.claude/skills/`. Support for other agents is
+> out of scope. Project-owned files live under `.claude/skills/` (where Claude Code discovers skills)
+> and `.claude/hooks/` — both sit outside GSD's file manifest (GSD only manages `.claude/gsd-core/`
+> and `.claude/agents/`), so upgrades never touch them.
 
 ## Why the redesign
 
@@ -64,10 +65,10 @@ Both tiers run at both scopes.
 
 | Path | Role |
 |---|---|
-| `.agents/skills/gsd-standards-guard/` | shared rule engine — glob-match + deterministic `check:` tier |
-| `.agents/hooks/gsd-standards-guard.js` | thin `PreToolUse` caller → engine `--scope=diff` |
-| `.agents/skills/standards-audit/` | manual whole-codebase audit → engine `--scope=all` |
-| `.agents/skills/write-adr/` | ADR generator (house Nygard format, width-detecting numbering) |
+| `.claude/skills/gsd-standards-guard/` | shared rule engine — glob-match + deterministic `check:` tier |
+| `.claude/hooks/gsd-standards-guard.js` | thin `PreToolUse` caller → engine `--scope=diff` |
+| `.claude/skills/standards-audit/` | manual whole-codebase audit → engine `--scope=all` |
+| `.claude/skills/write-adr/` | ADR generator (house Nygard format, width-detecting numbering) |
 | `.claude/settings.json` → PreToolUse JSON entry | wires the hook |
 | `CLAUDE.md` → marked block | main-agent backstop directive |
 | `docs/ARCHITECTURE.md` | standing-rule ledger (authored) |
@@ -104,7 +105,7 @@ project-owned files; the installer only performs the edits that touch shared con
 
 `install.sh` (idempotent):
 
-1. copies the skills + hook into the project's `.agents/`;
+1. copies the skills into the project's `.claude/skills/` and the hook into `.claude/hooks/`;
 2. adds/replaces our `hooks.PreToolUse` **JSON entry** in `.claude/settings.json` (keyed by the hook
    command — strict JSON, so no comment markers; GSD's own merge writer preserves it);
 3. inserts the marked directive block into `CLAUDE.md`;
@@ -164,8 +165,9 @@ gsd-standards-guard/
   gsd-standards-guard-redesign.md    # the source-of-truth spec
 ```
 
-`install.sh` maps `skills/*` and `hooks/*` into the target project's `.agents/`, wires the
-PreToolUse entry via `templates/merge-settings.js`, and seeds the docs contract. Run the tests with:
+`install.sh` maps `skills/*` into the target project's `.claude/skills/` and `hooks/*` into
+`.claude/hooks/`, wires the PreToolUse entry via `templates/merge-settings.js`, and seeds the docs
+contract. Run the tests with:
 
 ```bash
 node --test tests/*.test.js

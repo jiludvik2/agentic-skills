@@ -5,7 +5,7 @@
 > never restates a decision an ADR owns — it points. Decisions live in
 > `docs/adr/*` (binding, append-only); this file and `docs/adr/index.yaml` are
 > two renderings of the same standing rules and must agree row-for-row. Run
-> `node .agents/skills/gsd-standards-guard/engine.js --lint` after edits.
+> `node .claude/skills/gsd-standards-guard/engine.js --lint` after edits.
 
 ## Governance
 

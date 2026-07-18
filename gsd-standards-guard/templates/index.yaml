@@ -6,7 +6,7 @@
 # SEED (schema + empty buckets) — replace the examples with your own rows.
 #
 # The engine reads a scoped YAML subset (this schema), not arbitrary YAML. Keep
-# the shape below; run `node .agents/skills/gsd-standards-guard/engine.js --lint`
+# the shape below; run `node .claude/skills/gsd-standards-guard/engine.js --lint`
 # after every edit.
 #
 # ── Schema ────────────────────────────────────────────────────────────────

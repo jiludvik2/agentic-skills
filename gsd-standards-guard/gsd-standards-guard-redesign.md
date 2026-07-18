@@ -78,8 +78,11 @@ Backups sit in `.claude/gsd-local-patches/` with a `backup-meta.json`
   `capability-registry.cjs`): it manages GSD's own hooks across runtimes and exposes **no public
   "register my hook" API.** Hooking into it would be another vendor-internal patch. ⇒ Use Claude
   Code's *native* hook surface, not GSD's.
-- **`.agents/skills/` is project-owned, git-tracked, and absent from GSD's manifest** — GSD never
-  touches it. `.claude/settings.json` is **not a manifested artifact** either (the Claude capability
+- **`.claude/skills/` and `.claude/hooks/` are project-owned, git-tracked, and absent from GSD's
+  manifest** — GSD manages only `.claude/gsd-core/` and `.claude/agents/`, and prunes by
+  marker/signature (below), so it never deletes our foreign files. `.claude/skills/` is also where
+  Claude Code discovers skills, so `/write-adr` and `/standards-audit` are invokable there (they
+  would not be under `.agents/`). `.claude/settings.json` is **not a manifested artifact** either (the Claude capability
   manifests only commands, agents, and skills). GSD *does* write its own hook entries into
   `settings.json` (`writesSharedSettings: true`), but its writer **merges and preserves foreign hook
   entries** — it JSON-parses the file, keeps user/legacy entries, and strips only entries it
@@ -120,8 +123,10 @@ Backups sit in `.claude/gsd-local-patches/` with a `backup-meta.json`
   overwrites an existing file.)*
 - **Cross-agent portability.** This skill targets **Claude Code only** — native `PreToolUse`
   hooks wired through `.claude/settings.json`. Support for other agents (Copilot, Gemini, Cursor,
-  …) is explicitly out of scope. Project-owned files still live under `.agents/` purely for
-  **upgrade-safety** (that tree sits outside GSD's manifest — §2), not for cross-agent reach.
+  …) is explicitly out of scope. Project-owned files live under `.claude/skills/` (where Claude Code
+  discovers skills) and `.claude/hooks/`; both are **upgrade-safe** because GSD's manifest only
+  manages `.claude/gsd-core/` and `.claude/agents/`, and its prune-migrations target GSD-managed
+  artifacts by marker/signature (§2), not arbitrary foreign files.
 
 ## 4. Design principles
 
@@ -159,13 +164,14 @@ own rows against the schema.
 
 **Code vs prompt.** The engine (`gsd-standards-guard`), the hook, and the installer (`install.sh`)
 are **code** — plain scripts, not agent-run prompts. Only `/standards-audit` and `/write-adr` are
-prompt-skills (they orchestrate subagents / generate prose). The engine lives under `.agents/` as an
-executable the hook and the audit invoke; it is not a `SKILL.md`.
+prompt-skills (they orchestrate subagents / generate prose). The engine lives under
+`.claude/skills/gsd-standards-guard/` as an executable the hook and the audit invoke; it is not a
+`SKILL.md`.
 
 ### 5.1 Code-review enforcement — native hook (primary mechanism)
 
 **Shared engine.** The hook is a thin caller of a project-owned rule engine, `gsd-standards-guard`
-(`.agents/skills/gsd-standards-guard/`). The engine is the **single authority** for: given a file
+(`.claude/skills/gsd-standards-guard/`). The engine is the **single authority** for: given a file
 set, (a) which standing rules apply (glob-match against `docs/adr/index.yaml`, §5.7), and (b)
 where a rule carries a `check:` assertion, whether the file set violates it (deterministic tier).
 The engine takes a `--scope` (`diff` | `all`) that only selects *how the file set is obtained*.
@@ -174,8 +180,10 @@ whole-codebase audit (`--scope=all`, §5.8). One rule table, one matcher, one co
 callers **cannot drift** in what they enforce, and neither depends on the other.
 
 - **Type:** Claude Code `PreToolUse` hook, project-owned.
-- **Script:** `.agents/hooks/gsd-standards-guard.js` — **not** `.claude/hooks/` (20 GSD-managed,
-  `{{GSD_VERSION}}`-templated scripts live there, and prune-migrations delete orphans).
+- **Script:** `.claude/hooks/gsd-standards-guard.js`. GSD ships its own `{{GSD_VERSION}}`-templated
+  scripts here, but its prune-migrations delete only GSD-managed orphans (identified by
+  marker/signature, the same discipline as the settings.json writer — §2), so a foreign,
+  non-templated script co-exists safely. Referenced from settings.json by `$CLAUDE_PROJECT_DIR` path.
 - **Config:** a `hooks.PreToolUse` **JSON entry** in `.claude/settings.json`, referencing the script
   via `$CLAUDE_PROJECT_DIR` (added/replaced idempotently by command path; GSD's merge writer
   preserves it — §2).
@@ -217,7 +225,7 @@ callers **cannot drift** in what they enforce, and neither depends on the other.
 
 ### 5.2 ADR generation — project-owned `/write-adr` skill
 
-- **Location:** `.agents/skills/write-adr/SKILL.md` (+ `rules/` if the template grows).
+- **Location:** `.claude/skills/write-adr/SKILL.md` (+ `rules/` if the template grows).
 - **Content:** the house Nygard format and section headings ported **verbatim** from the
   current patched `write-adrs.md` — ADR output does not change.
 - **Numbering (width-detecting):** read the existing prefix width from `docs/adr/` (the digit-count
@@ -324,7 +332,7 @@ The second caller of the §5.1 engine, for periodic full-codebase compliance swe
 scheduled, or CI). It **re-homes the old installer's `--audit` flag** — which was a patch to
 `code-review.md` — into a project-owned command with **zero vendor surface**.
 
-- **Location:** `.agents/skills/standards-audit/SKILL.md`.
+- **Location:** `.claude/skills/standards-audit/SKILL.md`.
 - **Trigger:** manual only (`/standards-audit`). Not automatic, not wired into the hook or the
   phase workflow — it owns its whole invocation. (Manual invocation is an accepted design point:
   audits are periodic, not per-change.)
@@ -350,12 +358,13 @@ scheduled, or CI). It **re-homes the old installer's `--audit` flag** — which 
 
 - **Skill-first, thin shell installer** (mirrors the `gsd-api-first` layout: `skills/`,
   `templates/`, a small `install.sh`). The skills **are** the deliverable — the engine, `/write-adr`,
-  and `/standards-audit` are ordinary project-owned files under `.agents/skills/`, and the hook is
-  a plain script under `.agents/hooks/`; once present in the project they need no "activation"
+  and `/standards-audit` are ordinary project-owned files under `.claude/skills/`, and the hook is
+  a plain script under `.claude/hooks/`; once present in the project they need no "activation"
   (Claude Code discovers the skills; the hook is referenced by path). The installer exists only for
   the two things that are *not* self-contained files — editing shared config. It is a small,
   idempotent **`install.sh`** (Bash, no Python) that:
-  1. copies the package's `skills/` + hook into the target project's `.agents/`;
+  1. copies the package's `skills/` into the target project's `.claude/skills/` and the hook into
+     `.claude/hooks/`;
   2. adds/replaces our `hooks.PreToolUse` **JSON entry** in `.claude/settings.json` — a proper JSON
      entry keyed by the hook command (settings.json is strict JSON, so no comment markers; GSD's own
      merge writer preserves it);
@@ -401,10 +410,10 @@ manifest); the split is about *who authors the content*, not who owns the file.
 
 | Path | Layer | Role |
 |---|---|---|
-| `.agents/skills/gsd-standards-guard/` | package | **shared rule engine** — glob-match + deterministic `check:` tier; sole authority (§5.1) |
-| `.agents/hooks/gsd-standards-guard.js` | package | thin `PreToolUse` caller → engine `--scope=diff` |
-| `.agents/skills/standards-audit/` | package | manual whole-codebase audit → engine `--scope=all` (§5.8) |
-| `.agents/skills/write-adr/` | package | ADR generator (Nygard, **width-detecting** — §5.2) |
+| `.claude/skills/gsd-standards-guard/` | package | **shared rule engine** — glob-match + deterministic `check:` tier; sole authority (§5.1) |
+| `.claude/hooks/gsd-standards-guard.js` | package | thin `PreToolUse` caller → engine `--scope=diff` |
+| `.claude/skills/standards-audit/` | package | manual whole-codebase audit → engine `--scope=all` (§5.8) |
+| `.claude/skills/write-adr/` | package | ADR generator (Nygard, **width-detecting** — §5.2) |
 | `.claude/settings.json` → PreToolUse JSON entry | package (installer-written) | wires the hook; GSD merges & preserves foreign hooks |
 | `CLAUDE.md` → marked block | package (installer-written) | main-agent backstop directive (fixed text, §5.6) |
 | `install.sh` + `skills/` + `templates/` | package (repo) | thin shell installer + this spec |

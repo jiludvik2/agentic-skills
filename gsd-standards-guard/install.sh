@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # install.sh — install (or uninstall) the gsd-standards-guard addon into a GSD
 # project. Zero vendor patches: everything lands in project-owned, upgrade-safe
-# locations (.agents/, .claude/settings.json, docs/, CLAUDE.md). See README.
+# locations (.claude/skills/, .claude/hooks/, .claude/settings.json, docs/,
+# CLAUDE.md). See README.
 #
 # Usage:
 #   ./install.sh [--project PATH]     install into PATH (default: current dir)
 #   ./install.sh --uninstall [--project PATH]
 #
 # What it does (install):
-#   1. copies the skills + hook into PATH/.agents/
+#   1. copies the skills into PATH/.claude/skills/ and the hook into
+#      PATH/.claude/hooks/ (.claude/skills/ is where Claude Code discovers skills;
+#      it sits outside GSD's manifest, so upgrades never touch it)
 #   2. adds/replaces our hooks.PreToolUse entry in PATH/.claude/settings.json
 #      (preserving every other entry — GSD's merge writer preserves it in turn)
 #   3. inserts the marked directive block into PATH/CLAUDE.md
@@ -34,7 +37,7 @@ done
 PROJECT="$(cd "$PROJECT" && pwd)"
 BEGIN="<!-- gsd-standards-guard:begin -->"
 END="<!-- gsd-standards-guard:end -->"
-HOOK_CMD='node "$CLAUDE_PROJECT_DIR/.agents/hooks/gsd-standards-guard.js"'
+HOOK_CMD='node "$CLAUDE_PROJECT_DIR/.claude/hooks/gsd-standards-guard.js"'
 SETTINGS="$PROJECT/.claude/settings.json"
 CLAUDE_MD="$PROJECT/CLAUDE.md"
 
@@ -51,10 +54,10 @@ strip_block() {
 
 if [ "$UNINSTALL" -eq 1 ]; then
   echo "gsd-standards-guard: uninstalling from $PROJECT"
-  rm -rf "$PROJECT/.agents/skills/gsd-standards-guard" \
-         "$PROJECT/.agents/skills/write-adr" \
-         "$PROJECT/.agents/skills/standards-audit" \
-         "$PROJECT/.agents/hooks/gsd-standards-guard.js"
+  rm -rf "$PROJECT/.claude/skills/gsd-standards-guard" \
+         "$PROJECT/.claude/skills/write-adr" \
+         "$PROJECT/.claude/skills/standards-audit" \
+         "$PROJECT/.claude/hooks/gsd-standards-guard.js"
   if [ -f "$SETTINGS" ]; then
     node "$SRC/templates/merge-settings.js" "$SETTINGS" "" --remove
   fi
@@ -71,13 +74,13 @@ fi
 
 echo "gsd-standards-guard: installing into $PROJECT"
 
-# 1. Copy the skills + hook into .agents/.
-mkdir -p "$PROJECT/.agents/skills" "$PROJECT/.agents/hooks"
-cp -R "$SRC/skills/gsd-standards-guard" "$PROJECT/.agents/skills/"
-cp -R "$SRC/skills/write-adr"           "$PROJECT/.agents/skills/"
-cp -R "$SRC/skills/standards-audit"     "$PROJECT/.agents/skills/"
-cp    "$SRC/hooks/gsd-standards-guard.js" "$PROJECT/.agents/hooks/gsd-standards-guard.js"
-echo "  copied engine + hook + skills → .agents/"
+# 1. Copy the skills into .claude/skills/ and the hook into .claude/hooks/.
+mkdir -p "$PROJECT/.claude/skills" "$PROJECT/.claude/hooks"
+cp -R "$SRC/skills/gsd-standards-guard" "$PROJECT/.claude/skills/"
+cp -R "$SRC/skills/write-adr"           "$PROJECT/.claude/skills/"
+cp -R "$SRC/skills/standards-audit"     "$PROJECT/.claude/skills/"
+cp    "$SRC/hooks/gsd-standards-guard.js" "$PROJECT/.claude/hooks/gsd-standards-guard.js"
+echo "  copied engine + skills → .claude/skills/, hook → .claude/hooks/"
 
 # 2. Wire the PreToolUse hook in settings.json (add-or-replace, preserve the rest).
 node "$SRC/templates/merge-settings.js" "$SETTINGS" "$HOOK_CMD"
@@ -110,13 +113,13 @@ if [ ! -f "$PROJECT/docs/STANDARDS.md" ]; then
   cp "$SRC/templates/STANDARDS.md" "$PROJECT/docs/STANDARDS.md"
   echo "  seeded docs/STANDARDS.md (code-conventions skeleton)"
 fi
-if node "$PROJECT/.agents/skills/gsd-standards-guard/engine.js" --lint --project "$PROJECT" >/dev/null 2>&1; then
+if node "$PROJECT/.claude/skills/gsd-standards-guard/engine.js" --lint --project "$PROJECT" >/dev/null 2>&1; then
   echo "  index.yaml parses + lints ✓"
 else
   # Lint is non-fatal (integrity gaps are the project's to fix), but a hard
   # parse failure means the hook would degrade — surface it either way.
   echo "  NOTE: index.yaml lint reported issues — run:"
-  echo "        node .agents/skills/gsd-standards-guard/engine.js --lint --pretty"
+  echo "        node .claude/skills/gsd-standards-guard/engine.js --lint --pretty"
 fi
 
 echo "done. Nothing under .claude/gsd-core/ or .claude/agents/ was touched."

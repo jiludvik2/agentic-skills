@@ -23,7 +23,7 @@ invocation. Audits are periodic, not per-change.
 
 ```bash
 [ -f docs/adr/index.yaml ] || { echo "standards-audit: docs/adr/index.yaml missing — nothing to enforce"; exit 1; }
-node .agents/skills/gsd-standards-guard/engine.js --lint --pretty || echo "WARN: index lint failed — results may be incomplete"
+node .claude/skills/gsd-standards-guard/engine.js --lint --pretty || echo "WARN: index lint failed — results may be incomplete"
 ```
 
 ## 2. Deterministic tier (CI-gateable core)
@@ -33,7 +33,7 @@ This tier needs no model and is the hard gate — it **exits non-zero** on any
 violation.
 
 ```bash
-node .agents/skills/gsd-standards-guard/engine.js --scope=all --exit-code --format=pretty
+node .claude/skills/gsd-standards-guard/engine.js --scope=all --exit-code --format=pretty
 DET_STATUS=$?   # 0 = clean, 1 = at least one deterministic violation
 ```
 
@@ -41,7 +41,7 @@ Capture the JSON form too, for the rollup and for splitting semantic from
 deterministic rules:
 
 ```bash
-node .agents/skills/gsd-standards-guard/engine.js --scope=all --format=json > /tmp/standards-audit.json
+node .claude/skills/gsd-standards-guard/engine.js --scope=all --format=json > /tmp/standards-audit.json
 ```
 
 Every `violations[]` entry names the ADR, file, line, and forbidden/required
