@@ -1,6 +1,6 @@
 ---
 name: standards-audit
-description: "Run a whole-codebase standards-compliance sweep — the manual counterpart to the per-change code-review hook. Calls the gsd-standards-guard engine with --scope=all: a deterministic tier that mechanically runs every check: rule over the tracked tree (CI-gateable, exits non-zero on any violation) and a semantic tier that spawns the gsd-code-reviewer per rule-area with only that area's rules injected. Use pre-release, on a schedule, or in CI. Re-homes the old installer's --audit flag as a project-owned command with zero GSD vendor surface."
+description: "Run a whole-codebase standards-compliance sweep — the manual counterpart to the per-change code-review hook. Calls the gsd-standards-guard engine with --scope=all: a deterministic tier that mechanically runs every check: rule over the tracked tree (CI-gateable, exits non-zero on any violation) and a semantic tier that spawns the gsd-code-reviewer per rule-area with only that area's rules injected. Every finding is assessed for severity (error/warning/info) against the engine's shared rubric and the rollup groups by it. Use pre-release, on a schedule, or in CI. Re-homes the old installer's --audit flag as a project-owned command with zero GSD vendor surface."
 argument-hint: ""
 allowed-tools:
   - Read
@@ -44,8 +44,9 @@ deterministic rules:
 node .claude/skills/gsd-standards-guard/engine.js --scope=all --format=json > /tmp/standards-audit.json
 ```
 
-Every `violations[]` entry names the ADR, file, line, and forbidden/required
-pattern — report each verbatim.
+Every `violations[]` entry names the ADR, file, line, forbidden/required
+pattern, and a `severity` (always `error` — a deterministic breach is
+mechanical, with no model judgment to soften it). Report each verbatim.
 
 ## 3. Semantic tier (per-area reviewer passes)
 
@@ -56,13 +57,21 @@ native GSD agent — invoking it is not a patch) with **only that area's rules**
 injected. Chunking by area keeps each pass selective and token-minimal, exactly
 like the hook.
 
+Pull the shared severity rubric once, so the audit judges severity by the same
+scale the hook injects (single source — the two cannot drift):
+
+```bash
+RUBRIC=$(node .claude/skills/gsd-standards-guard/engine.js --severity-rubric)
+```
+
 For each area:
 
 - Give the subagent the area's rule lines (`ADR-<n> (<area>): <rule>`), the
-  enforcement directive, and the list of files that matched that area's globs
-  (`matchedRules[].matchedFiles` from the JSON).
-- Ask it to report findings citing the ADR, in the same shape the hook produces:
-  `violates ADR-<n> — <rule>` with file:line.
+  enforcement directive, the `$RUBRIC` text, and the list of files that matched
+  that area's globs (`matchedRules[].matchedFiles` from the JSON).
+- Ask it to report findings citing the ADR **and tagging each with a severity**,
+  in the same shape the hook produces: `[<severity>] violates ADR-<n> — <rule>`
+  with file:line and a one-line justification for the severity.
 
 If an area's file set is too large for one subagent's useful context, chunk finer
 by glob within the area (the deterministic tier has no such limit — it is
@@ -73,18 +82,22 @@ script-evaluated).
 Collect the deterministic violations and every area's semantic findings into one
 report at `docs/reviews/audit-<ISO-date>.md` (create `docs/reviews/` if absent):
 
+Sort findings by severity (`error` → `warning` → `info`) within each section
+and lead with a per-severity tally so a reader triages the errors first.
+
 ```markdown
 # Standards audit — {date}
 
 - Tree: {N} tracked files · rules matched: {R} ({D} deterministic, {S} semantic)
-- Deterministic result: {PASS | FAIL — K violations}
+- Findings by severity: {E} error · {W} warning · {I} info
+- Deterministic result: {PASS | FAIL — K violations (all error)}
 
 ## Deterministic violations
-- ADR-{n} — {file}:{line} — forbidden "{pattern}"  ({rule})
+- [error] ADR-{n} — {file}:{line} — forbidden "{pattern}"  ({rule})
 
 ## Semantic findings (by area)
 ### {area}
-- ADR-{n} — {file}:{line} — {finding}  ({rule})
+- [{severity}] ADR-{n} — {file}:{line} — {finding} ({rule}) — {why this severity}
 
 ## Clean areas
 - {area}: no findings
@@ -94,8 +107,10 @@ report at `docs/reviews/audit-<ISO-date>.md` (create `docs/reviews/` if absent):
 
 Exit non-zero if the deterministic tier found any violation (`DET_STATUS` = 1) —
 this is what makes the audit CI-gateable. Semantic findings are advisory (model
-judgment) and do not by themselves fail the build; surface them in the report and
-let a human triage.
+judgment) and do not by themselves fail the build **regardless of severity** —
+a semantic `[error]` still only surfaces in the report for a human to triage;
+the hard gate stays purely deterministic so CI cannot be tripped by a judgment
+call. Surface every finding at its severity and let a human act on it.
 
 ```bash
 exit $DET_STATUS
