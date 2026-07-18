@@ -7,7 +7,6 @@ A growing collection of skills, frameworks, and reference architectures for agen
 | Skill | What it does | Status |
 |---|---|---|
 | [`skill-tool-hook-decision`](./skill-tool-hook-decision/) | Decides whether a business requirement should be implemented as a prompt-driven skill, code-driven skill, tool, or hook. Walks a documented decision tree and returns a structured verdict. | v2.1 |
-| [`reqs-quality-review`](./reqs-quality-review/) | Reviews whether a user story or epic is ready to support implementation. Grades verifiable criteria (INVEST, Gherkin acceptance criteria, splitting patterns) and surfaces team-context questions separately. | new |
 | [`sdlc`](./sdlc/) | AI-native, spec-anchored SDLC for solo operators working with AI agents. Filesystem-as-source-of-truth + verb cycle (capture → compile → plan → execute → verify → review → file → document), no external tracker. Self-bootstrapping: scaffolds itself into a project on first use. | v6.4 |
 | [`gsd-api-first`](./gsd-api-first/) | GSD addon: inserts a contract-first API design step between discuss-phase and planning. Reads project context to derive a complete HTTP contract proposal (Google AIP, Zalando, RFC 9457, OpenAPI), presents it for confirmation in a single round, then commits `API-SPEC.md` before the planner runs. Installs `/api-phase` and `/api-plan` skills plus a discuss-phase patch. | new |
 | [`gsd-standard-enforcement`](./gsd-standard-enforcement/) | GSD addon: patches three GSD core workflows to enforce architecture contracts, generate ADRs for significant decisions captured during discuss-phase, and enable full-codebase code-review audits via an `--audit` flag. | new |
@@ -47,9 +46,6 @@ agentic-skills/
 │   ├── README.md
 │   ├── skill-tool-hook-decision.skill
 │   ├── evals/
-│   └── references/
-├── reqs-quality-review/                     (skill, markdown-only)
-│   ├── SKILL.md
 │   └── references/
 ├── sdlc/                                    (self-bootstrapping skill)
 │   ├── SKILL.md

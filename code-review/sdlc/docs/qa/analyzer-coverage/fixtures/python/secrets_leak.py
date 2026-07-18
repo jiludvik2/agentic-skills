@@ -1,5 +1,0 @@
-"""Planted hardcoded secrets for gitleaks. All values are well-known dummies."""
-AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
-AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-GITHUB_PAT = "ghp_0123456789abcdefghijklmnopqrstuvwxyz"
-SLACK_TOKEN = "xoxb-0000000000-0000000000000-abcdefghijklmnopqrstuvwx"
