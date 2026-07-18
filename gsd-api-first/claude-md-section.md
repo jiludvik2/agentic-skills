@@ -17,12 +17,26 @@ where the normal `/gsd-plan-phase` already looks for it.
 
 | Situation | Use |
 |-----------|-----|
-| Phase adds or modifies any endpoint, parameter, response field, or error code | `/api-spec <N>`, then plan as usual with `/gsd-plan-phase <N>` |
-| Phase is purely internal (adapters, data layer) with no API surface change | Standard `/gsd-plan-phase <N>` — skip `/api-spec` |
+| Phase **adds a new endpoint/resource, changes an endpoint's shape, or makes a breaking change** (removal, rename, type change, newly-required param) | Full chain: `/api-spec <N>` → `/gsd-plan-phase <N>` → execute |
+| Phase makes a **trivial additive change** — one new optional field, one new enum value, a defect fix restoring already-intended behaviour — with no design decision to make | **Go light** (see below) — no contract, no discuss/plan ceremony |
+| Phase is **purely internal** (adapters, data layer) with no API surface change | Standard `/gsd-plan-phase <N>` — skip `/api-spec` |
 
 There is no separate planning command to remember. Once `/api-spec` has run, the contract
 is referenced from `CONTEXT.md`, so any subsequent `/gsd-plan-phase` for that phase reads it
 automatically — no wrapper, no `--ingest` flag.
+
+**Going light.** When the only API change is trivially additive and the correct behaviour is
+already specified, the full spec→discuss→plan chain is empty ceremony. Keep the rigor gates,
+drop the planning: write the failing test first → make the change → run the suite → `/verify`
+the affected flow → `/code-review` the diff → commit. Record it as a fix commit, not a new phase.
+
+**The one check before going light:** a new enum value is breaking for any consumer that does an
+exhaustive `switch`/`match` with no default branch. If such a consumer exists, treat it as a
+breaking change and run the full chain. Otherwise it stays additive — go light.
+
+**When unsure, let `/api-spec`'s verdict decide:** run it; if it classifies every change as
+ADDITIVE and there's no open design question, you didn't need discuss/plan — proceed straight
+to execute. A BREAKING classification always means the full chain.
 
 ### How /api-spec works
 
@@ -49,6 +63,6 @@ entry. Never ship a breaking change as additive — consumers have no fallback.
 
 ### Upgrade safety
 
-The project skill (`/api-spec`) lives in `.agents/skills/` and is tracked in git. The
-reference files live in `.claude/`. Neither location is touched by GSD upgrades. To restore
+The project skill (`/api-spec`) and its reference files live in `.claude/` and are
+tracked in git. That location is not touched by GSD upgrades. To restore
 after an upgrade: `../gsd-api-first/install.sh`

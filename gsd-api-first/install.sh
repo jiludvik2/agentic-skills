@@ -10,8 +10,8 @@ START="<!-- gsd-api-first:start -->"
 END="<!-- gsd-api-first:end -->"
 
 # Install the payload — map each visible source file to its (hidden) home in the project.
-mkdir -p "$PROJECT/.agents/skills/api-spec" "$PROJECT/.claude/templates"
-cp "$SRC/skills/api-spec/SKILL.md" "$PROJECT/.agents/skills/api-spec/SKILL.md"
+mkdir -p "$PROJECT/.claude/skills/api-spec" "$PROJECT/.claude/templates"
+cp "$SRC/skills/api-spec/SKILL.md" "$PROJECT/.claude/skills/api-spec/SKILL.md"
 cp "$SRC/templates/API-SPEC.md"    "$PROJECT/.claude/templates/API-SPEC.md"
 
 # Add the routing block to CLAUDE.md and/or AGENTS.md, once, only if present.

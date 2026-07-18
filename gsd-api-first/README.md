@@ -30,7 +30,7 @@ strategy — is decided by the skill.
 
 | File | Purpose |
 |------|---------|
-| `.agents/skills/api-spec/SKILL.md` | `/api-spec <N>` — design the HTTP contract (new or existing API) and register it in `CONTEXT.md` `<canonical_refs>` for the planner |
+| `.claude/skills/api-spec/SKILL.md` | `/api-spec <N>` — design the HTTP contract (new or existing API) and register it in `CONTEXT.md` `<canonical_refs>` for the planner |
 | `.claude/templates/API-SPEC.md` | Template `/api-spec` fills to write the design contract |
 | `CLAUDE.md` / `AGENTS.md` | A fenced `## API-First Workflow` routing block, added to whichever of these already exists |
 
@@ -72,7 +72,7 @@ one-step review and revert.
 After installing, commit the added files:
 
 ```bash
-git add .agents .claude CLAUDE.md
+git add .claude CLAUDE.md
 git commit -m "chore: install gsd-api-first addon"
 ```
 
@@ -81,7 +81,7 @@ git commit -m "chore: install gsd-api-first addon"
 There is no uninstall command — removal is two steps:
 
 ```bash
-rm -rf <project>/.agents/skills/api-spec <project>/.claude/templates/API-SPEC.md
+rm -rf <project>/.claude/skills/api-spec <project>/.claude/templates/API-SPEC.md
 ```
 
 Then delete the block between `<!-- gsd-api-first:start -->` and
@@ -106,6 +106,26 @@ where `/gsd-plan-phase` already looks.
 
 For phases with no API surface change, use the standard GSD sequence — `/api-spec` is
 not needed.
+
+### How heavy? Full chain vs. going light
+
+Not every API change needs the full chain. Match the ceremony to the change:
+
+| Situation | Use |
+|-----------|-----|
+| Adds a new endpoint/resource, changes an endpoint's shape, or makes a **breaking** change (removal, rename, type change, newly-required param) | Full chain: `/api-spec <N>` → `/gsd-plan-phase <N>` → execute |
+| **Trivial additive** change — one new optional field, one new enum value, a defect fix restoring already-intended behaviour — with no design decision to make | **Go light** — no contract, no discuss/plan ceremony |
+| Purely internal (adapters, data layer), no API surface change | Standard `/gsd-plan-phase <N>` — skip `/api-spec` |
+
+**Going light** keeps the rigor gates and drops the planning: write the failing test first →
+make the change → run the suite → `/verify` the affected flow → `/code-review` the diff →
+commit as a fix, not a new phase. This is minutes, not the full spec→discuss→plan hour.
+
+**One check before going light:** a new enum value is breaking for any consumer that does an
+exhaustive `switch`/`match` with no default branch — if one exists, treat it as breaking and run
+the full chain. **When unsure, let `/api-spec`'s verdict decide:** if it classifies every change
+as ADDITIVE with no open design question, you didn't need discuss/plan; a BREAKING classification
+always means the full chain.
 
 ### `/api-spec`
 
@@ -166,7 +186,7 @@ one sanctioned edit to the discuss-owned `CONTEXT.md`; every other block is left
 ## Upgrade safety
 
 The addon is purely additive and shadows no GSD skill, so a GSD upgrade cannot break or
-overwrite it. The `/api-spec` skill lives in `.agents/skills/` and the template in
-`.claude/`, both git-tracked in your project and outside GSD's managed paths
+overwrite it. The `/api-spec` skill and template both live in `.claude/`, git-tracked
+in your project and outside GSD's managed paths
 (`~/.claude/gsd-core/`, `~/.claude/skills/`). Re-run the installer any time to pull the
 latest addon version into a project; use git to review or revert the change.
