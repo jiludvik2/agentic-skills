@@ -61,6 +61,20 @@ Each rule in `docs/adr/index.yaml` is either:
 
 Both tiers run at both scopes.
 
+### Finding severity
+
+Every finding carries a severity on an **error / warning / info** scale. Severity is **assessed per
+finding** — the reviewer judges each concrete violation in context, rather than it being a fixed
+attribute of the rule (a rule can be breached badly or trivially). The **rubric** the reviewer judges
+against is owned by the engine (`SEVERITY_RUBRIC`, printable via `engine.js --severity-rubric`) so the
+hook and `/standards-audit` grade by the identical scale — the same *cannot-drift* guarantee that
+governs rule selection. Deterministic `check:` violations are the one exception: they are mechanical
+breaches with no model in the loop, so the engine stamps them `error` directly.
+
+Severity is advisory triage signal, not a second gate: the CI hard-gate stays **purely deterministic**
+(`/standards-audit` exits non-zero only on a `check:` violation), so a semantic `error` never trips a
+build on a judgment call.
+
 ## Components
 
 | Path | Role |
@@ -122,10 +136,12 @@ add-or-replace, so re-running is idempotent.
 ## Usage
 
 - **Automatic** — every `/gsd-code-review` run: the hook injects the standing rules whose file-globs
-  match the changed files, plus the enforcement directive. Findings cite the source
-  (e.g. *"violates ADR-024 — view DDL must run at the composition root, not in a repository"*).
+  match the changed files, the enforcement directive, and a shared severity rubric. Findings cite the
+  source and carry a reviewer-assessed severity
+  (e.g. *"[error] violates ADR-024 — view DDL must run at the composition root, not in a repository"*).
 - **`/standards-audit`** — manual whole-codebase compliance sweep. Runs the deterministic checks over
-  the tree (hard pass/fail, CI-gateable) and spawns the reviewer per area for the semantic rules.
+  the tree (hard pass/fail, CI-gateable) and spawns the reviewer per area for the semantic rules. Every
+  finding is tagged `error`/`warning`/`info` and the rollup groups by severity.
 - **`/write-adr`** — generate an ADR in `docs/adr/` (house Nygard format, next number with the
   project's existing prefix width auto-detected) from the current phase's decision log.
 

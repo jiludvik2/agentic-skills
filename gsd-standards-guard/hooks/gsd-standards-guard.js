@@ -40,13 +40,17 @@ const DIRECTIVE =
   'Standards enforcement (code review): Treat docs/ARCHITECTURE.md (invariants + standing-rule ' +
   'ledger), docs/STANDARDS.md, and the standing rules listed below as BINDING. The listed rules are ' +
   'the ones whose file-globs match the changed files — apply those; you need not read the full ADR ' +
-  'corpus. Any code that contradicts a rule is a finding — cite the source (e.g. "violates ADR-024 — ' +
-  'view DDL must run at the composition root, not in a repository"). Open docs/adr/<NNN>-*.md only ' +
-  'when a rule is ambiguous for this change. Do not infer rules beyond these documents; they define ' +
-  'the standard.';
+  'corpus. Any code that contradicts a rule is a finding — cite the source AND assess its severity, ' +
+  'e.g. "[error] violates ADR-024 — view DDL must run at the composition root, not in a repository". ' +
+  'Open docs/adr/<NNN>-*.md only when a rule is ambiguous for this change. Do not infer rules beyond ' +
+  'these documents; they define the standard.';
 
-function buildContext(result) {
+// The severity rubric is owned by the engine so the hook and /standards-audit
+// judge by the same scale; fall back to an inline copy if the export is absent
+// (older engine on disk) so the hook never emits an un-tagged directive.
+function buildContext(result, rubric) {
   const lines = [DIRECTIVE, ''];
+  if (rubric) lines.push(rubric, '');
   if (result.degraded) {
     lines.push(
       'NOTE: docs/adr/index.yaml is missing or unparseable — the rule index could not be loaded. ' +
@@ -64,9 +68,9 @@ function buildContext(result) {
     lines.push(`- ADR-${r.adr} (${r.area}): ${r.rule}`);
   }
   if (result.violations.length > 0) {
-    lines.push('', 'Pre-noted deterministic violations (confirm and report each as a finding):');
+    lines.push('', 'Pre-noted deterministic violations — each is severity [error]; confirm and report each as a finding:');
     for (const v of result.violations) {
-      lines.push(`- ADR-${v.adr}: ${v.file}${v.line ? ':' + v.line : ''} contains forbidden "${v.pattern}"`);
+      lines.push(`- [${v.severity || 'error'}] ADR-${v.adr}: ${v.file}${v.line ? ':' + v.line : ''} contains forbidden "${v.pattern}"`);
     }
   }
   return lines.join('\n');
@@ -120,7 +124,7 @@ function main() {
     return; // engine error — fail open
   }
 
-  emit(buildContext(result));
+  emit(buildContext(result, engine.SEVERITY_RUBRIC));
 }
 
 function sanitize(s) {

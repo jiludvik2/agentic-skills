@@ -1,6 +1,6 @@
 # Specification — gsd-standards-guard (standards enforcement), redesigned
 
-> **Status:** Draft (rev. 3) · **Date:** 2026-07-17 · **Supersedes:** the `gsd-standard-enforcement`
+> **Status:** Draft (rev. 5) · **Date:** 2026-07-18 · **Supersedes:** the `gsd-standard-enforcement`
 > patch-based installer (`from_version: 1.6.0`, backed up 2026-06-27).
 > **Owner:** project (not GSD).
 >
@@ -28,6 +28,16 @@
 > project starts from a seed and authors its own rows. And `/write-adr` numbering now **detects the
 > existing ADR-prefix width** rather than hard-coding 3 digits — the earlier "4-digit defect" was a
 > width *mismatch* against one project's files, not a universal error (§2, §5.2, AC3).
+>
+> **Rev. 5 change:** every finding now carries a **severity** on an `error`/`warning`/`info` scale
+> (§5.9). Severity is **assessed per finding** by the reviewer — a rule can be breached badly or
+> trivially, so it is not a fixed rule attribute and `index.yaml` gains no severity field. The
+> **rubric** the reviewer grades against is owned by the engine (`SEVERITY_RUBRIC`, exported +
+> printable via `engine.js --severity-rubric`), so the hook and `/standards-audit` grade by one
+> identical scale — the same *cannot-drift* guarantee that governs rule selection (§5.1, AC8).
+> Deterministic `check:` violations are the one exception: mechanical breaches with no model in the
+> loop, the engine stamps them `error` directly. Severity is advisory triage signal — the CI hard
+> gate stays **purely deterministic** (§5.8, AC9), so a semantic `error` never trips a build.
 
 ## 1. Problem
 
@@ -287,9 +297,12 @@ upgrade-proof. **No relocation.** The ADRs are the binding decision record; glob
 > standing-rule ledger), `docs/STANDARDS.md`, and the standing rules injected below as
 > **binding**. The injected rules are the ones whose file-globs match the changed files — apply
 > those; you need not read the full ADR corpus. Any code that contradicts a rule is a finding —
-> cite the source (e.g. "violates ADR-024 — view DDL must run at the composition root, not in a
-> repository"). Open `docs/adr/<NNN>-*.md` only when a rule is ambiguous for this change. Do not
-> infer rules beyond these documents; they define the standard.
+> cite the source **and assess its severity** (e.g. "[error] violates ADR-024 — view DDL must run
+> at the composition root, not in a repository"). Open `docs/adr/<NNN>-*.md` only when a rule is
+> ambiguous for this change. Do not infer rules beyond these documents; they define the standard.
+
+The hook appends the **severity rubric** (§5.9, the engine's `SEVERITY_RUBRIC`) to this directive so
+the reviewer tags each finding `[error]`/`[warning]`/`[info]` with a one-line justification.
 
 *(In the CLAUDE.md backstop, "injected below" becomes "the rules in `docs/adr/index.yaml` whose
 globs match the files you are changing.")*
@@ -353,6 +366,41 @@ scheduled, or CI). It **re-homes the old installer's `--audit` flag** — which 
 - **Relationship to the hook:** same engine, same `index.yaml`, same rules — different `--scope`
   and different file-set source. The hook and the audit **cannot drift** in what they enforce, and
   neither depends on the other (§5.1).
+
+### 5.9 Finding severity — reviewer-assessed, engine-owned rubric
+
+Every finding carries a **severity** on a three-level scale: `error` / `warning` / `info`.
+
+- **Assessed per finding, not per rule.** Severity is a property of the *concrete violation*, not
+  the rule — the same rule can be breached badly (production code, no mitigation) or trivially (a
+  fixture, an ambiguous edge). So the reviewer judges each finding in context; `index.yaml` gains
+  **no** severity field (the two-tier `check:` shape of §5.7 is unchanged). This was a deliberate
+  choice over authoring severity per rule, which would have been deterministic but blind to context.
+- **One rubric, engine-owned (no drift).** The scale would be worthless if the hook and the audit
+  graded by different definitions of `error`. So the rubric lives in the engine as
+  `SEVERITY_RUBRIC` (a `SEVERITY_LEVELS = ['error','warning','info']` constant beside it), the one
+  module both callers already share. The hook appends it to the §5.6 directive; `/standards-audit`
+  pulls the identical text via `engine.js --severity-rubric` for its per-area subagents. This is the
+  same single-source discipline that keeps rule *selection* from drifting (§5.1, AC8) — extended to
+  severity *grading*.
+- **The scale (as the rubric defines it):**
+  - `error` — a clear breach of a binding rule that must be fixed before merge: an
+    ARCHITECTURE.md invariant broken, a deterministic `check:` violated, or production code
+    contradicting a "must"/"never" standing rule.
+  - `warning` — a real deviation to flag that does not hard-block: partial/ambiguous compliance, a
+    rule honoured in spirit but not letter, or a breach confined to test/fixture/non-production code.
+  - `info` — a note or nit: an observation adjacent to a rule, a suggestion, or context worth
+    surfacing that is not itself a violation.
+  - Ambiguous findings resolve **downward** — pick the lower of two candidate levels — unless a
+    deterministic check fired.
+- **Deterministic violations are always `error`.** A `check:` breach is mechanical, with no model
+  in the loop to weigh context, so the engine stamps `severity: 'error'` on it directly (both the
+  `run()` result and the pretty printer surface it). The reviewer confirms these pre-noted findings
+  at that severity rather than re-grading them.
+- **Advisory, not a second gate.** Severity is triage signal for humans. The CI hard gate stays
+  **purely deterministic** — `/standards-audit` exits non-zero only on a `check:` violation (§5.8) —
+  so a *semantic* `error` (a model judgment call) never trips a build. The audit rollup groups
+  findings by severity and leads with a per-severity tally so a reader triages the errors first.
 
 ## 6. Install / uninstall / upgrade
 
@@ -466,6 +514,12 @@ authors its own from the seed.
 - **AC8 — single-engine parity (no drift):** for the same file, the hook (`--scope=diff`) and the
   audit (`--scope=all`) resolve the **same** applicable rule set — both call `gsd-standards-guard`
   against the same `index.yaml`; there is no second rule path to diverge.
+- **AC9 — severity (§5.9):** every finding carries an `error`/`warning`/`info` severity. A
+  deterministic `check:` violation is stamped `error` by the engine (surfaced in the `run()` result
+  and pretty output). The hook injects `SEVERITY_RUBRIC` into the directive and `/standards-audit`
+  pulls the identical text via `engine.js --severity-rubric` — the two grade by one rubric (rubric
+  parity is the severity analogue of AC8). Severity does not change the CI gate: `/standards-audit`
+  still exits non-zero **only** on a deterministic violation, never on a semantic `error`.
 
 ## 9. Risks & open questions
 
@@ -491,6 +545,12 @@ authors its own from the seed.
 - **Answer-harness tier judgment.** 026/027/031/037-039 sit in a heavy supersession/reversal
   chain; their bucket placement reflects current code, not an explicit ADR status field. Spot-check
   on first use; correcting a placement is a one-line move between buckets.
+- **Severity is a judgment call.** Semantic severity is model-assessed, so the same finding may be
+  graded `warning` on one run and `error` on another. Accepted deliberately: severity is advisory
+  triage signal, never a gate (the CI hard gate stays purely deterministic — §5.9/AC9), so grading
+  variance cannot break a build. The engine-owned rubric (`SEVERITY_RUBRIC`) narrows the variance by
+  giving both callers one definition; the "resolve downward when ambiguous" rule biases toward
+  under- rather than over-escalation. Deterministic violations are exempt — always `error`.
 - **Deterministic-check scope creep.** `check:` is a deliberately tiny declarative vocabulary
   (forbid/require a pattern within a path set). Resist growing it into a general linter — a
   too-clever check that hard-blocks on a false positive is worse than a missed semantic finding.

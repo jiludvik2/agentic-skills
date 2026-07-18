@@ -41,6 +41,32 @@ function isExcluded(file) {
 }
 
 // --------------------------------------------------------------------------
+// Severity — reviewer-assessed per finding (not a rule attribute).
+//
+// Severity is NOT authored in index.yaml; the reviewer judges each concrete
+// finding. But the *rubric* it judges against lives here, in the one module
+// both callers share (the hook and /standards-audit), so the two can never
+// assign severity by different rules — the same "cannot drift" guarantee that
+// governs rule selection. The hook injects SEVERITY_RUBRIC into the reviewer
+// directive; /standards-audit pulls it via `engine.js --severity-rubric` for
+// its per-area subagents. Deterministic `check:` violations are mechanical
+// breaches with no model in the loop, so they are always `error`.
+// --------------------------------------------------------------------------
+
+const SEVERITY_LEVELS = ['error', 'warning', 'info'];
+
+// Deterministic violations carry this severity with no model judgment.
+const DETERMINISTIC_SEVERITY = 'error';
+
+const SEVERITY_RUBRIC = [
+  'Severity — tag every finding with exactly one of [error], [warning], [info], plus one line justifying the choice:',
+  '- [error]   a clear breach of a BINDING rule that must be fixed before merge: an ARCHITECTURE.md invariant broken, a deterministic check: violated, or production code that contradicts a "must"/"never" standing rule. Every pre-noted deterministic violation is an error.',
+  '- [warning] a real deviation to flag that does not hard-block: partial or ambiguous compliance, a rule honoured in spirit but not letter, or a breach confined to test/fixture/non-production code.',
+  '- [info]    a note or nit: an observation adjacent to a rule, a suggestion, or context worth surfacing that is not itself a violation.',
+  'When a finding sits between two levels, choose the lower — unless a deterministic check fired, which is always [error].',
+].join('\n');
+
+// --------------------------------------------------------------------------
 // Scoped YAML reader for the index.yaml schema
 // --------------------------------------------------------------------------
 
@@ -328,13 +354,14 @@ function evaluateChecks(matchedRules, files, projectDir) {
         violations.push({
           adr: r.adr, area: r.area, rule: r.rule, file: rel,
           kind: 'forbid_pattern', pattern: forbid,
-          line: lineOf(content, forbid),
+          line: lineOf(content, forbid), severity: DETERMINISTIC_SEVERITY,
         });
       }
       if (require != null && !content.includes(require)) {
         violations.push({
           adr: r.adr, area: r.area, rule: r.rule, file: rel,
           kind: 'require_present', pattern: require, line: null,
+          severity: DETERMINISTIC_SEVERITY,
         });
       }
     }
@@ -496,6 +523,7 @@ function lint(opts = {}) {
 module.exports = {
   run, lint, loadIndex, parseYAML, matchRules, evaluateChecks,
   globToRegExp, fileMatchesGlobs, obtainFiles,
+  SEVERITY_LEVELS, SEVERITY_RUBRIC, DETERMINISTIC_SEVERITY,
 };
 
 // --------------------------------------------------------------------------
@@ -503,7 +531,7 @@ module.exports = {
 // --------------------------------------------------------------------------
 
 function parseArgv(argv) {
-  const opts = { scope: 'diff', format: 'json', exitCode: false, lint: false, files: null };
+  const opts = { scope: 'diff', format: 'json', exitCode: false, lint: false, severityRubric: false, files: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a.startsWith('--scope=')) opts.scope = a.slice(8);
@@ -511,6 +539,7 @@ function parseArgv(argv) {
     else if (a.startsWith('--format=')) opts.format = a.slice(9);
     else if (a === '--exit-code') opts.exitCode = true;
     else if (a === '--lint') opts.lint = true;
+    else if (a === '--severity-rubric') opts.severityRubric = true;
     else if (a.startsWith('--project=')) opts.projectDir = a.slice(10);
     else if (a === '--project') opts.projectDir = argv[++i];
     else if (a.startsWith('--index=')) opts.indexPath = a.slice(8);
@@ -532,12 +561,17 @@ function printPretty(result) {
     console.log(`  ${tag} ADR-${r.adr} (${r.area}): ${r.rule}`);
   }
   for (const v of result.violations) {
-    console.log(`  VIOLATION ADR-${v.adr}: ${v.file}${v.line ? ':' + v.line : ''} — ${v.kind} "${v.pattern}"`);
+    console.log(`  [${v.severity || DETERMINISTIC_SEVERITY}] VIOLATION ADR-${v.adr}: ${v.file}${v.line ? ':' + v.line : ''} — ${v.kind} "${v.pattern}"`);
   }
 }
 
 function main() {
   const opts = parseArgv(process.argv.slice(2));
+
+  if (opts.severityRubric) {
+    console.log(SEVERITY_RUBRIC);
+    process.exit(0);
+  }
 
   if (opts.lint) {
     const res = lint({ projectDir: opts.projectDir, indexPath: opts.indexPath });

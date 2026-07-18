@@ -151,6 +151,27 @@ test('fail-loud — a missing index degrades, it does not throw', () => {
   assert.deepEqual(r.matchedRules, []);
 });
 
+test('severity — deterministic violations are stamped error', () => {
+  const r = engine.run({ scope: 'diff', projectDir: DIR, files: ['backend/src/app/repositories/reports.py'] });
+  assert.equal(r.violations.length, 1);
+  assert.equal(r.violations[0].severity, 'error');
+});
+
+test('severity — the shared rubric is exported and names all three levels', () => {
+  assert.deepEqual(engine.SEVERITY_LEVELS, ['error', 'warning', 'info']);
+  assert.equal(typeof engine.SEVERITY_RUBRIC, 'string');
+  for (const level of engine.SEVERITY_LEVELS) {
+    assert.ok(engine.SEVERITY_RUBRIC.includes(`[${level}]`), `rubric mentions [${level}]`);
+  }
+});
+
+test('severity — the CLI prints the same rubric both callers use', () => {
+  const cli = execFileSync('node', ['skills/gsd-standards-guard/engine.js', '--severity-rubric'], {
+    cwd: path.join(__dirname, '..'), encoding: 'utf8',
+  }).trimEnd();
+  assert.equal(cli, engine.SEVERITY_RUBRIC);
+});
+
 test('glob matcher — ** spans path segments and * stays within one', () => {
   assert.ok(engine.globToRegExp('backend/src/**/repositories/**').test('backend/src/a/b/repositories/c.py'));
   assert.ok(engine.globToRegExp('backend/src/**/repositories/**').test('backend/src/repositories/c.py'));
