@@ -174,8 +174,8 @@ own rows against the schema.
 
 **Code vs prompt.** The engine (`gsd-standards-guard`), the hook, and the installer (`install.sh`)
 are **code** — plain scripts, not agent-run prompts. `/standards-audit`, `/write-adr`, and
-`/review-architecture` are prompt-skills (they orchestrate subagents / generate prose, or in
-`/review-architecture`'s case read + edit prose directly). The engine lives under
+`/adr-index-audit` are prompt-skills (they orchestrate subagents / generate prose, or in
+`/adr-index-audit`'s case read + edit the ledger directly). The engine lives under
 `.claude/skills/gsd-standards-guard/` as an executable the hook and the audit invoke; it is not a
 `SKILL.md`.
 
@@ -279,24 +279,25 @@ content to that shape (the reference instance is already migrated to this form):
   `index.yaml`** (every standing row ↔ one YAML `rules` entry; full 1..N ADR coverage across the
   three buckets, no ADR in two buckets).
 
-### 5.3.1 Retrospective ledger lint — project-owned `/review-architecture` skill
+### 5.3.1 Retrospective ledger lint — project-owned `/adr-index-audit` skill
 
 The §5.3 "Lint (advisory, part of the skill)" bullet describes checks that neither `engine.js
 --lint` (index.yaml's own bucket/coverage/glob integrity only, §5.7) nor `/write-adr` (which
 only syncs the ledger as a side effect of writing *one new* ADR) actually perform against the
-whole `ARCHITECTURE.md` file. `/review-architecture` is that missing piece:
+whole `ARCHITECTURE.md` file. `/adr-index-audit` is that missing piece:
 
-- **Location:** `.claude/skills/review-architecture/SKILL.md`.
-- **Trigger:** manual only (`/review-architecture`) — periodic, like `/standards-audit`, not
+- **Location:** `.claude/skills/adr-index-audit/SKILL.md`.
+- **Trigger:** manual only (`/adr-index-audit`) — periodic, like `/standards-audit`, not
   wired into the hook or any phase workflow.
 - **Scope:** the AC6 ledger lint in full — `[TARGET]`/`[CURRENT]` markers, decision-restating
   prose, standing-table references to a superseded ADR, and MD↔`index.yaml` row-for-row
-  agreement (reconciled against the ADR file as ground truth on conflict) — plus a spot-check of
-  the descriptive sections (context/pipeline, repo layout, serving-layer boundaries, invariants)
-  against the current tree for staleness.
+  agreement (reconciled against the ADR file as ground truth on conflict). Deliberately narrow:
+  ledger/index bookkeeping only, not a review of whether the codebase still matches the doc's
+  descriptive sections (context/pipeline, repo layout, serving-layer boundaries, invariants) —
+  that would be a different, harder code-vs-doc skill, not yet built (see §9).
 - **Behavior:** auto-fixes what's unambiguous (markers, misplaced superseded rows, MD/YAML sync)
-  directly via edits to `docs/ARCHITECTURE.md`; a boundary/invariant the code now visibly
-  violates is reported, not silently resolved — that's an architecture call, not a doc-lint call.
+  directly via edits to `docs/ARCHITECTURE.md`; an unresolved MD↔YAML/ADR conflict is reported,
+  not silently resolved.
 
 ### 5.4 CLAUDE.md backstop
 
@@ -482,7 +483,7 @@ manifest); the split is about *who authors the content*, not who owns the file.
 | `.claude/hooks/gsd-standards-guard.js` | package | thin `PreToolUse` caller → engine `--scope=diff` |
 | `.claude/skills/standards-audit/` | package | manual whole-codebase audit → engine `--scope=all` (§5.8) |
 | `.claude/skills/write-adr/` | package | ADR generator (Nygard, **width-detecting** — §5.2) |
-| `.claude/skills/review-architecture/` | package | retrospective ARCHITECTURE.md ledger + prose lint (§5.3.1) |
+| `.claude/skills/adr-index-audit/` | package | retrospective ARCHITECTURE.md decision-ledger consistency audit (§5.3.1) |
 | `.claude/settings.json` → PreToolUse JSON entry | package (installer-written) | wires the hook; GSD merges & preserves foreign hooks |
 | `CLAUDE.md` → marked block | package (installer-written) | main-agent backstop directive (fixed text, §5.6) |
 | `install.sh` + `skills/` + `templates/` | package (repo) | thin shell installer + this spec |
@@ -527,7 +528,7 @@ authors its own from the seed.
   (exact string confirmed against gsd-core source, branch `next`). No residual.
 - **AC6 — ledger lint:** `docs/ARCHITECTURE.md` passes the ledger lint (no `[TARGET]`/`[CURRENT]`,
   no decision-restating prose, no standing-table reference to a superseded ADR, MD↔`index.yaml`
-  in sync). Implemented as `/review-architecture` (§5.3.1) — run it and confirm a clean report
+  in sync). Implemented as `/adr-index-audit` (§5.3.1) — run it and confirm a clean report
   (or that every remaining finding is a flagged human-decision item, not a lint failure).
 - **AC7 — whole-codebase audit:** `/standards-audit` enumerates the tree (`git ls-files`), runs the
   deterministic `check:` rules over it, and produces a rollup report. Seeding a deterministic-check
@@ -587,6 +588,12 @@ authors its own from the seed.
   is reusable, but the hook + `settings.json` wiring would need a per-agent port.
 - **STANDARDS.md drift.** Out of scope here, but likely carries the same rot ARCHITECTURE.md did;
   recommend a follow-up audit.
+- **Prose-vs-code drift, unaudited.** `/adr-index-audit` (§5.3.1) deliberately covers only the
+  decision-index ledger's internal/cross-file consistency — it does not check whether
+  ARCHITECTURE.md's descriptive sections (context/pipeline, repo layout, serving-layer
+  boundaries, invariants) still match the codebase. That's a real, harder gap (it needs
+  code-reading judgment, not just doc-diffing) — a candidate for a separate future skill if it
+  proves to matter in practice.
 - **Naming.** The capability is no longer "gsd-standard-enforcement" (the old patch-based installer).
   **Renamed to `gsd-standards-guard`** (after the rule engine, §5.1); repo folder and spec renamed to
   match. Keep a note in `backup-meta` cleanup for traceability.

@@ -57,7 +57,7 @@ if [ "$UNINSTALL" -eq 1 ]; then
   rm -rf "$PROJECT/.claude/skills/gsd-standards-guard" \
          "$PROJECT/.claude/skills/write-adr" \
          "$PROJECT/.claude/skills/standards-audit" \
-         "$PROJECT/.claude/skills/review-architecture" \
+         "$PROJECT/.claude/skills/adr-index-audit" \
          "$PROJECT/.claude/hooks/gsd-standards-guard.js"
   if [ -f "$SETTINGS" ]; then
     node "$SRC/templates/merge-settings.js" "$SETTINGS" "" --remove
@@ -80,7 +80,7 @@ mkdir -p "$PROJECT/.claude/skills" "$PROJECT/.claude/hooks"
 cp -R "$SRC/skills/gsd-standards-guard"   "$PROJECT/.claude/skills/"
 cp -R "$SRC/skills/write-adr"             "$PROJECT/.claude/skills/"
 cp -R "$SRC/skills/standards-audit"       "$PROJECT/.claude/skills/"
-cp -R "$SRC/skills/review-architecture"   "$PROJECT/.claude/skills/"
+cp -R "$SRC/skills/adr-index-audit"       "$PROJECT/.claude/skills/"
 cp    "$SRC/hooks/gsd-standards-guard.js" "$PROJECT/.claude/hooks/gsd-standards-guard.js"
 echo "  copied engine + skills → .claude/skills/, hook → .claude/hooks/"
 
