@@ -83,6 +83,7 @@ build on a judgment call.
 | `.claude/hooks/gsd-standards-guard.js` | thin `PreToolUse` caller → engine `--scope=diff` |
 | `.claude/skills/standards-audit/` | manual whole-codebase audit → engine `--scope=all` |
 | `.claude/skills/write-adr/` | ADR generator (house Nygard format, width-detecting numbering) |
+| `.claude/skills/review-architecture/` | retrospective ARCHITECTURE.md ledger + prose audit (AC6 ledger lint) |
 | `.claude/settings.json` → PreToolUse JSON entry | wires the hook |
 | `CLAUDE.md` → marked block | main-agent backstop directive |
 | `docs/ARCHITECTURE.md` | standing-rule ledger (authored) |
@@ -144,6 +145,11 @@ add-or-replace, so re-running is idempotent.
   finding is tagged `error`/`warning`/`info` and the rollup groups by severity.
 - **`/write-adr`** — generate an ADR in `docs/adr/` (house Nygard format, next number with the
   project's existing prefix width auto-detected) from the current phase's decision log.
+- **`/review-architecture`** — periodic, manual audit of `docs/ARCHITECTURE.md` itself: flags
+  `[TARGET]`/`[CURRENT]` scaffolding, decision-restating prose, standing-table references to a
+  superseded ADR, and drift between the MD ledger and `docs/adr/index.yaml`; spot-checks the
+  descriptive sections against the current tree for staleness. Refines what it can fix
+  unambiguously and reports the rest for a human call.
 
 ## Upgrade safety
 
@@ -175,6 +181,7 @@ gsd-standards-guard/
   skills/gsd-standards-guard/        # the rule engine (engine.js) — code, not a prompt-skill
   skills/write-adr/                  # /write-adr prompt-skill
   skills/standards-audit/            # /standards-audit prompt-skill
+  skills/review-architecture/        # /review-architecture prompt-skill
   hooks/gsd-standards-guard.js       # PreToolUse hook (thin engine caller)
   templates/                         # index.yaml seed, ARCHITECTURE.md + STANDARDS.md skeletons, CLAUDE.md block, merge-settings.js
   tests/engine.test.js               # engine regression suite (AC2/AC2b/AC2c/AC8 + degrade)

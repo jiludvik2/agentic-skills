@@ -173,8 +173,9 @@ part of what the package installs. A fresh project starts with a seed `index.yam
 own rows against the schema.
 
 **Code vs prompt.** The engine (`gsd-standards-guard`), the hook, and the installer (`install.sh`)
-are **code** — plain scripts, not agent-run prompts. Only `/standards-audit` and `/write-adr` are
-prompt-skills (they orchestrate subagents / generate prose). The engine lives under
+are **code** — plain scripts, not agent-run prompts. `/standards-audit`, `/write-adr`, and
+`/review-architecture` are prompt-skills (they orchestrate subagents / generate prose, or in
+`/review-architecture`'s case read + edit prose directly). The engine lives under
 `.claude/skills/gsd-standards-guard/` as an executable the hook and the audit invoke; it is not a
 `SKILL.md`.
 
@@ -277,6 +278,25 @@ content to that shape (the reference instance is already migrated to this form):
   prose, standing-table references to a superseded ADR, **and drift between the MD ledger and
   `index.yaml`** (every standing row ↔ one YAML `rules` entry; full 1..N ADR coverage across the
   three buckets, no ADR in two buckets).
+
+### 5.3.1 Retrospective ledger lint — project-owned `/review-architecture` skill
+
+The §5.3 "Lint (advisory, part of the skill)" bullet describes checks that neither `engine.js
+--lint` (index.yaml's own bucket/coverage/glob integrity only, §5.7) nor `/write-adr` (which
+only syncs the ledger as a side effect of writing *one new* ADR) actually perform against the
+whole `ARCHITECTURE.md` file. `/review-architecture` is that missing piece:
+
+- **Location:** `.claude/skills/review-architecture/SKILL.md`.
+- **Trigger:** manual only (`/review-architecture`) — periodic, like `/standards-audit`, not
+  wired into the hook or any phase workflow.
+- **Scope:** the AC6 ledger lint in full — `[TARGET]`/`[CURRENT]` markers, decision-restating
+  prose, standing-table references to a superseded ADR, and MD↔`index.yaml` row-for-row
+  agreement (reconciled against the ADR file as ground truth on conflict) — plus a spot-check of
+  the descriptive sections (context/pipeline, repo layout, serving-layer boundaries, invariants)
+  against the current tree for staleness.
+- **Behavior:** auto-fixes what's unambiguous (markers, misplaced superseded rows, MD/YAML sync)
+  directly via edits to `docs/ARCHITECTURE.md`; a boundary/invariant the code now visibly
+  violates is reported, not silently resolved — that's an architecture call, not a doc-lint call.
 
 ### 5.4 CLAUDE.md backstop
 
@@ -462,6 +482,7 @@ manifest); the split is about *who authors the content*, not who owns the file.
 | `.claude/hooks/gsd-standards-guard.js` | package | thin `PreToolUse` caller → engine `--scope=diff` |
 | `.claude/skills/standards-audit/` | package | manual whole-codebase audit → engine `--scope=all` (§5.8) |
 | `.claude/skills/write-adr/` | package | ADR generator (Nygard, **width-detecting** — §5.2) |
+| `.claude/skills/review-architecture/` | package | retrospective ARCHITECTURE.md ledger + prose lint (§5.3.1) |
 | `.claude/settings.json` → PreToolUse JSON entry | package (installer-written) | wires the hook; GSD merges & preserves foreign hooks |
 | `CLAUDE.md` → marked block | package (installer-written) | main-agent backstop directive (fixed text, §5.6) |
 | `install.sh` + `skills/` + `templates/` | package (repo) | thin shell installer + this spec |
@@ -506,7 +527,8 @@ authors its own from the seed.
   (exact string confirmed against gsd-core source, branch `next`). No residual.
 - **AC6 — ledger lint:** `docs/ARCHITECTURE.md` passes the ledger lint (no `[TARGET]`/`[CURRENT]`,
   no decision-restating prose, no standing-table reference to a superseded ADR, MD↔`index.yaml`
-  in sync).
+  in sync). Implemented as `/review-architecture` (§5.3.1) — run it and confirm a clean report
+  (or that every remaining finding is a flagged human-decision item, not a lint failure).
 - **AC7 — whole-codebase audit:** `/standards-audit` enumerates the tree (`git ls-files`), runs the
   deterministic `check:` rules over it, and produces a rollup report. Seeding a deterministic-check
   violation anywhere in the repo makes the command **exit non-zero** and name the rule + file; the
